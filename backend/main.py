@@ -10,9 +10,12 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
-import jwt
 import bcrypt
 import httpx
+from jose import JWTError, jwt
+import bcrypt
+import httpx
+from contextlib import asynccontextmanager
 
 ROOT_DIR = Path(__file__).parent
 # désactivation du chargement avec le .env
@@ -22,6 +25,9 @@ ROOT_DIR = Path(__file__).parent
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# Chargement des variables d'environnement
+load_dotenv()
 
 # JWT Configuration
 JWT_SECRET = os.environ.get('JWT_SECRET', 'stockhome-secret-key-change-in-production')
@@ -42,6 +48,32 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+# --- Gestion de la connexion MongoDB (Optimisé pour la prod) ---
+class Database:
+    client: AsyncIOMotorClient = None
+    db = None
+
+db_connection = Database()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Au démarrage
+    mongo_url = os.environ.get('MONGO_URL')
+    db_name = os.environ.get('DB_NAME', 'stockhome')
+    db_connection.client = AsyncIOMotorClient(mongo_url)
+    db_connection.db = db_connection.client[db_name]
+    yield
+    # À la fermeture
+    db_connection.client.close()
+
+# Initialisation de l'app avec lifespan
+app = FastAPI(title="StockHome API", version="1.0.0", lifespan=lifespan)
+api_router = APIRouter(prefix="/api")
+security = HTTPBearer()
+
+# Logique de raccourci pour accéder à la DB dans les routes
+def get_db():
+    return db_connection.db
 
 # ==================== MODELS ====================
 
@@ -188,34 +220,39 @@ class OpenFoodFactsProduct(BaseModel):
 # ==================== AUTH HELPERS ====================
 
 def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    """ Fonction de hash du password """
+    # bcrypt nécessite des bytes
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 
 def verify_password(password: str, hashed: str) -> bool:
+    """ Fonction de vérification du password """
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 def create_token(user_id: str) -> str:
-    payload = {
-        "sub": user_id,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS),
-        "iat": datetime.now(timezone.utc)
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    expire = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
+    to_encode = {"sub": str(user_id), "exp": expire}
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = payload.get("sub")
+        user_id: str = payload.get("sub")
         if user_id is None:
-            raise HTTPException(status_code=401, detail="Token invalide")
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
 
-        user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
-        if user is None:
-            raise HTTPException(status_code=401, detail="Utilisateur non trouvé")
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expiré")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Token invalide")
+    user = await db_connection.db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 # ==================== AUTH ROUTES ====================
 
@@ -696,10 +733,12 @@ async def root():
 # Include the router in the main app
 app.include_router(api_router)
 
+# Gestion des CORS pour la prod
+origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=origins,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
 )
