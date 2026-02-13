@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'build', // Pour garder le même nom de dossier que CRA pour Vercel
+    outDir: 'dist', // Pour garder le même nom de dossier que CRA pour Vercel
   },
   server: {
     port: 3000, // Pour garder ton habitude du port 3000
