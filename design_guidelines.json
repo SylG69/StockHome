@@ -1,0 +1,168 @@
+{
+  "identity": {
+    "name": "E1",
+    "role": "Creative Designer",
+    "archetype": "The Performance Pro (Tactical Modern)",
+    "mission": "Create a high-contrast, efficient, and aesthetically pleasing home inventory dashboard."
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Barlow Condensed, sans-serif",
+      "weights": ["600", "700", "900"],
+      "usage": "Page titles, card headers, metric values",
+      "letter_spacing": "tracking-tight"
+    },
+    "body": {
+      "font_family": "Inter, sans-serif",
+      "weights": ["400", "500"],
+      "usage": "Table data, descriptions, form labels",
+      "letter_spacing": "tracking-normal"
+    },
+    "mono": {
+      "font_family": "JetBrains Mono, monospace",
+      "weights": ["400"],
+      "usage": "Barcodes, SKUs, technical data"
+    },
+    "google_fonts_import": "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+  },
+  "colors": {
+    "palette": {
+      "background": "#09090B",
+      "foreground": "#FAFAFA",
+      "card": "#18181B",
+      "card_foreground": "#FAFAFA",
+      "popover": "#09090B",
+      "popover_foreground": "#FAFAFA",
+      "primary": "#3B82F6",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#27272A",
+      "secondary_foreground": "#FAFAFA",
+      "muted": "#27272A",
+      "muted_foreground": "#A1A1AA",
+      "accent": "#27272A",
+      "accent_foreground": "#FAFAFA",
+      "destructive": "#EF4444",
+      "destructive_foreground": "#FAFAFA",
+      "border": "#27272A",
+      "input": "#27272A",
+      "ring": "#3B82F6"
+    },
+    "semantic": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "info": "#3B82F6",
+      "low_stock": "#EF4444",
+      "in_stock": "#10B981"
+    },
+    "gradients": {
+      "primary_glow": "radial-gradient(circle at center, rgba(59, 130, 246, 0.15) 0%, transparent 70%)",
+      "card_hover": "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%)"
+    }
+  },
+  "layout": {
+    "grid_system": "Bento Grid Mode B (High Density)",
+    "spacing": {
+      "container_padding": "p-6 md:p-8 lg:p-12",
+      "card_padding": "p-6",
+      "gap": "gap-6"
+    },
+    "structure": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "sidebar_width": "w-64",
+      "mobile_nav_height": "h-16"
+    }
+  },
+  "components": {
+    "cards": {
+      "style": "Flat background (#18181B) with 1px border (#27272A). No shadow by default.",
+      "hover": "border-primary/50 transition-colors duration-300"
+    },
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(59,130,246,0.5)]",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+      "ghost": "hover:bg-accent hover:text-accent-foreground"
+    },
+    "inputs": {
+      "style": "bg-input border-transparent focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200",
+      "height": "h-10"
+    },
+    "tables": {
+      "header": "text-muted-foreground uppercase text-xs tracking-wider font-semibold",
+      "row": "hover:bg-muted/50 transition-colors border-b border-border"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "usage": "Sticky headers, modal overlays, toast notifications",
+      "classes": "bg-background/80 backdrop-blur-xl border-b border-white/10"
+    },
+    "borders": {
+      "usage": "Separation of major sections",
+      "style": "1px solid #27272A"
+    },
+    "shadows": {
+      "glow": "0 0 20px -5px rgba(59, 130, 246, 0.3)"
+    }
+  },
+  "motion": {
+    "library": "framer-motion",
+    "transitions": {
+      "default": { "type": "spring", "stiffness": 300, "damping": 30 },
+      "hover": { "duration": 0.2, "ease": "easeInOut" }
+    },
+    "animations": {
+      "fade_in": {
+        "initial": { "opacity": 0, "y": 10 },
+        "animate": { "opacity": 1, "y": 0 }
+      },
+      "stagger_children": {
+        "animate": { "transition": { "staggerChildren": 0.1 } }
+      }
+    }
+  },
+  "media": {
+    "image_urls": {
+      "login_bg": "https://images.unsplash.com/photo-1767416566592-cb33f17eb088?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHw0fHxtb2Rlcm4lMjBvcmdhbml6ZWQlMjBwYW50cnklMjBzaGVsdmVzJTIwZGFyayUyMGFlc3RoZXRpY3xlbnwwfHx8fDE3NzA5ODA1MTZ8MA&ixlib=rb-4.1.0&q=85",
+      "empty_state_pantry": "https://images.unsplash.com/photo-1658704277317-007155b64aea?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBvcmdhbml6ZWQlMjBwYW50cnklMjBzaGVsdmVzJTIwZGFyayUyMGFlc3RoZXRpY3xlbnwwfHx8fDE3NzA5ODA1MTZ8MA&ixlib=rb-4.1.0&q=85",
+      "barcode_scanner_hero": "https://images.unsplash.com/photo-1661069387900-54d5843b704d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxiYXJjb2RlJTIwc2Nhbm5lciUyMGRpZ2l0YWwlMjBhYnN0cmFjdHxlbnwwfHx8fDE3NzA5ODA1MjB8MA&ixlib=rb-4.1.0&q=85"
+    },
+    "icons": "lucide-react"
+  },
+  "accessibility": {
+    "contrast": "Ensure 4.5:1 ratio for normal text. Use lighter grays (e.g., #A1A1AA) on dark backgrounds, never dark gray on black.",
+    "focus_states": "Visible ring-2 ring-primary ring-offset-2 ring-offset-background",
+    "reduced_motion": "Respect prefers-reduced-motion media query"
+  },
+  "instructions_to_main_agent": [
+    "Implement the 'Performance Pro' dark theme by updating tailwind.config.js and index.css variables.",
+    "Use 'Barlow Condensed' for all headings to give a tactical, inventory-management feel.",
+    "Ensure all forms (Login, Add Product) use high-contrast inputs with clear focus states.",
+    "The Dashboard should use the Bento Grid layout: Summary cards on top, recent activity list below, and a quick-scan action area.",
+    "Use the provided image URLs for the Login page background and Empty State components.",
+    "Integrate 'sonner' for toast notifications (e.g., 'Product Added', 'Low Stock Alert').",
+    "Ensure the barcode scanner view is prominent and accessible on mobile.",
+    "Do not use gradients for backgrounds; use solid deep colors with subtle borders.",
+    "Add data-testid to all interactive elements."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use 'sonner' for toasts. Sonner component are located in /app/src/components/ui/sonner.tsx"
+  ]
+}
