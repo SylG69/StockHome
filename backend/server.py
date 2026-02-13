@@ -15,7 +15,8 @@ import bcrypt
 import httpx
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+# désactivation du chargement avec le .env
+# load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -206,7 +207,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user_id = payload.get("sub")
         if user_id is None:
             raise HTTPException(status_code=401, detail="Token invalide")
-        
+
         user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
         if user is None:
             raise HTTPException(status_code=401, detail="Utilisateur non trouvé")
@@ -224,7 +225,7 @@ async def register(user_data: UserCreate):
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
-    
+
     # Create user
     user = User(
         email=user_data.email,
@@ -233,9 +234,9 @@ async def register(user_data: UserCreate):
     user_dict = user.model_dump()
     user_dict['password'] = hash_password(user_data.password)
     user_dict['created_at'] = user_dict['created_at'].isoformat()
-    
+
     await db.users.insert_one(user_dict)
-    
+
     # Create default categories
     default_categories = [
         {"name": "Alimentaire", "icon": "Apple", "color": "#10B981"},
@@ -249,7 +250,7 @@ async def register(user_data: UserCreate):
         cat_dict = cat.model_dump()
         cat_dict['created_at'] = cat_dict['created_at'].isoformat()
         await db.categories.insert_one(cat_dict)
-    
+
     # Create default storage locations
     default_locations = [
         {"name": "Cuisine", "description": "Placards et étagères de cuisine", "icon": "ChefHat"},
@@ -262,7 +263,7 @@ async def register(user_data: UserCreate):
         loc_dict = loc.model_dump()
         loc_dict['created_at'] = loc_dict['created_at'].isoformat()
         await db.storage_locations.insert_one(loc_dict)
-    
+
     token = create_token(user.id)
     return TokenResponse(
         access_token=token,
@@ -279,7 +280,7 @@ async def login(credentials: UserLogin):
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     if not user or not verify_password(credentials.password, user['password']):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-    
+
     token = create_token(user['id'])
     return TokenResponse(
         access_token=token,
@@ -305,7 +306,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 @api_router.get("/categories", response_model=List[CategoryResponse])
 async def get_categories(current_user: dict = Depends(get_current_user)):
     categories = await db.categories.find(
-        {"user_id": current_user['id']}, 
+        {"user_id": current_user['id']},
         {"_id": 0}
     ).to_list(100)
     return categories
@@ -347,7 +348,7 @@ async def delete_category(category_id: str, current_user: dict = Depends(get_cur
 @api_router.get("/locations", response_model=List[StorageLocationResponse])
 async def get_locations(current_user: dict = Depends(get_current_user)):
     locations = await db.storage_locations.find(
-        {"user_id": current_user['id']}, 
+        {"user_id": current_user['id']},
         {"_id": 0}
     ).to_list(100)
     return locations
@@ -395,7 +396,7 @@ async def get_products(
     current_user: dict = Depends(get_current_user)
 ):
     query = {"user_id": current_user['id']}
-    
+
     if category_id:
         query["category_id"] = category_id
     if location_id:
@@ -406,13 +407,13 @@ async def get_products(
             {"barcode": {"$regex": search, "$options": "i"}},
             {"brand": {"$regex": search, "$options": "i"}}
         ]
-    
+
     products = await db.products.find(query, {"_id": 0}).to_list(1000)
-    
+
     # Get categories and locations for enrichment
     categories = {c['id']: c['name'] for c in await db.categories.find({"user_id": current_user['id']}, {"_id": 0}).to_list(100)}
     locations = {l['id']: l['name'] for l in await db.storage_locations.find({"user_id": current_user['id']}, {"_id": 0}).to_list(100)}
-    
+
     result = []
     for p in products:
         if low_stock and p['quantity'] >= p['min_quantity']:
@@ -420,7 +421,7 @@ async def get_products(
         p['category_name'] = categories.get(p.get('category_id'))
         p['location_name'] = locations.get(p.get('location_id'))
         result.append(p)
-    
+
     return result
 
 @api_router.get("/products/{product_id}", response_model=ProductResponse)
@@ -431,7 +432,7 @@ async def get_product(product_id: str, current_user: dict = Depends(get_current_
     )
     if not product:
         raise HTTPException(status_code=404, detail="Produit non trouvé")
-    
+
     # Enrich with category and location names
     if product.get('category_id'):
         cat = await db.categories.find_one({"id": product['category_id']}, {"_id": 0})
@@ -439,7 +440,7 @@ async def get_product(product_id: str, current_user: dict = Depends(get_current_
     if product.get('location_id'):
         loc = await db.storage_locations.find_one({"id": product['location_id']}, {"_id": 0})
         product['location_name'] = loc['name'] if loc else None
-    
+
     return product
 
 @api_router.post("/products", response_model=ProductResponse)
@@ -449,7 +450,7 @@ async def create_product(product_data: ProductCreate, current_user: dict = Depen
     prod_dict['created_at'] = prod_dict['created_at'].isoformat()
     prod_dict['updated_at'] = prod_dict['updated_at'].isoformat()
     await db.products.insert_one(prod_dict)
-    
+
     # Enrich response
     prod_dict['category_name'] = None
     prod_dict['location_name'] = None
@@ -459,14 +460,14 @@ async def create_product(product_data: ProductCreate, current_user: dict = Depen
     if prod_dict.get('location_id'):
         loc = await db.storage_locations.find_one({"id": prod_dict['location_id']}, {"_id": 0})
         prod_dict['location_name'] = loc['name'] if loc else None
-    
+
     return prod_dict
 
 @api_router.put("/products/{product_id}", response_model=ProductResponse)
 async def update_product(product_id: str, product_data: ProductUpdate, current_user: dict = Depends(get_current_user)):
     update_data = {k: v for k, v in product_data.model_dump().items() if v is not None}
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
-    
+
     result = await db.products.find_one_and_update(
         {"id": product_id, "user_id": current_user['id']},
         {"$set": update_data},
@@ -475,7 +476,7 @@ async def update_product(product_id: str, product_data: ProductUpdate, current_u
     )
     if not result:
         raise HTTPException(status_code=404, detail="Produit non trouvé")
-    
+
     # Enrich response
     result['category_name'] = None
     result['location_name'] = None
@@ -485,7 +486,7 @@ async def update_product(product_id: str, product_data: ProductUpdate, current_u
     if result.get('location_id'):
         loc = await db.storage_locations.find_one({"id": result['location_id']}, {"_id": 0})
         result['location_name'] = loc['name'] if loc else None
-    
+
     return result
 
 @api_router.patch("/products/{product_id}/quantity")
@@ -494,7 +495,7 @@ async def update_product_quantity(product_id: str, delta: int, current_user: dic
     product = await db.products.find_one({"id": product_id, "user_id": current_user['id']}, {"_id": 0})
     if not product:
         raise HTTPException(status_code=404, detail="Produit non trouvé")
-    
+
     new_quantity = max(0, product['quantity'] + delta)
     await db.products.update_one(
         {"id": product_id},
@@ -521,10 +522,10 @@ async def lookup_barcode(barcode: str):
                 timeout=10.0
             )
             data = response.json()
-            
+
             if data.get('status') != 1:
                 raise HTTPException(status_code=404, detail="Produit non trouvé dans Open Food Facts")
-            
+
             product = data.get('product', {})
             return OpenFoodFactsProduct(
                 barcode=barcode,
@@ -569,15 +570,15 @@ async def generate_shopping_list(current_user: dict = Depends(get_current_user))
         {"user_id": current_user['id']},
         {"_id": 0}
     ).to_list(1000)
-    
+
     low_stock_products = [p for p in low_stock_products if p['quantity'] < p['min_quantity']]
-    
+
     # Clear existing auto-generated items (those with product_id)
     await db.shopping_list.delete_many({
         "user_id": current_user['id'],
         "product_id": {"$ne": None}
     })
-    
+
     # Create new shopping list items
     new_items = []
     for product in low_stock_products:
@@ -593,13 +594,13 @@ async def generate_shopping_list(current_user: dict = Depends(get_current_user))
         item_dict['created_at'] = item_dict['created_at'].isoformat()
         await db.shopping_list.insert_one(item_dict)
         new_items.append(item_dict)
-    
+
     # Get all items including manual ones
     all_items = await db.shopping_list.find(
         {"user_id": current_user['id']},
         {"_id": 0}
     ).to_list(500)
-    
+
     return all_items
 
 @api_router.post("/shopping-list", response_model=ShoppingListItemResponse)
@@ -618,7 +619,7 @@ async def toggle_shopping_list_item(item_id: str, current_user: dict = Depends(g
     )
     if not item:
         raise HTTPException(status_code=404, detail="Article non trouvé")
-    
+
     new_checked = not item.get('is_checked', False)
     await db.shopping_list.update_one(
         {"id": item_id},
@@ -647,35 +648,35 @@ async def clear_shopping_list(checked_only: bool = True, current_user: dict = De
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     user_id = current_user['id']
-    
+
     # Total products
     total_products = await db.products.count_documents({"user_id": user_id})
-    
+
     # Low stock products
     all_products = await db.products.find({"user_id": user_id}, {"_id": 0}).to_list(1000)
     low_stock_count = sum(1 for p in all_products if p['quantity'] < p['min_quantity'])
-    
+
     # Total categories
     total_categories = await db.categories.count_documents({"user_id": user_id})
-    
+
     # Total locations
     total_locations = await db.storage_locations.count_documents({"user_id": user_id})
-    
+
     # Shopping list items count
     shopping_list_count = await db.shopping_list.count_documents({"user_id": user_id, "is_checked": False})
-    
+
     # Products by category
     products_by_category = {}
     for p in all_products:
         cat_id = p.get('category_id') or 'uncategorized'
         products_by_category[cat_id] = products_by_category.get(cat_id, 0) + 1
-    
+
     # Recent products (last 5 updated)
     recent_products = await db.products.find(
         {"user_id": user_id},
         {"_id": 0}
     ).sort("updated_at", -1).limit(5).to_list(5)
-    
+
     return {
         "total_products": total_products,
         "low_stock_count": low_stock_count,
