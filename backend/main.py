@@ -19,7 +19,7 @@ from contextlib import asynccontextmanager
 
 ROOT_DIR = Path(__file__).parent
 # désactivation du chargement avec le .env
-# load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -215,6 +215,7 @@ class OpenFoodFactsProduct(BaseModel):
     brand: Optional[str] = None
     image_url: Optional[str] = None
     categories: Optional[str] = None
+    sub_categories: Optional[str] = None
     quantity_info: Optional[str] = None
 
 # ==================== AUTH HELPERS ====================
@@ -570,6 +571,7 @@ async def lookup_barcode(barcode: str):
                 brand=product.get('brands'),
                 image_url=product.get('image_url') or product.get('image_front_url'),
                 categories=product.get('categories'),
+                sub_categories=product.get('categories_old'),
                 quantity_info=product.get('quantity')
             )
         except httpx.TimeoutException:
