@@ -50,6 +50,7 @@ export default function ScannerPage() {
   const [cameraError, setCameraError] = useState(null);
   const [manualBarcode, setManualBarcode] = useState('');
   const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
 
   // Scanned product state
   const [scannedProduct, setScannedProduct] = useState(null);
