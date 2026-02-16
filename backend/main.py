@@ -171,6 +171,7 @@ class ProductBase(BaseModel):
     brand: Optional[str] = None
 
 class ProductCreate(ProductBase):
+    sub_category_name: Optional[str] = None
     pass
 
 class ProductUpdate(BaseModel):
@@ -556,18 +557,53 @@ async def get_product(product_id: str, current_user: dict = Depends(get_current_
 
 @api_router.post("/products", response_model=ProductResponse)
 async def create_product(product_data: ProductCreate, current_user: dict = Depends(get_current_user)):
-    product = Product(**product_data.model_dump(), user_id=current_user['id'])
+    user_id = current_user['id']
+    data_dict = product_data.model_dump()
+
+    # Extraction du nom de la sous-catégorie s'il existe
+    sub_category_name = data_dict.pop('sub_category_name', None)
+    sub_category_id = data_dict.get('sub_category_id')
+
+    # LOGIQUE DE GESTION AUTOMATIQUE DES SOUS-CATÉGORIES
+    if sub_category_name and not sub_category_id:
+        # On cherche si cette sous-catégorie existe déjà pour cet utilisateur
+        existing_sub = await db.sub_categories.find_one({
+            "user_id": user_id,
+            "name": sub_category_name
+        })
+
+        if existing_sub:
+            sub_category_id = existing_sub['id']
+        else:
+            # Sinon on la crée dynamiquement
+            new_sub = SubCategory(
+                name=sub_category_name,
+                user_id=user_id
+            )
+            sub_dict = new_sub.model_dump()
+            sub_dict['created_at'] = sub_dict['created_at'].isoformat()
+            await db.sub_categories.insert_one(sub_dict)
+            sub_category_id = new_sub.id
+
+        # On met à jour l'ID dans les données du produit
+        data_dict['sub_category_id'] = sub_category_id
+
+    # Création du produit final
+    product = Product(**data_dict, user_id=user_id)
     prod_dict = product.model_dump()
     prod_dict['created_at'] = prod_dict['created_at'].isoformat()
     prod_dict['updated_at'] = prod_dict['updated_at'].isoformat()
+
     await db.products.insert_one(prod_dict)
 
-    # Enrich response
+    # Enrichissement de la réponse pour le frontend
     prod_dict['category_name'] = None
     prod_dict['location_name'] = None
+
     if prod_dict.get('category_id'):
         cat = await db.categories.find_one({"id": prod_dict['category_id']}, {"_id": 0})
         prod_dict['category_name'] = cat['name'] if cat else None
+
     if prod_dict.get('location_id'):
         loc = await db.storage_locations.find_one({"id": prod_dict['location_id']}, {"_id": 0})
         prod_dict['location_name'] = loc['name'] if loc else None
