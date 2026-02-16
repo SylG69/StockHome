@@ -480,7 +480,7 @@ export default function ScannerPage() {
 
       {/* Result Dialog - Existing Product */}
       <Dialog open={resultDialogOpen && existingProduct} onOpenChange={setResultDialogOpen}>
-        <DialogContent className="bg-card border-border max-w-2xl">
+        <DialogContent className="bg-card border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Check className="w-5 h-5 text-emerald-500" />

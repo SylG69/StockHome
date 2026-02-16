@@ -40,6 +40,7 @@ import {
   ScanLine,
   Loader2,
 } from 'lucide-react';
+import { Switch } from "@/components/ui/switch";
 
 export default function ProductsPage() {
   const { api } = useAuth();
@@ -52,6 +53,7 @@ export default function ProductsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterLowStock, setFilterLowStock] = useState(searchParams.get('low_stock') === 'true');
+  const [hideOutOfStock, setHideOutOfStock] = useState(false);
 
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -111,7 +113,9 @@ export default function ProductsPage() {
     const matchesLowStock =
       !filterLowStock || product.quantity < product.min_quantity;
 
-    return matchesSearch && matchesCategory && matchesLocation && matchesLowStock;
+    const matchesAvailable = !hideOutOfStock || product.quantity > 0;
+
+    return matchesSearch && matchesCategory && matchesLocation && matchesLowStock && matchesAvailable;
   });
 
   const handleOpenDialog = (product = null) => {
@@ -222,10 +226,18 @@ export default function ProductsPage() {
             Gérez votre inventaire de produits
           </p>
         </div>
+        <div className="flex gap-3">
+          <Link to="/scanner">
+            <Button className="btn-glow" data-testid="quick-scan-btn">
+              <ScanLine className="w-4 h-4 mr-2" />
+              Scanner
+            </Button>
+          </Link>
         <Button onClick={() => handleOpenDialog()} className="btn-glow" data-testid="add-product-btn">
           <Plus className="w-4 h-4 mr-2" />
           Ajouter un produit
         </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -271,6 +283,16 @@ export default function ProductsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2 px-2 border-l border-border ml-2">
+                <Label htmlFor="available-mode" className="text-sm text-muted-foreground cursor-pointer">
+                  En stock
+                </Label>
+                <Switch
+                  id="available-mode"
+                  checked={hideOutOfStock}
+                  onCheckedChange={setHideOutOfStock}
+                />
+              </div>
               <Button
                 variant={filterLowStock ? 'default' : 'outline'}
                 onClick={() => setFilterLowStock(!filterLowStock)}
