@@ -480,7 +480,7 @@ export default function ScannerPage() {
 
       {/* Result Dialog - Existing Product */}
       <Dialog open={resultDialogOpen && existingProduct} onOpenChange={setResultDialogOpen}>
-        <DialogContent className="bg-card border-border">
+        <DialogContent className="bg-card border-border max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Check className="w-5 h-5 text-emerald-500" />
@@ -659,7 +659,7 @@ export default function ScannerPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Sous-catégorie (Suggestion ou Manuelle)</Label>
+                <Label>Sous-catégorie</Label>
 
                 <Popover open={open} onOpenChange={setOpen}>
                   <PopoverTrigger asChild>
