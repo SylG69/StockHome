@@ -679,7 +679,8 @@ export default function ScannerPage() {
                         placeholder="Rechercher une sous-catégorie..."
                         onValueChange={(searchTerm) => {
                           // Mise à jour pour permettre la saisie manuelle en direct
-                          setFormData({ ...formData, sub_category_name: searchTerm });
+                          const formattedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
+                          setFormData({ ...formData, sub_category_name: formattedTerm });
                         }}
                       />
                       <CommandList>
