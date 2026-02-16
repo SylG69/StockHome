@@ -70,7 +70,7 @@ export default function ScannerPage() {
     min_quantity: 1,
     unit: 'unité',
     sub_category_id: null,
-    category_id: '',
+    sub_category_name: '',
     location_id: '',
     image_url: '',
     description: '',
@@ -165,6 +165,9 @@ export default function ScannerPage() {
       try {
         const offRes = await api.get(`/barcode/${barcode}`);
         setOpenFoodFactsData(offRes.data);
+        // On récupère les suggestions envoyées par le backend
+        const offSuggestions = offRes.data.sub_categories_suggestions || [];
+        setSuggestions(offSuggestions);
         setFormData({
           name: offRes.data.name || '',
           brand: offRes.data.brand || '',
@@ -175,10 +178,12 @@ export default function ScannerPage() {
           category_id: '',
           location_id: '',
           image_url: offRes.data.image_url || '',
+          // On peut pré-remplir avec la suggestion la plus précise par défaut
+          sub_category_name: offSuggestions.length > 0 ? offSuggestions[offSuggestions.length - 1] : '',
           description: offRes.data.categories || '',
         });
       } catch (error) {
-        // Not found in Open Food Facts either
+        logger.error('Open Food Facts error:', error);
         setFormData({
           ...formData,
           barcode: barcode,
@@ -269,9 +274,10 @@ export default function ScannerPage() {
     try {
       await api.post('/products', {
         ...formData,
+        sub_category_name: formData.sub_category_name,
         category_id: formData.category_id || null,
         location_id: formData.location_id || null,
-        sub_category_id: formData.sub_category_id || null,
+        // sub_category_id: formData.sub_category_id || null,
       });
       toast.success('Produit ajouté à votre inventaire');
       setResultDialogOpen(false);
@@ -631,6 +637,31 @@ export default function ScannerPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="col-span-2">
+                <Label>Sous-catégorie (Suggestion Open Food Facts)</Label>
+                <Select
+                  value={formData.sub_category_name}
+                  onValueChange={(value) => setFormData({ ...formData, sub_category_name: value })}
+                >
+                  <SelectTrigger className="bg-input border-border">
+                    <SelectValue placeholder="Choisir une précision..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suggestions.length > 0 ? (
+                      suggestions.map((suggest, index) => (
+                        <SelectItem key={index} value={suggest}>
+                          {suggest}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>Aucune suggestion disponible</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Choisissez le niveau de précision pour ce produit.
+                </p>
               </div>
               <div>
                 <Label>Emplacement</Label>
