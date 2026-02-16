@@ -166,6 +166,7 @@ class ProductBase(BaseModel):
     unit: Optional[str] = "unité"
     category_id: Optional[str] = None
     sub_category_id: Optional[str] = None
+    sub_category_name: Optional[str] = None
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
@@ -560,53 +561,71 @@ async def create_product(product_data: ProductCreate, current_user: dict = Depen
     user_id = current_user['id']
     data_dict = product_data.model_dump()
 
-    # Extraction du nom de la sous-catégorie s'il existe
+    # 1. Extraction des informations de sous-catégorie
+    # On retire sub_category_name du dictionnaire pour ne pas polluer l'objet Product final
     sub_category_name = data_dict.pop('sub_category_name', None)
+    if sub_category_name:
+        sub_category_name = sub_category_name.strip().capitalize()
+
     sub_category_id = data_dict.get('sub_category_id')
 
-    # LOGIQUE DE GESTION AUTOMATIQUE DES SOUS-CATÉGORIES
+    # 2. LOGIQUE DE GESTION AUTOMATIQUE/MANUELLE DES SOUS-CATÉGORIES
+    # Si on a un nom mais pas encore d'ID (saisie manuelle ou suggestion OFF)
     if sub_category_name and not sub_category_id:
-        # On cherche si cette sous-catégorie existe déjà pour cet utilisateur
+        # Recherche insensible à la casse (case-insensitive) pour éviter les doublons
+        # On cherche si cette sous-catégorie existe déjà pour cet utilisateur spécifique
         existing_sub = await db.sub_categories.find_one({
             "user_id": user_id,
-            "name": sub_category_name
+            "name": {"$regex": f"^{sub_category_name}$", "$options": "i"}
         })
 
         if existing_sub:
             sub_category_id = existing_sub['id']
         else:
-            # Sinon on la crée dynamiquement
+            # Si elle n'existe pas, on crée une nouvelle instance de SubCategory
             new_sub = SubCategory(
                 name=sub_category_name,
-                user_id=user_id
+                user_id=user_id,
+                category_id=data_dict.get('category_id') # Optionnel: lie au parent si présent
             )
             sub_dict = new_sub.model_dump()
-            sub_dict['created_at'] = sub_dict['created_at'].isoformat()
+
+            # Conversion de la date pour MongoDB
+            if isinstance(sub_dict.get('created_at'), datetime):
+                sub_dict['created_at'] = sub_dict['created_at'].isoformat()
+
             await db.sub_categories.insert_one(sub_dict)
             sub_category_id = new_sub.id
 
-        # On met à jour l'ID dans les données du produit
+        # On met à jour l'ID final dans les données du produit
         data_dict['sub_category_id'] = sub_category_id
 
-    # Création du produit final
+    # 3. CRÉATION DU PRODUIT FINAL
     product = Product(**data_dict, user_id=user_id)
     prod_dict = product.model_dump()
-    prod_dict['created_at'] = prod_dict['created_at'].isoformat()
-    prod_dict['updated_at'] = prod_dict['updated_at'].isoformat()
+
+    # Préparation des dates pour le stockage
+    for date_field in ['created_at', 'updated_at']:
+        if isinstance(prod_dict.get(date_field), datetime):
+            prod_dict[date_field] = prod_dict[date_field].isoformat()
 
     await db.products.insert_one(prod_dict)
 
-    # Enrichissement de la réponse pour le frontend
+    # 4. ENRICHISSEMENT DE LA RÉPONSE POUR LE FRONTEND
+    # (Permet d'afficher les noms plutôt que juste les IDs après l'ajout)
     prod_dict['category_name'] = None
     prod_dict['location_name'] = None
+    prod_dict['sub_category_name'] = sub_category_name # On renvoie le nom utilisé
 
     if prod_dict.get('category_id'):
         cat = await db.categories.find_one({"id": prod_dict['category_id']}, {"_id": 0})
-        prod_dict['category_name'] = cat['name'] if cat else None
+        if cat:
+            prod_dict['category_name'] = cat['name']
 
     if prod_dict.get('location_id'):
         loc = await db.storage_locations.find_one({"id": prod_dict['location_id']}, {"_id": 0})
-        prod_dict['location_name'] = loc['name'] if loc else None
+        if loc:
+            prod_dict['location_name'] = loc['name']
 
     return prod_dict
 
