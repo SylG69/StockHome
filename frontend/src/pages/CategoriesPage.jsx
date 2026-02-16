@@ -30,6 +30,7 @@ import {
   Sparkles,
   SprayCan,
   Package,
+  PawPrint,
 } from 'lucide-react';
 
 const iconMap = {
@@ -39,6 +40,7 @@ const iconMap = {
   SprayCan: SprayCan,
   Package: Package,
   FolderOpen: FolderOpen,
+  PawPrint: PawPrint,
 };
 
 const iconOptions = [
@@ -47,6 +49,7 @@ const iconOptions = [
   { value: 'Sparkles', label: 'Hygiène' },
   { value: 'SprayCan', label: 'Entretien' },
   { value: 'Package', label: 'Général' },
+  { value: 'PawPrint', label: 'Animaux' },
   { value: 'FolderOpen', label: 'Dossier' },
 ];
 
