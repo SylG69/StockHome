@@ -54,6 +54,7 @@ export default function ProductsPage() {
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterLowStock, setFilterLowStock] = useState(searchParams.get('low_stock') === 'true');
   const [hideOutOfStock, setHideOutOfStock] = useState(false);
+  const [subCategories, setSubCategories] = useState([]);
 
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -71,6 +72,7 @@ export default function ProductsPage() {
     min_quantity: 1,
     unit: 'unité',
     category_id: '',
+    sub_category_name: '',
     location_id: '',
     image_url: '',
     brand: '',
@@ -129,6 +131,7 @@ export default function ProductsPage() {
         min_quantity: product.min_quantity,
         unit: product.unit || 'unité',
         category_id: product.category_id || '',
+        sub_category_name: product.sub_category_name || '',
         location_id: product.location_id || '',
         image_url: product.image_url || '',
         brand: product.brand || '',
@@ -143,6 +146,7 @@ export default function ProductsPage() {
         min_quantity: 1,
         unit: 'unité',
         category_id: '',
+        sub_category_name: '',
         location_id: '',
         image_url: '',
         brand: '',
@@ -162,6 +166,7 @@ export default function ProductsPage() {
       const payload = {
         ...formData,
         category_id: formData.category_id || null,
+        sub_category_name: formData.sub_category_name || null,
         location_id: formData.location_id || null,
       };
 
@@ -353,7 +358,9 @@ export default function ProductsPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-
+                <Badge variant="default" className="text-xs">
+                  {product.sub_category_name}
+                </Badge>
                 <h3 className="font-semibold text-sm truncate">{product.name}</h3>
                 <p className="text-xs text-muted-foreground truncate mb-2">
                   {product.brand || 'Sans marque'}
@@ -548,6 +555,17 @@ export default function ProductsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label htmlFor="sub_category_name">Sous-catégorie</Label>
+                <Input
+                  id="sub_category_name"
+                  value={formData.sub_category_name}
+                  onChange={(e) => setFormData({ ...formData, sub_category_name: e.target.value })}
+                  placeholder="Ex: Frais, Outillage..."
+                  className="bg-input border-border"
+                  data-testid="product-subcategory-input"
+                />
               </div>
               <div className="col-span-2">
                 <Label htmlFor="location">Emplacement</Label>
