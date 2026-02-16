@@ -13,8 +13,6 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import httpx
 from jose import JWTError, jwt
-import bcrypt
-import httpx
 from contextlib import asynccontextmanager
 
 ROOT_DIR = Path(__file__).parent
@@ -123,6 +121,24 @@ class CategoryResponse(CategoryBase):
     user_id: str
     created_at: str
 
+# SUb-Categories Models
+class SubCategoryBase(BaseModel):
+    name: str
+
+class SubCategoryCreate(SubCategoryBase):
+    pass
+
+class SubCategory(SubCategoryBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class SubCategoryResponse(SubCategoryBase):
+    id: str
+    user_id: str
+    created_at: str
+
 # Storage Location Models
 class StorageLocationBase(BaseModel):
     name: str
@@ -152,6 +168,7 @@ class ProductBase(BaseModel):
     min_quantity: int = 1
     unit: Optional[str] = "unité"
     category_id: Optional[str] = None
+    sub_category_id: Optional[str] = None
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
@@ -167,6 +184,7 @@ class ProductUpdate(BaseModel):
     min_quantity: Optional[int] = None
     unit: Optional[str] = None
     category_id: Optional[str] = None
+    sub_category_id: Optional[str] = None
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
@@ -208,8 +226,10 @@ class ShoppingListItemResponse(ShoppingListItemBase):
     user_id: str
     created_at: str
 
-# Open Food Facts Response
 class OpenFoodFactsProduct(BaseModel):
+    """
+    Open Food Facts Response
+    """
     barcode: str
     name: Optional[str] = None
     brand: Optional[str] = None
@@ -281,6 +301,7 @@ async def register(user_data: UserCreate):
         {"name": "Boissons", "icon": "Wine", "color": "#3B82F6"},
         {"name": "Hygiène", "icon": "Sparkles", "color": "#8B5CF6"},
         {"name": "Entretien", "icon": "SprayCan", "color": "#F59E0B"},
+        {"name": "Animaux", "icon": "PawPrint", "color": "#EF4444"},
         {"name": "Autre", "icon": "Package", "color": "#6B7280"},
     ]
     for cat_data in default_categories:
@@ -381,10 +402,55 @@ async def delete_category(category_id: str, current_user: dict = Depends(get_cur
     )
     return {"message": "Catégorie supprimée"}
 
+# ==================== SUB CATEGORIES ROUTES ====================
+
+@api_router.get("/subcategories", response_model=List[SubCategoryResponse])
+async def get_subcategories(current_user: dict = Depends(get_current_user)):
+    sub_categories = await db.sub_categories.find(
+        {"user_id": current_user['id']},
+        {"_id": 0}
+    ).to_list(100)
+    return sub_categories
+
+@api_router.post("/subcategories", response_model=SubCategoryResponse)
+async def create_subcategory(sub_category_data: SubCategoryCreate, current_user: dict = Depends(get_current_user)):
+    sub_category = SubCategory(**sub_category_data.model_dump(), user_id=current_user['id'])
+    sub_cat_dict = sub_category.model_dump()
+    sub_cat_dict['created_at'] = sub_cat_dict['created_at'].isoformat()
+    await db.sub_categories.insert_one(sub_cat_dict)
+    return sub_cat_dict
+
+@api_router.put("/subcategories/{sub_category_id}", response_model=SubCategoryResponse)
+async def update_subcategory(sub_category_id: str, sub_category_data: SubCategoryCreate, current_user: dict = Depends(get_current_user)):
+    result = await db.sub_categories.find_one_and_update(
+        {"id": sub_category_id, "user_id": current_user['id']},
+        {"$set": sub_category_data.model_dump()},
+        return_document=True,
+        projection={"_id": 0}
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Sous-Catégorie non trouvée")
+    return result
+
+@api_router.delete("/subcategories/{sub_category_id}")
+async def delete_subcategory(sub_category_id: str, current_user: dict = Depends(get_current_user)):
+    result = await db.sub_categories.delete_one({"id": sub_category_id, "user_id": current_user['id']})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Sous-Catégorie non trouvée")
+    # Set products with this category to null
+    await db.products.update_many(
+        {"sub_category_id": sub_category_id, "user_id": current_user['id']},
+        {"$set": {"sub_category_id": None}}
+    )
+    return {"message": "Sous-Catégorie supprimée"}
+
 # ==================== STORAGE LOCATIONS ROUTES ====================
 
 @api_router.get("/locations", response_model=List[StorageLocationResponse])
 async def get_locations(current_user: dict = Depends(get_current_user)):
+    """
+    Recherche un emplacement
+    """
     locations = await db.storage_locations.find(
         {"user_id": current_user['id']},
         {"_id": 0}
@@ -393,6 +459,9 @@ async def get_locations(current_user: dict = Depends(get_current_user)):
 
 @api_router.post("/locations", response_model=StorageLocationResponse)
 async def create_location(location_data: StorageLocationCreate, current_user: dict = Depends(get_current_user)):
+    """
+    Création d'un emplacement
+    """
     location = StorageLocation(**location_data.model_dump(), user_id=current_user['id'])
     loc_dict = location.model_dump()
     loc_dict['created_at'] = loc_dict['created_at'].isoformat()
@@ -401,6 +470,9 @@ async def create_location(location_data: StorageLocationCreate, current_user: di
 
 @api_router.put("/locations/{location_id}", response_model=StorageLocationResponse)
 async def update_location(location_id: str, location_data: StorageLocationCreate, current_user: dict = Depends(get_current_user)):
+    """
+    Mise à jour d'un emplacement
+    """
     result = await db.storage_locations.find_one_and_update(
         {"id": location_id, "user_id": current_user['id']},
         {"$set": location_data.model_dump()},
@@ -413,6 +485,9 @@ async def update_location(location_id: str, location_data: StorageLocationCreate
 
 @api_router.delete("/locations/{location_id}")
 async def delete_location(location_id: str, current_user: dict = Depends(get_current_user)):
+    """
+    Suppression d'un emplacement
+    """
     result = await db.storage_locations.delete_one({"id": location_id, "user_id": current_user['id']})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Emplacement non trouvé")
