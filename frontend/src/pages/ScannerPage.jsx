@@ -56,6 +56,7 @@ export default function ScannerPage() {
   const manualInputRef = useRef(null);
 
   const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
   const [locations, setLocations] = useState([]);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
@@ -69,8 +70,8 @@ export default function ScannerPage() {
   const [existingProduct, setExistingProduct] = useState(null);
   const [open, setOpen] = useState(false);
   const allPossibleSubCats = Array.from(new Set([
-    ...(suggestions || []),
-    ...(subcategories?.map(s => s.name) || [])
+  ...(Array.isArray(suggestions) ? suggestions : []),
+  ...(Array.isArray(subcategories) ? subcategories.map(s => s.name) : [])
   ]));
 
   // Dialog states
@@ -107,9 +108,11 @@ export default function ScannerPage() {
       const [categoriesRes, locationsRes] = await Promise.all([
         api.get('/categories'),
         api.get('/locations'),
+        api.get('/subcategories'),
       ]);
       setCategories(categoriesRes.data);
       setLocations(locationsRes.data);
+      setSubcategories(subcategoriesRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
