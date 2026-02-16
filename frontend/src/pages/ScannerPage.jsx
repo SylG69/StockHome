@@ -658,9 +658,8 @@ export default function ScannerPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label>Sous-catégorie</Label>
-
                 <Popover open={open} onOpenChange={setOpen}>
                   <PopoverTrigger asChild>
                     <button
