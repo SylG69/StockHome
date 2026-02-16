@@ -639,7 +639,7 @@ async def lookup_barcode(barcode: str):
 
             product = data.get('product', {})
             # 1. On récupère la hiérarchie des tags (ex: ["en:dairies", "en:butters", ...])
-            tags = product.get('categories_hierarchy', [])
+            tags = product.get('categories_old', [])
 
             # 2. Fonction pour nettoyer les noms (en:butter-spreads -> Butter spreads)
             def clean_tag(t):
