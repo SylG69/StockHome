@@ -638,16 +638,22 @@ async def lookup_barcode(barcode: str):
                 raise HTTPException(status_code=404, detail="Produit non trouvé dans Open Food Facts")
 
             product = data.get('product', {})
-            # 1. On récupère la hiérarchie des tags (ex: ["en:dairies", "en:butters", ...])
-            tags = product.get('categories_old', [])
+            # 1. On récupère la chaîne brute (ex: "Produits laitiers, Matières grasses")
+            categories_str = product.get('categories_old', '')
 
-            # 2. Fonction pour nettoyer les noms (en:butter-spreads -> Butter spreads)
-            def clean_tag(t):
-                return t.split(':')[-1].replace('-', ' ').capitalize()
+            def clean_categories(categories_str):
+                if not categories_str or not isinstance(categories_str, str):
+                    return []
+                raw_tags = categories_str.split(',')
+                cleaned_list = []
+                for t in raw_tags:
+                    clean = t.strip().split(':')[-1].replace('-', ' ').capitalize()
+                    if clean:
+                        cleaned_list.append(clean)
 
-            suggestions = [clean_tag(t) for t in tags]
-            # 3. On définit une catégorie générique par défaut (souvent l'un des premiers tags)
-            # Et on laisse l'utilisateur choisir la précision dans la liste des suggestions
+                return cleaned_list
+
+            suggestions = clean_categories(categories_str)
             main_cat = suggestions[min(len(suggestions)-1, 2)] if suggestions else None
             return OpenFoodFactsProduct(
                 barcode=barcode,
