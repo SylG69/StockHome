@@ -69,6 +69,7 @@ export default function ScannerPage() {
     quantity: 1,
     min_quantity: 1,
     unit: 'unité',
+    sub_category_id: null,
     category_id: '',
     location_id: '',
     image_url: '',
@@ -270,6 +271,7 @@ export default function ScannerPage() {
         ...formData,
         category_id: formData.category_id || null,
         location_id: formData.location_id || null,
+        sub_category_id: formData.sub_category_id || null,
       });
       toast.success('Produit ajouté à votre inventaire');
       setResultDialogOpen(false);
