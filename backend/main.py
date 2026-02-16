@@ -32,9 +32,6 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'stockhome-secret-key-change-in-produc
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
-# Create the main app
-app = FastAPI(title="StockHome API", version="1.0.0")
-
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
@@ -235,7 +232,8 @@ class OpenFoodFactsProduct(BaseModel):
     brand: Optional[str] = None
     image_url: Optional[str] = None
     categories: Optional[str] = None
-    sub_categories: Optional[str] = None
+    # sub_categories: Optional[str] = None
+    sub_categories_suggestions: List[str] = []
     quantity_info: Optional[str] = None
 
 # ==================== AUTH HELPERS ====================
@@ -640,13 +638,24 @@ async def lookup_barcode(barcode: str):
                 raise HTTPException(status_code=404, detail="Produit non trouvé dans Open Food Facts")
 
             product = data.get('product', {})
+            # 1. On récupère la hiérarchie des tags (ex: ["en:dairies", "en:butters", ...])
+            tags = product.get('categories_hierarchy', [])
+
+            # 2. Fonction pour nettoyer les noms (en:butter-spreads -> Butter spreads)
+            def clean_tag(t):
+                return t.split(':')[-1].replace('-', ' ').capitalize()
+
+            suggestions = [clean_tag(t) for t in tags]
+            # 3. On définit une catégorie générique par défaut (souvent l'un des premiers tags)
+            # Et on laisse l'utilisateur choisir la précision dans la liste des suggestions
+            main_cat = suggestions[min(len(suggestions)-1, 2)] if suggestions else None
             return OpenFoodFactsProduct(
                 barcode=barcode,
                 name=product.get('product_name') or product.get('product_name_fr'),
                 brand=product.get('brands'),
                 image_url=product.get('image_url') or product.get('image_front_url'),
                 categories=product.get('categories'),
-                sub_categories=product.get('categories_old'),
+                sub_categories_suggestions=suggestions,
                 quantity_info=product.get('quantity')
             )
         except httpx.TimeoutException:
