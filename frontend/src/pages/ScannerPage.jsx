@@ -34,8 +34,19 @@ import {
   AlertCircle,
   Check,
   X,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { BrowserMultiFormatReader } from '@zxing/library';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export default function ScannerPage() {
   const { api } = useAuth();
@@ -56,6 +67,11 @@ export default function ScannerPage() {
   const [scannedProduct, setScannedProduct] = useState(null);
   const [openFoodFactsData, setOpenFoodFactsData] = useState(null);
   const [existingProduct, setExistingProduct] = useState(null);
+  const [open, setOpen] = useState(false);
+  const allPossibleSubCats = Array.from(new Set([
+    ...(suggestions || []),
+    ...(subcategories?.map(s => s.name) || [])
+  ]));
 
   // Dialog states
   const [resultDialogOpen, setResultDialogOpen] = useState(false);
@@ -639,29 +655,70 @@ export default function ScannerPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2">
-                <Label>Sous-catégorie (Suggestion Open Food Facts)</Label>
-                <Select
-                  value={formData.sub_category_name}
-                  onValueChange={(value) => setFormData({ ...formData, sub_category_name: value })}
-                >
-                  <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Choisir une précision..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suggestions.length > 0 ? (
-                      suggestions.map((suggest, index) => (
-                        <SelectItem key={index} value={suggest}>
-                          {suggest}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="none" disabled>Aucune suggestion disponible</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <Label>Sous-catégorie (Suggestion ou Manuelle)</Label>
+
+                <Popover open={open} onOpenChange={setOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      role="combobox"
+                      aria-expanded={open}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
+                    >
+                      {formData.sub_category_name || "Chercher ou saisir une précision..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                    <Command>
+                      <CommandInput
+                        placeholder="Rechercher une sous-catégorie..."
+                        onValueChange={(searchTerm) => {
+                          // Mise à jour pour permettre la saisie manuelle en direct
+                          setFormData({ ...formData, sub_category_name: searchTerm });
+                        }}
+                      />
+                      <CommandList>
+                        <CommandEmpty className="p-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-primary"
+                            onClick={() => setOpen(false)}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Créer "{formData.sub_category_name}"
+                          </Button>
+                        </CommandEmpty>
+
+                        <CommandGroup title="Suggestions">
+                          {allPossibleSubCats.map((name) => (
+                            <CommandItem
+                              key={name}
+                              value={name}
+                              onSelect={(currentValue) => {
+                                setFormData({ ...formData, sub_category_name: currentValue });
+                                setOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.sub_category_name === name ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Choisissez le niveau de précision pour ce produit.
+                  Tapez pour chercher/créer ou choisissez une suggestion.
                 </p>
               </div>
               <div>
