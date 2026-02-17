@@ -88,12 +88,15 @@ export default function ProductsPage() {
         api.get('/products'),
         api.get('/categories'),
         api.get('/locations'),
+        api.get('/sub-categories'),
       ]);
       setProducts(productsRes.data);
       setCategories(categoriesRes.data);
       setLocations(locationsRes.data);
+      setSubCategories(productsRes.data);
     } catch (error) {
-      toast.error('Erreur lors du chargement des données');
+        console.error('Erreur lors du chargement des données:', error);
+        toast.error('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
     }
@@ -196,7 +199,8 @@ export default function ProductsPage() {
       setProductToDelete(null);
       fetchData();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+        console.error('Erreur lors de la suppression:', error);
+        toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -209,7 +213,8 @@ export default function ProductsPage() {
         )
       );
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour');
+        console.error('Erreur lors de la mise à jour:', error);
+        toast.error('Erreur lors de la mise à jour');
     }
   };
 
@@ -557,15 +562,24 @@ export default function ProductsPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="sub_category_name">Sous-catégorie</Label>
-                <Input
-                  id="sub_category_name"
-                  value={formData.sub_category_name}
-                  onChange={(e) => setFormData({ ...formData, sub_category_name: e.target.value })}
-                  placeholder="Ex: Frais, Outillage..."
-                  className="bg-input border-border"
-                  data-testid="product-subcategory-input"
-                />
+                <Label htmlFor="sub_category_id">Sous-catégorie</Label>
+                <Select
+                  value={formData.sub_category_id}
+                  onValueChange={(value) => setFormData({ ...formData, sub_category_id: value })}
+                >
+                  <SelectTrigger className="bg-input border-border" data-testid="product-subcategory-select">
+                    <SelectValue placeholder="Sélectionner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Option pour désélectionner */}
+                    <SelectItem value="none">Aucune</SelectItem>
+                    {subCategories.map((sub) => (
+                      <SelectItem key={sub.id} value={sub.id}>
+                        {sub.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="col-span-2">
                 <Label htmlFor="location">Emplacement</Label>
