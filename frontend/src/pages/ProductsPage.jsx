@@ -84,7 +84,7 @@ export default function ProductsPage() {
 
   const fetchData = async () => {
     try {
-      const [productsRes, categoriesRes, locationsRes] = await Promise.all([
+      const [productsRes, categoriesRes, locationsRes, subCatsRes] = await Promise.all([
         api.get('/products'),
         api.get('/categories'),
         api.get('/locations'),
@@ -93,7 +93,7 @@ export default function ProductsPage() {
       setProducts(productsRes.data);
       setCategories(categoriesRes.data);
       setLocations(locationsRes.data);
-      setSubCategories(subCatsRes.data);;
+      setSubCategories(subCatsRes.data);
     } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
         toast.error('Erreur lors du chargement des données');
