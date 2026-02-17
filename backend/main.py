@@ -121,6 +121,7 @@ class CategoryResponse(CategoryBase):
 # SUb-Categories Models
 class SubCategoryBase(BaseModel):
     name: str
+    min_quantity: int = 0
 
 class SubCategoryCreate(SubCategoryBase):
     pass

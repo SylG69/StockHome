@@ -111,6 +111,11 @@ export default function ProductsPage() {
   };
 
   const filteredProducts = products.filter((product) => {
+    // 1. On trouve la sous-catégorie du produit
+    const subCat = subCategories.find(s => s.id === product.sub_category_id);
+
+    // 2. Le seuil est celui de la sous-catégorie (ou 0 si aucune)
+    const threshold = subCat ? subCat.min_quantity : 0;
     const matchesSearch =
       searchQuery === '' ||
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -123,8 +128,9 @@ export default function ProductsPage() {
     const matchesLocation =
       filterLocation === 'all' || product.location_id === filterLocation;
 
-    const matchesLowStock =
-      !filterLowStock || product.quantity < product.min_quantity;
+    const minQty = subCat ? subCat.min_quantity : 0;
+
+    const matchesLowStock = !filterLowStock || product.quantity < threshold;
 
     const matchesAvailable = !hideOutOfStock || product.quantity > 0;
 
@@ -230,114 +236,122 @@ export default function ProductsPage() {
     }
   };
   // Composant interne pour éviter la répétition du code du Card
-  const ProductCard = ({ product }) => (
-    <Card className="bg-card border-border card-hover animate-fade-in">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          {product.image_url ? (
-            <img
-              src={product.image_url}
-              alt={product.name}
-              className="w-16 h-16 rounded-lg object-cover"
-            />
-          ) : (
-            <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
-              <Package className="w-8 h-8 text-muted-foreground" />
+  const ProductCard = ({ product }) => {
+    // Récupérer le seuil de la sous-catégorie
+    const subCat = subCategories.find(s => s.id === product.sub_category_id);
+    const threshold = subCat ? subCat.min_quantity : 0;
+    const isLowStock = product.quantity < threshold;
+    const minQty = subCat ? subCat.min_quantity : 0;
+    return (
+      <Card className="bg-card border-border card-hover animate-fade-in">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            {product.image_url ? (
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="w-16 h-16 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
+                <Package className="w-8 h-8 text-muted-foreground" />
+              </div>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" data-testid={`product-menu-${product.id}`}>
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleOpenDialog(product)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Modifier
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setProductToDelete(product);
+                    setDeleteDialogOpen(true);
+                  }}
+                  className="text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Supprimer
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <Badge variant="default" className="text-xs">
+            {subCategories.find(s => s.id === product.sub_category_id)?.name || "Sans sous-catégorie"}
+          </Badge>
+          <h3 className="font-semibold text-sm truncate">{product.name}</h3>
+          <p className="text-xs text-muted-foreground truncate mb-2">
+            {product.brand || 'Sans marque'}
+          </p>
+          {product.barcode && (
+            <p className="text-xs text-muted-foreground font-mono mb-2">
+              <ScanLine className="w-3 h-3 inline mr-1" />
+              {product.barcode}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-1 mb-3">
+            {product.category_name && (
+              <Badge variant="secondary" className="text-xs">
+                {product.category_name}
+              </Badge>
+            )}
+            {product.location_name && (
+              <Badge variant="outline" className="text-xs">
+                {product.location_name}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleQuantityChange(product, -1)}
+                disabled={product.quantity <= 0}
+              >
+                <Minus className="w-3 h-3" />
+              </Button>
+
+              <span className={`text-lg font-bold min-w-[40px] text-center ${
+                  isLowStock ? 'text-destructive' : 'text-emerald-500'
+                }`}
+              >
+                {product.quantity}
+              </span>
+
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleQuantityChange(product, 1)}
+              >
+                <Plus className="w-3 h-3" />
+              </Button>
+            </div>
+            {/* On affiche le seuil commun s'il existe */}
+            {subCat && (
+              <span className="text-[10px] text-muted-foreground italic">
+                Seuil ({subCat.name}) : {minQty}
+              </span>
+            )}
+          </div>
+
+          {isLowStock && (
+            <div className="mt-2 flex items-center gap-1 text-xs text-destructive">
+              <AlertTriangle className="w-3 h-3" />
+              Stock bas (Seuil : {threshold})
             </div>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" data-testid={`product-menu-${product.id}`}>
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleOpenDialog(product)}>
-                <Edit className="w-4 h-4 mr-2" />
-                Modifier
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setProductToDelete(product);
-                  setDeleteDialogOpen(true);
-                }}
-                className="text-destructive"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Supprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <Badge variant="default" className="text-xs">
-          {subCategories.find(s => s.id === product.sub_category_id)?.name || "Sans sous-catégorie"}
-        </Badge>
-        <h3 className="font-semibold text-sm truncate">{product.name}</h3>
-        <p className="text-xs text-muted-foreground truncate mb-2">
-          {product.brand || 'Sans marque'}
-        </p>
-        {product.barcode && (
-          <p className="text-xs text-muted-foreground font-mono mb-2">
-            <ScanLine className="w-3 h-3 inline mr-1" />
-            {product.barcode}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-1 mb-3">
-          {product.category_name && (
-            <Badge variant="secondary" className="text-xs">
-              {product.category_name}
-            </Badge>
-          )}
-          {product.location_name && (
-            <Badge variant="outline" className="text-xs">
-              {product.location_name}
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => handleQuantityChange(product, -1)}
-              disabled={product.quantity <= 0}
-              data-testid={`decrease-qty-${product.id}`}
-            >
-              <Minus className="w-3 h-3" />
-            </Button>
-            <span
-              className={`text-lg font-bold min-w-[40px] text-center ${
-                product.quantity < product.min_quantity
-                  ? 'text-destructive'
-                  : 'text-emerald-500'
-              }`}
-            >
-              {product.quantity}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => handleQuantityChange(product, 1)}
-              data-testid={`increase-qty-${product.id}`}
-            >
-              <Plus className="w-3 h-3" />
-            </Button>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            min: {product.min_quantity} {product.unit}
-          </span>
-        </div>
-        {product.quantity < product.min_quantity && (
-          <div className="mt-2 flex items-center gap-1 text-xs text-destructive">
-            <AlertTriangle className="w-3 h-3" />
-            Stock bas
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   const handleQuantityChange = async (product, delta) => {
     try {
@@ -644,7 +658,7 @@ export default function ProductsPage() {
                   data-testid="product-quantity-input"
                 />
               </div>
-              <div>
+{/*               <div>
                 <Label htmlFor="min_quantity">Quantité minimum</Label>
                 <Input
                   id="min_quantity"
@@ -657,7 +671,7 @@ export default function ProductsPage() {
                   className="bg-input border-border"
                   data-testid="product-min-quantity-input"
                 />
-              </div>
+              </div> */}
               <div>
                 <Label htmlFor="unit">Unité</Label>
                 <Select
