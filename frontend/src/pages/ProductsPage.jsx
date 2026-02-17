@@ -360,6 +360,48 @@ export default function ProductsPage() {
     );
   }
 
+  const productsView = isGrouped ? (
+    // --- VUE REGROUPÉE (ACCORDION) ---
+    <Accordion type="multiple" defaultValue={Object.keys(groupedProducts)} className="space-y-4">
+      {Object.entries(groupedProducts).map(([subCatId, group]) => (
+        <AccordionItem key={subCatId} value={subCatId} className="border-none">
+          <AccordionTrigger className="hover:no-underline py-2 px-4 bg-secondary/50 rounded-lg group">
+            <div className="flex items-center justify-between w-full pr-4">
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-lg">{group.name}</span>
+                <Badge variant="outline" className="bg-background">
+                  {group.products.length} {group.products.length > 1 ? 'produits' : 'produit'}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">
+                  Stock Total:
+                </span>
+                <Badge className={group.totalStock > 0 ? "bg-emerald-500" : "bg-destructive"}>
+                  {group.totalStock}
+                </Badge>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-4 px-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {group.products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  ) : (
+    // --- VUE GRILLE SIMPLE ---
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {filteredProducts.map((product) => (
+        <ProductCard key={product.id} product={product} />
+      ))}
+    </div>
+  );
+
   return (
     <div className="space-y-6" data-testid="products-page">
       {/* Header */}
@@ -400,61 +442,91 @@ export default function ProductsPage() {
                 />
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 items-center">
+              {/* Sélecteurs Classiques */}
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-[180px] bg-input border-border" data-testid="filter-category">
+                <SelectTrigger className="w-[160px] bg-input border-border" data-testid="filter-category">
                   <SelectValue placeholder="Catégorie" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes catégories</SelectItem>
                   {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
               <Select value={filterLocation} onValueChange={setFilterLocation}>
-                <SelectTrigger className="w-[180px] bg-input border-border" data-testid="filter-location">
+                <SelectTrigger className="w-[160px] bg-input border-border" data-testid="filter-location">
                   <SelectValue placeholder="Emplacement" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous emplacements</SelectItem>
                   {locations.map((loc) => (
-                    <SelectItem key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </SelectItem>
+                    <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <div className="flex items-center gap-2 px-2 border-l border-border ml-2">
-                <Label htmlFor="available-mode" className="text-sm text-muted-foreground cursor-pointer">
-                  En stock
-                </Label>
-                <Switch
-                  id="available-mode"
-                  checked={hideOutOfStock}
-                  onCheckedChange={setHideOutOfStock}
-                />
-              </div>
-              <div className="flex items-center gap-2 px-2 border-l border-border ml-2">
-                <Label htmlFor="grouped-mode" className="text-sm text-muted-foreground cursor-pointer">
-                  Grouper
-                </Label>
-                <Switch
-                  id="grouped-mode"
-                  checked={isGrouped}
-                  onCheckedChange={setIsGrouped}
-                />
-              </div>
-              <Button
-                variant={filterLowStock ? 'default' : 'outline'}
-                onClick={() => setFilterLowStock(!filterLowStock)}
-                data-testid="filter-low-stock"
-              >
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Stock bas
-              </Button>
+
+              {/* Menu déroulant des options d'affichage */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <Settings2 className="w-4 h-4" />
+                    Options
+                    {(hideOutOfStock || filterLowStock || isGrouped) && (
+                      <Badge variant="default" className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full text-[10px]">
+                        {[hideOutOfStock, filterLowStock, isGrouped].filter(Boolean).length}
+                      </Badge>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 p-2">
+                  <div className="space-y-4 p-2">
+                    {/* Switch En Stock */}
+                    <div className="flex items-center justify-between space-x-2">
+                      <Label htmlFor="available-mode" className="flex flex-col gap-1 cursor-pointer">
+                        <span className="text-sm font-medium">En stock uniquement</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">Masquer les épuisés</span>
+                      </Label>
+                      <Switch
+                        id="available-mode"
+                        checked={hideOutOfStock}
+                        onCheckedChange={setHideOutOfStock}
+                      />
+                    </div>
+
+                    {/* Switch Stock Bas */}
+                    <div className="flex items-center justify-between space-x-2 border-t pt-3 border-border">
+                      <Label htmlFor="low-stock-mode" className="flex flex-col gap-1 cursor-pointer">
+                        <div className="flex items-center gap-1 text-sm font-medium">
+                          <AlertTriangle className={`w-3 h-3 ${filterLowStock ? 'text-destructive' : ''}`} />
+                          Stock bas
+                        </div>
+                        <span className="text-[10px] text-muted-foreground font-normal">Sous le seuil minimum</span>
+                      </Label>
+                      <Switch
+                        id="low-stock-mode"
+                        checked={filterLowStock}
+                        onCheckedChange={setFilterLowStock}
+                      />
+                    </div>
+
+                    {/* Switch Regroupement */}
+                    <div className="flex items-center justify-between space-x-2 border-t pt-3 border-border">
+                      <Label htmlFor="grouped-mode" className="flex flex-col gap-1 cursor-pointer">
+                        <span className="text-sm font-medium">Grouper l'affichage</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">Par sous-catégorie</span>
+                      </Label>
+                      <Switch
+                        id="grouped-mode"
+                        checked={isGrouped}
+                        onCheckedChange={setIsGrouped}
+                      />
+                    </div>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </CardContent>
@@ -516,27 +588,10 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
       )}
-      {/*A supprimer ? (
-        <Card className="bg-card border-border">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Package className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucun produit trouvé</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              {searchQuery || filterCategory !== 'all' || filterLocation !== 'all' || filterLowStock
-                ? 'Essayez de modifier vos filtres'
-                : 'Commencez par ajouter votre premier produit'}
-            </p>
-            <Button onClick={() => handleOpenDialog()} data-testid="add-first-product-btn">
-              <Plus className="w-4 h-4 mr-2" />
-              Ajouter un produit
-            </Button>
-          </CardContent>
-        </Card>
-      )} */}
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg bg-card border-border">
+        <DialogContent className="max-w-2xl bg-card border-border">
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? 'Modifier le produit' : 'Ajouter un produit'}
