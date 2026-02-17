@@ -88,7 +88,7 @@ export default function ProductsPage() {
         api.get('/products'),
         api.get('/categories'),
         api.get('/locations'),
-        api.get('/sub-categories'),
+        api.get('/subcategories'),
       ]);
       setProducts(productsRes.data);
       setCategories(categoriesRes.data);
@@ -183,7 +183,8 @@ export default function ProductsPage() {
       setDialogOpen(false);
       fetchData();
     } catch (error) {
-      toast.error("Erreur lors de l'enregistrement");
+        console.error('Erreur lors de l\'enregistrement:', error);
+        toast.error("Erreur lors de l'enregistrement");
     } finally {
       setSaving(false);
     }
@@ -564,8 +565,8 @@ export default function ProductsPage() {
               <div>
                 <Label htmlFor="sub_category_id">Sous-catégorie</Label>
                 <Select
-                  value={formData.sub_category_id}
-                  onValueChange={(value) => setFormData({ ...formData, sub_category_id: value })}
+                  value={formData.sub_category_id ||"none"}
+                  onValueChange={(value) => setFormData({ ...formData, sub_category_id: value === "none" ? null : value})}
                 >
                   <SelectTrigger className="bg-input border-border" data-testid="product-subcategory-select">
                     <SelectValue placeholder="Sélectionner" />
