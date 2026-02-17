@@ -70,6 +70,10 @@ export default function ProductsPage() {
   const [productToDelete, setProductToDelete] = useState(null);
   const [saving, setSaving] = useState(false);
   const [isGrouped, setIsGrouped] = useState(false);
+  const [subCatDialogOpen, setSubCatDialogOpen] = useState(false);
+  const [editingSubCat, setEditingSubCat] = useState(null);
+  const [subCatThreshold, setSubCatThreshold] = useState(0);
+  const [updatingSubCat, setUpdatingSubCat] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -107,6 +111,27 @@ export default function ProductsPage() {
         toast.error('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateSubCatThreshold = async () => {
+    setUpdatingSubCat(true);
+    try {
+      // On reprend les données existantes et on change juste le min_quantity
+      const payload = {
+        name: editingSubCat.name,
+        category_id: editingSubCat.category_id,
+        min_quantity: subCatThreshold
+      };
+
+      await api.put(`/subcategories/${editingSubCat.id}`, payload);
+      toast.success(`Seuil mis à jour pour ${editingSubCat.name}`);
+      setSubCatDialogOpen(false);
+      fetchData(); // Rafraîchir les données pour recalculer les alertes stock
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour du seuil");
+    } finally {
+      setUpdatingSubCat(false);
     }
   };
 
@@ -384,6 +409,20 @@ export default function ProductsPage() {
             <div className="flex items-center justify-between w-full pr-4">
               <div className="flex items-center gap-3">
                 <span className="font-bold text-lg">{group.name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const subCat = subCategories.find(s => s.id === subCatId);
+                    setEditingSubCat(subCat);
+                    setSubCatThreshold(subCat?.min_quantity || 0);
+                    setSubCatDialogOpen(true);
+                  }}
+                >
+                  <Edit className="w-3 h-3" />
+                </Button>
                 <Badge variant="outline" className="bg-background">
                   {group.products.length} {group.products.length > 1 ? 'produits' : 'produit'}
                 </Badge>
@@ -808,6 +847,35 @@ export default function ProductsPage() {
             </Button>
             <Button variant="destructive" onClick={handleDelete} data-testid="confirm-delete-btn">
               Supprimer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Dialog de configuration de la sous-catégorie */}
+      <Dialog open={subCatDialogOpen} onOpenChange={setSubCatDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Configuration : {editingSubCat?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="threshold">Seuil d'alerte stock (commun à tous les produits)</Label>
+              <Input
+                id="threshold"
+                type="number"
+                value={subCatThreshold}
+                onChange={(e) => setSubCatThreshold(parseInt(e.target.value) || 0)}
+                className="bg-input border-border"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Les produits de cette catégorie apparaîtront en "Stock bas" s'ils tombent sous ce nombre.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSubCatDialogOpen(false)}>Annuler</Button>
+            <Button onClick={handleUpdateSubCatThreshold} disabled={updatingSubCat}>
+              {updatingSubCat ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enregistrer le seuil"}
             </Button>
           </DialogFooter>
         </DialogContent>
