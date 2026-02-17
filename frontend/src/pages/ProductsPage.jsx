@@ -136,27 +136,20 @@ export default function ProductsPage() {
   };
 
   const filteredProducts = products.filter((product) => {
-    // 1. On trouve la sous-catégorie du produit
     const subCat = subCategories.find(s => s.id === product.sub_category_id);
+    const threshold = subCat ? (subCat.min_quantity || 0) : 0;
 
-    // 2. Le seuil est celui de la sous-catégorie (ou 0 si aucune)
-    const threshold = subCat ? subCat.min_quantity : 0;
     const matchesSearch =
       searchQuery === '' ||
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.barcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.brand?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory =
-      filterCategory === 'all' || product.category_id === filterCategory;
+    const matchesCategory = filterCategory === 'all' || product.category_id === filterCategory;
+    const matchesLocation = filterLocation === 'all' || product.location_id === filterLocation;
 
-    const matchesLocation =
-      filterLocation === 'all' || product.location_id === filterLocation;
-
-    const minQty = subCat ? subCat.min_quantity : 0;
-
+    // Filtre Stock Bas : on compare à la valeur de la sous-catégorie
     const matchesLowStock = !filterLowStock || product.quantity < threshold;
-
     const matchesAvailable = !hideOutOfStock || product.quantity > 0;
 
     return matchesSearch && matchesCategory && matchesLocation && matchesLowStock && matchesAvailable;
@@ -421,12 +414,13 @@ export default function ProductsPage() {
   }
 
   const productsView = isGrouped ? (
-    // --- VUE REGROUPÉE (ACCORDION) ---
     <Accordion type="multiple" defaultValue={Object.keys(groupedProducts)} className="space-y-4">
       {Object.entries(groupedProducts).map(([subCatId, group]) => {
-        // On récupère la sous-catégorie actuelle pour avoir son min_quantity
+        // On récupère les infos de la sous-catégorie pour le header
         const currentSubCat = subCategories.find(s => s.id === subCatId);
-        const currentMinQty = currentSubCat?.min_quantity || 0;
+        const currentThreshold = currentSubCat?.min_quantity || 0;
+        const isGroupLowStock = group.totalStock < currentThreshold;
+
         return (
           <AccordionItem key={subCatId} value={subCatId} className="border-none">
             <AccordionTrigger className="hover:no-underline py-2 px-4 bg-secondary/50 rounded-lg group">
@@ -437,39 +431,44 @@ export default function ProductsPage() {
                     {group.products.length} {group.products.length > 1 ? 'produits' : 'produit'}
                   </Badge>
                 </div>
-              {/* SECTION RÉGLAGE SEUIL */}
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2 bg-background/50 px-2 py-1 rounded-md border border-border"
-                       onClick={(e) => e.stopPropagation()}> {/* Empêche l'ouverture de l'accordéon au clic sur l'input */}
-                    <Label htmlFor={`threshold-${subCatId}`} className="text-[10px] uppercase font-bold text-muted-foreground">
-                      Seuil Alerte :
+
+                <div className="flex items-center gap-4 sm:gap-8">
+                  {/* --- CHAMP DE RÉGLAGE DU SEUIL --- */}
+                  <div
+                    className="flex items-center gap-2 bg-background/80 px-2 py-1 rounded-md border border-border shadow-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Label htmlFor={`threshold-${subCatId}`} className="text-[10px] uppercase font-black text-muted-foreground whitespace-nowrap">
+                      Min :
                     </Label>
                     <Input
                       id={`threshold-${subCatId}`}
                       type="number"
-                      className="h-7 w-16 text-center text-xs bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary p-0"
-                      defaultValue={subCategories.find(s => s.id === subCatId)?.min_quantity || 0}
+                      className="h-6 w-12 text-center text-xs bg-transparent border-none focus-visible:ring-0 p-0 font-bold"
+                      defaultValue={currentThreshold}
                       onBlur={(e) => updateThreshold(subCatId, e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           updateThreshold(subCatId, e.target.value);
-                          e.target.blur(); // Retire le focus
+                          e.target.blur();
                         }
                       }}
                     />
                   </div>
-                  {/* SECTION STOCK TOTAL */}
+
+                  {/* --- STOCK TOTAL --- */}
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">
-                      Stock Total:
+                    <span className="hidden sm:inline text-[10px] text-muted-foreground uppercase font-bold">
+                      Total :
                     </span>
-                    <Badge className={group.totalStock > 0 ? "bg-emerald-500" : "bg-destructive"}>
+                    <Badge className={`h-7 px-3 flex items-center font-bold ${isGroupLowStock ? "bg-destructive text-white" : "bg-emerald-500 text-white"}`}>
                       {group.totalStock}
                     </Badge>
                   </div>
                 </div>
               </div>
             </AccordionTrigger>
+
             <AccordionContent className="pt-4 px-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {group.products.map((product) => (
@@ -479,10 +478,9 @@ export default function ProductsPage() {
             </AccordionContent>
           </AccordionItem>
         );
-    })}
+      })}
     </Accordion>
   ) : (
-    // --- VUE GRILLE SIMPLE ---
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {filteredProducts.map((product) => (
         <ProductCard key={product.id} product={product} />
