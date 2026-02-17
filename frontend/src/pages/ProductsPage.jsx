@@ -93,7 +93,7 @@ export default function ProductsPage() {
       setProducts(productsRes.data);
       setCategories(categoriesRes.data);
       setLocations(locationsRes.data);
-      setSubCategories(productsRes.data);
+      setSubCategories(subCatsRes.data);;
     } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
         toast.error('Erreur lors du chargement des données');

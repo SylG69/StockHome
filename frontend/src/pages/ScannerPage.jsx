@@ -294,7 +294,7 @@ export default function ScannerPage() {
     try {
       await api.post('/products', {
         ...formData,
-        sub_category_name: formData.sub_category_name,
+        sub_category_name: formData.sub_category_name || null,
         category_id: formData.category_id || null,
         location_id: formData.location_id || null,
         // sub_category_id: formData.sub_category_id || null,
