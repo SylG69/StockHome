@@ -423,58 +423,63 @@ export default function ProductsPage() {
   const productsView = isGrouped ? (
     // --- VUE REGROUPÉE (ACCORDION) ---
     <Accordion type="multiple" defaultValue={Object.keys(groupedProducts)} className="space-y-4">
-      {Object.entries(groupedProducts).map(([subCatId, group]) => (
-        <AccordionItem key={subCatId} value={subCatId} className="border-none">
-          <AccordionTrigger className="hover:no-underline py-2 px-4 bg-secondary/50 rounded-lg group">
-            <div className="flex items-center justify-between w-full pr-4">
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-lg">{group.name}</span>
-                <Badge variant="outline" className="bg-background">
-                  {group.products.length} {group.products.length > 1 ? 'produits' : 'produit'}
-                </Badge>
-              </div>
-              {/* SECTION RÉGLAGE SEUIL */}
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 bg-background/50 px-2 py-1 rounded-md border border-border"
-                     onClick={(e) => e.stopPropagation()}> {/* Empêche l'ouverture de l'accordéon au clic sur l'input */}
-                  <Label htmlFor={`threshold-${subCatId}`} className="text-[10px] uppercase font-bold text-muted-foreground">
-                    Seuil Alerte :
-                  </Label>
-                  <Input
-                    id={`threshold-${subCatId}`}
-                    type="number"
-                    className="h-7 w-16 text-center text-xs bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary p-0"
-                    defaultValue={subCategories.find(s => s.id === subCatId)?.min_quantity || 0}
-                    onBlur={(e) => updateThreshold(subCatId, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        updateThreshold(subCatId, e.target.value);
-                        e.target.blur(); // Retire le focus
-                      }
-                    }}
-                  />
-                </div>
-                {/* SECTION STOCK TOTAL */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">
-                    Stock Total:
-                  </span>
-                  <Badge className={group.totalStock > 0 ? "bg-emerald-500" : "bg-destructive"}>
-                    {group.totalStock}
+      {Object.entries(groupedProducts).map(([subCatId, group]) => {
+        // On récupère la sous-catégorie actuelle pour avoir son min_quantity
+        const currentSubCat = subCategories.find(s => s.id === subCatId);
+        const currentMinQty = currentSubCat?.min_quantity || 0;
+        return (
+          <AccordionItem key={subCatId} value={subCatId} className="border-none">
+            <AccordionTrigger className="hover:no-underline py-2 px-4 bg-secondary/50 rounded-lg group">
+              <div className="flex items-center justify-between w-full pr-4">
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-lg">{group.name}</span>
+                  <Badge variant="outline" className="bg-background">
+                    {group.products.length} {group.products.length > 1 ? 'produits' : 'produit'}
                   </Badge>
                 </div>
+              {/* SECTION RÉGLAGE SEUIL */}
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2 bg-background/50 px-2 py-1 rounded-md border border-border"
+                       onClick={(e) => e.stopPropagation()}> {/* Empêche l'ouverture de l'accordéon au clic sur l'input */}
+                    <Label htmlFor={`threshold-${subCatId}`} className="text-[10px] uppercase font-bold text-muted-foreground">
+                      Seuil Alerte :
+                    </Label>
+                    <Input
+                      id={`threshold-${subCatId}`}
+                      type="number"
+                      className="h-7 w-16 text-center text-xs bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary p-0"
+                      defaultValue={subCategories.find(s => s.id === subCatId)?.min_quantity || 0}
+                      onBlur={(e) => updateThreshold(subCatId, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          updateThreshold(subCatId, e.target.value);
+                          e.target.blur(); // Retire le focus
+                        }
+                      }}
+                    />
+                  </div>
+                  {/* SECTION STOCK TOTAL */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">
+                      Stock Total:
+                    </span>
+                    <Badge className={group.totalStock > 0 ? "bg-emerald-500" : "bg-destructive"}>
+                      {group.totalStock}
+                    </Badge>
+                  </div>
+                </div>
               </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="pt-4 px-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {group.products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      ))}
+            </AccordionTrigger>
+            <AccordionContent className="pt-4 px-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {group.products.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        );
+    })}
     </Accordion>
   ) : (
     // --- VUE GRILLE SIMPLE ---
