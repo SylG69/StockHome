@@ -378,6 +378,26 @@ export default function ProductsPage() {
     );
   };
 
+  const updateThreshold = async (subCatId, newThreshold) => {
+    try {
+      const subCat = subCategories.find(s => s.id === subCatId);
+      if (!subCat) return;
+
+      const payload = {
+        name: subCat.name,
+        category_id: subCat.category_id,
+        min_quantity: parseInt(newThreshold) || 0
+      };
+
+      await api.put(`/subcategories/${subCatId}`, payload);
+      // On met à jour l'état local immédiatement pour que les alertes se calculent
+      setSubCategories(prev => prev.map(s => s.id === subCatId ? { ...s, min_quantity: payload.min_quantity } : s));
+      toast.success("Seuil mis à jour");
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
   const handleQuantityChange = async (product, delta) => {
     try {
       const response = await api.patch(`/products/${product.id}/quantity?delta=${delta}`);
@@ -409,31 +429,40 @@ export default function ProductsPage() {
             <div className="flex items-center justify-between w-full pr-4">
               <div className="flex items-center gap-3">
                 <span className="font-bold text-lg">{group.name}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const subCat = subCategories.find(s => s.id === subCatId);
-                    setEditingSubCat(subCat);
-                    setSubCatThreshold(subCat?.min_quantity || 0);
-                    setSubCatDialogOpen(true);
-                  }}
-                >
-                  <Edit className="w-3 h-3" />
-                </Button>
                 <Badge variant="outline" className="bg-background">
                   {group.products.length} {group.products.length > 1 ? 'produits' : 'produit'}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">
-                  Stock Total:
-                </span>
-                <Badge className={group.totalStock > 0 ? "bg-emerald-500" : "bg-destructive"}>
-                  {group.totalStock}
-                </Badge>
+              {/* SECTION RÉGLAGE SEUIL */}
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2 bg-background/50 px-2 py-1 rounded-md border border-border"
+                     onClick={(e) => e.stopPropagation()}> {/* Empêche l'ouverture de l'accordéon au clic sur l'input */}
+                  <Label htmlFor={`threshold-${subCatId}`} className="text-[10px] uppercase font-bold text-muted-foreground">
+                    Seuil Alerte :
+                  </Label>
+                  <Input
+                    id={`threshold-${subCatId}`}
+                    type="number"
+                    className="h-7 w-16 text-center text-xs bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary p-0"
+                    defaultValue={subCategories.find(s => s.id === subCatId)?.min_quantity || 0}
+                    onBlur={(e) => updateThreshold(subCatId, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        updateThreshold(subCatId, e.target.value);
+                        e.target.blur(); // Retire le focus
+                      }
+                    }}
+                  />
+                </div>
+                {/* SECTION STOCK TOTAL */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">
+                    Stock Total:
+                  </span>
+                  <Badge className={group.totalStock > 0 ? "bg-emerald-500" : "bg-destructive"}>
+                    {group.totalStock}
+                  </Badge>
+                </div>
               </div>
             </div>
           </AccordionTrigger>
