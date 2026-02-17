@@ -72,7 +72,7 @@ export default function ProductsPage() {
     min_quantity: 1,
     unit: 'unité',
     category_id: '',
-    sub_category_name: '',
+    sub_category_id: '',
     location_id: '',
     image_url: '',
     brand: '',
@@ -134,7 +134,7 @@ export default function ProductsPage() {
         min_quantity: product.min_quantity,
         unit: product.unit || 'unité',
         category_id: product.category_id || '',
-        sub_category_name: product.sub_category_name || '',
+        sub_category_id: product.sub_category_id || '',
         location_id: product.location_id || '',
         image_url: product.image_url || '',
         brand: product.brand || '',
@@ -149,7 +149,7 @@ export default function ProductsPage() {
         min_quantity: 1,
         unit: 'unité',
         category_id: '',
-        sub_category_name: '',
+        sub_category_id: '',
         location_id: '',
         image_url: '',
         brand: '',
@@ -365,7 +365,7 @@ export default function ProductsPage() {
                   </DropdownMenu>
                 </div>
                 <Badge variant="default" className="text-xs">
-                  {product.sub_category_name}
+                  {subCategories.find(s => s.id === product.sub_category_id)?.name || "Sans sous-catégorie"}
                 </Badge>
                 <h3 className="font-semibold text-sm truncate">{product.name}</h3>
                 <p className="text-xs text-muted-foreground truncate mb-2">
@@ -565,8 +565,11 @@ export default function ProductsPage() {
               <div>
                 <Label htmlFor="sub_category_id">Sous-catégorie</Label>
                 <Select
-                  value={formData.sub_category_id ||"none"}
-                  onValueChange={(value) => setFormData({ ...formData, sub_category_id: value === "none" ? null : value})}
+                  value={formData.sub_category_id || "none"}
+                  onValueChange={(value) => setFormData({
+                    ...formData,
+                    sub_category_id: value === "none" ? null : value
+                  })}
                 >
                   <SelectTrigger className="bg-input border-border" data-testid="product-subcategory-select">
                     <SelectValue placeholder="Sélectionner" />
