@@ -41,6 +41,12 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Switch } from "@/components/ui/switch";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../components/ui/accordion";
 
 export default function ProductsPage() {
   const { api } = useAuth();
@@ -62,6 +68,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [isGrouped, setIsGrouped] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -122,6 +129,23 @@ export default function ProductsPage() {
 
     return matchesSearch && matchesCategory && matchesLocation && matchesLowStock && matchesAvailable;
   });
+
+  const groupedProducts = filteredProducts.reduce((acc, product) => {
+  const subCatId = product.sub_category_id || 'no-sub';
+  const subCatName = subCategories.find(s => s.id === product.sub_category_id)?.name || "Sans sous-catégorie";
+
+  if (!acc[subCatId]) {
+    acc[subCatId] = {
+      name: subCatName,
+      products: [],
+      totalStock: 0
+    };
+  }
+
+  acc[subCatId].products.push(product);
+  acc[subCatId].totalStock += product.quantity;
+  return acc;
+}, {});
 
   const handleOpenDialog = (product = null) => {
     if (product) {
@@ -204,6 +228,115 @@ export default function ProductsPage() {
         toast.error('Erreur lors de la suppression');
     }
   };
+  // Composant interne pour éviter la répétition du code du Card
+  const ProductCard = ({ product }) => (
+    <Card className="bg-card border-border card-hover animate-fade-in">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          {product.image_url ? (
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="w-16 h-16 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
+              <Package className="w-8 h-8 text-muted-foreground" />
+            </div>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" data-testid={`product-menu-${product.id}`}>
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleOpenDialog(product)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Modifier
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setProductToDelete(product);
+                  setDeleteDialogOpen(true);
+                }}
+                className="text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <Badge variant="default" className="text-xs">
+          {subCategories.find(s => s.id === product.sub_category_id)?.name || "Sans sous-catégorie"}
+        </Badge>
+        <h3 className="font-semibold text-sm truncate">{product.name}</h3>
+        <p className="text-xs text-muted-foreground truncate mb-2">
+          {product.brand || 'Sans marque'}
+        </p>
+        {product.barcode && (
+          <p className="text-xs text-muted-foreground font-mono mb-2">
+            <ScanLine className="w-3 h-3 inline mr-1" />
+            {product.barcode}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-1 mb-3">
+          {product.category_name && (
+            <Badge variant="secondary" className="text-xs">
+              {product.category_name}
+            </Badge>
+          )}
+          {product.location_name && (
+            <Badge variant="outline" className="text-xs">
+              {product.location_name}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleQuantityChange(product, -1)}
+              disabled={product.quantity <= 0}
+              data-testid={`decrease-qty-${product.id}`}
+            >
+              <Minus className="w-3 h-3" />
+            </Button>
+            <span
+              className={`text-lg font-bold min-w-[40px] text-center ${
+                product.quantity < product.min_quantity
+                  ? 'text-destructive'
+                  : 'text-emerald-500'
+              }`}
+            >
+              {product.quantity}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleQuantityChange(product, 1)}
+              data-testid={`increase-qty-${product.id}`}
+            >
+              <Plus className="w-3 h-3" />
+            </Button>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            min: {product.min_quantity} {product.unit}
+          </span>
+        </div>
+        {product.quantity < product.min_quantity && (
+          <div className="mt-2 flex items-center gap-1 text-xs text-destructive">
+            <AlertTriangle className="w-3 h-3" />
+            Stock bas
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   const handleQuantityChange = async (product, delta) => {
     try {
@@ -304,6 +437,16 @@ export default function ProductsPage() {
                   onCheckedChange={setHideOutOfStock}
                 />
               </div>
+              <div className="flex items-center gap-2 px-2 border-l border-border ml-2">
+                <Label htmlFor="grouped-mode" className="text-sm text-muted-foreground cursor-pointer">
+                  Grouper
+                </Label>
+                <Switch
+                  id="grouped-mode"
+                  checked={isGrouped}
+                  onCheckedChange={setIsGrouped}
+                />
+              </div>
               <Button
                 variant={filterLowStock ? 'default' : 'outline'}
                 onClick={() => setFilterLowStock(!filterLowStock)}
@@ -318,127 +461,62 @@ export default function ProductsPage() {
       </Card>
 
       {/* Products Grid */}
+      {/* Products Grid / Grouped View */}
       {filteredProducts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredProducts.map((product, index) => (
-            <Card
-              key={product.id}
-              className={`bg-card border-border card-hover animate-fade-in`}
-              style={{ animationDelay: `${index * 0.05}s` }}
-              data-testid={`product-card-${product.id}`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-16 h-16 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
-                      <Package className="w-8 h-8 text-muted-foreground" />
+        isGrouped ? (
+          // --- VUE REGROUPÉE (ACCORDION) ---
+          <Accordion type="multiple" defaultValue={Object.keys(groupedProducts)} className="space-y-4">
+            {Object.entries(groupedProducts).map(([subCatId, group]) => (
+              <AccordionItem key={subCatId} value={subCatId} className="border-none">
+                <AccordionTrigger className="hover:no-underline py-2 px-4 bg-secondary/50 rounded-lg group">
+                  <div className="flex items-center justify-between w-full pr-4">
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-lg">{group.name}</span>
+                      <Badge variant="outline" className="bg-background">
+                        {group.products.length} {group.products.length > 1 ? 'produits' : 'produit'}
+                      </Badge>
                     </div>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" data-testid={`product-menu-${product.id}`}>
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleOpenDialog(product)}>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setProductToDelete(product);
-                          setDeleteDialogOpen(true);
-                        }}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <Badge variant="default" className="text-xs">
-                  {subCategories.find(s => s.id === product.sub_category_id)?.name || "Sans sous-catégorie"}
-                </Badge>
-                <h3 className="font-semibold text-sm truncate">{product.name}</h3>
-                <p className="text-xs text-muted-foreground truncate mb-2">
-                  {product.brand || 'Sans marque'}
-                </p>
-
-                {product.barcode && (
-                  <p className="text-xs text-muted-foreground font-mono mb-2">
-                    <ScanLine className="w-3 h-3 inline mr-1" />
-                    {product.barcode}
-                  </p>
-                )}
-
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {product.category_name && (
-                    <Badge variant="secondary" className="text-xs">
-                      {product.category_name}
-                    </Badge>
-                  )}
-                  {product.location_name && (
-                    <Badge variant="outline" className="text-xs">
-                      {product.location_name}
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleQuantityChange(product, -1)}
-                      disabled={product.quantity <= 0}
-                      data-testid={`decrease-qty-${product.id}`}
-                    >
-                      <Minus className="w-3 h-3" />
-                    </Button>
-                    <span
-                      className={`text-lg font-bold min-w-[40px] text-center ${
-                        product.quantity < product.min_quantity
-                          ? 'text-destructive'
-                          : 'text-emerald-500'
-                      }`}
-                    >
-                      {product.quantity}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleQuantityChange(product, 1)}
-                      data-testid={`increase-qty-${product.id}`}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">
+                        Stock Total:
+                      </span>
+                      <Badge className={group.totalStock > 0 ? "bg-emerald-500" : "bg-destructive"}>
+                        {group.totalStock}
+                      </Badge>
+                    </div>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    min: {product.min_quantity} {product.unit}
-                  </span>
-                </div>
-
-                {product.quantity < product.min_quantity && (
-                  <div className="mt-2 flex items-center gap-1 text-xs text-destructive">
-                    <AlertTriangle className="w-3 h-3" />
-                    Stock bas
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 px-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {group.products.map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        ) : (
+          // --- VUE GRILLE SIMPLE ---
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )
       ) : (
+        // --- VUE VIDE ---
+        <Card className="bg-card border-border">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Package className="w-16 h-16 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Aucun produit trouvé</h3>
+            <Button onClick={() => handleOpenDialog()}>
+              <Plus className="w-4 h-4 mr-2" /> Ajouter un produit
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {/*A supprimer ? (
         <Card className="bg-card border-border">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Package className="w-16 h-16 text-muted-foreground mb-4" />
@@ -454,7 +532,7 @@ export default function ProductsPage() {
             </Button>
           </CardContent>
         </Card>
-      )}
+      )} */}
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
