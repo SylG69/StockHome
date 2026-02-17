@@ -169,7 +169,7 @@ export default function ProductsPage() {
       const payload = {
         ...formData,
         category_id: formData.category_id || null,
-        sub_category_name: formData.sub_category_name || null,
+        sub_category_id: formData.sub_category_id || null,
         location_id: formData.location_id || null,
       };
 
@@ -565,7 +565,7 @@ export default function ProductsPage() {
               <div>
                 <Label htmlFor="sub_category_id">Sous-catégorie</Label>
                 <Select
-                  value={formData.sub_category_id || "none"}
+                  value={formData.sub_category_id ? String(formData.sub_category_id) : "none"}
                   onValueChange={(value) => setFormData({
                     ...formData,
                     sub_category_id: value === "none" ? null : value
@@ -578,7 +578,7 @@ export default function ProductsPage() {
                     {/* Option pour désélectionner */}
                     <SelectItem value="none">Aucune</SelectItem>
                     {subCategories.map((sub) => (
-                      <SelectItem key={sub.id} value={sub.id}>
+                      <SelectItem key={sub.id} value={String(sub.id)}>
                         {sub.name}
                       </SelectItem>
                     ))}
