@@ -39,6 +39,7 @@ import {
   Filter,
   ScanLine,
   Loader2,
+  Settings2,
 } from 'lucide-react';
 import { Switch } from "@/components/ui/switch";
 import {
