@@ -64,12 +64,13 @@ export default function ShoppingListPage() {
 
     // Formatage : "Nom de l'article (Quantité Unité)"
     const listString = activeItems
-      .map(i => `${i.name} (${i.quantity} ${i.unit})`)
+      .map(i => `- ${i.name} (${i.quantity} ${i.unit})`)
       .join('\n');
 
     navigator.clipboard.writeText(listString)
       .then(() => {
-        toast.success("Liste copiée ! Ouvrez Rappels et collez dans une nouvelle tâche.");
+        toast.success("Liste copiée !");
+        window.location.href = "x-apple-reminder://";
       })
       .catch(() => {
         toast.error("Erreur lors de la copie");
