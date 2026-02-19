@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -64,7 +63,7 @@ export default function ShoppingListPage() {
     if (activeItems.length === 0) return toast.error("Liste vide");
 
     const listString = activeItems
-      .map(i => `- ${i.name} (${i.quantity} ${i.unit})`)
+      .map(i => `${i.name} (${i.quantity} ${i.unit})`)
       .join('\n');
 
     navigator.clipboard.writeText(listString).then(() => {
@@ -93,28 +92,40 @@ export default function ShoppingListPage() {
 
       const stockPerSubCat = products.reduce((acc, p) => {
         if (!p.sub_category_id) return acc;
-        acc[p.sub_category_id] = (acc[p.sub_category_id] || 0) + p.quantity;
+        const qty = Number(p.quantity) || 0;
+        acc[p.sub_category_id] = (acc[p.sub_category_id] || 0) + qty;
         return acc;
       }, {});
 
       const missingItems = subCategories
-        .filter(sub => (stockPerSubCat[sub.id] || 0) < (sub.min_quantity || 0))
+        .filter(sub => {
+          const totalStock = Number(stockPerSubCat[sub.id]) || 0;
+          const minRequired = Number(sub.min_quantity) || 0;
+
+          // DEBUG: Affiche les valeurs pour comprendre pourquoi Beurre passe ou non
+          console.log(`Groupe: ${sub.name} | Stock: ${totalStock} | Min: ${minRequired}`);
+
+          return totalStock < minRequired;
+        })
         .map(sub => ({
           name: sub.name,
-          quantity: sub.min_quantity - (stockPerSubCat[sub.id] || 0),
+          quantity: Math.max(1, Number(sub.min_quantity) - (stockPerSubCat[sub.id] || 0)),
           unit: 'unité'
-        }));
+        }))
+        .filter(newItem => !items.find(ex => ex.name === newItem.name && !ex.is_checked));
 
-      for (const item of missingItems) {
-        if (!items.find(ex => ex.name === item.name && !ex.is_checked)) {
-          await api.post('/shopping-list', item);
-        }
+      if (missingItems.length === 0) {
+        toast.info('Stock suffisant selon vos réglages.');
+        return;
       }
 
-      fetchItems();
-      toast.success('Liste synchronisée');
+      await api.post('/shopping-list/bulk', missingItems);
+      await fetchItems();
+      toast.success(`${missingItems.length} groupe(s) ajouté(s)`);
+
     } catch (error) {
-      toast.error('Erreur génération');
+      console.error("Erreur détaillée:", error);
+      toast.error('Erreur de génération');
     } finally {
       setGenerating(false);
     }

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -749,23 +749,22 @@ async def get_shopping_list(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/shopping-list/generate", response_model=List[ShoppingListItemResponse])
 async def generate_shopping_list(current_user: dict = Depends(get_current_user)):
-    """Generate shopping list from products below minimum quantity"""
-    # Get products below min quantity
-    low_stock_products = await db.products.find(
-        {"user_id": current_user['id']},
-        {"_id": 0}
-    ).to_list(1000)
+    """Version optimisée avec insertion groupée"""
+    # 1. Récupération des produits en stock bas
+    all_products = await db.products.find({"user_id": current_user['id']}, {"_id": 0}).to_list(1000)
+    low_stock_products = [p for p in all_products if p['quantity'] < p.get('min_quantity', 0)]
 
-    low_stock_products = [p for p in low_stock_products if p['quantity'] < p['min_quantity']]
-
-    # Clear existing auto-generated items (those with product_id)
+    # 2. Nettoyage des anciens items auto-générés
     await db.shopping_list.delete_many({
         "user_id": current_user['id'],
         "product_id": {"$ne": None}
     })
 
-    # Create new shopping list items
-    new_items = []
+    if not low_stock_products:
+        return await db.shopping_list.find({"user_id": current_user['id']}, {"_id": 0}).to_list(500)
+
+    # 3. Préparation de la liste d'insertion
+    new_items_to_insert = []
     for product in low_stock_products:
         quantity_needed = product['min_quantity'] - product['quantity']
         item = ShoppingListItem(
@@ -777,16 +776,14 @@ async def generate_shopping_list(current_user: dict = Depends(get_current_user))
         )
         item_dict = item.model_dump()
         item_dict['created_at'] = item_dict['created_at'].isoformat()
-        await db.shopping_list.insert_one(item_dict)
-        new_items.append(item_dict)
+        new_items_to_insert.append(item_dict)
 
-    # Get all items including manual ones
-    all_items = await db.shopping_list.find(
-        {"user_id": current_user['id']},
-        {"_id": 0}
-    ).to_list(500)
+    # 4. Insertion unique au lieu d'une boucle
+    if new_items_to_insert:
+        await db.shopping_list.insert_many(new_items_to_insert)
 
-    return all_items
+    # Retourne la liste complète mise à jour
+    return await db.shopping_list.find({"user_id": current_user['id']}, {"_id": 0}).to_list(500)
 
 @api_router.post("/shopping-list", response_model=ShoppingListItemResponse)
 async def add_shopping_list_item(item_data: ShoppingListItemCreate, current_user: dict = Depends(get_current_user)):
@@ -827,6 +824,34 @@ async def clear_shopping_list(checked_only: bool = True, current_user: dict = De
         query["is_checked"] = True
     await db.shopping_list.delete_many(query)
     return {"message": "Liste de courses vidée"}
+
+
+@api_router.post("/shopping-list/bulk", response_model=List[ShoppingListItemResponse])
+async def add_shopping_list_items_bulk(
+    items_data: List[ShoppingListItemCreate] = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        if not items_data:
+            return []
+
+        prepared_items = []
+        now = datetime.now(timezone.utc).isoformat()
+
+        for data in items_data:
+            item_dict = data.model_dump()
+            item_dict.update({
+                "id": str(uuid.uuid4()),
+                "user_id": current_user['id'],
+                "is_checked": False,
+                "created_at": now
+            })
+            prepared_items.append(item_dict)
+
+        await db.shopping_list.insert_many(prepared_items)
+        return prepared_items
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== DASHBOARD STATS ====================
 
