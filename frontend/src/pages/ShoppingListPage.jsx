@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Checkbox } from '../components/ui/checkbox';
+import { Badge } from '../components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import {
   Loader2,
   Check,
   Package,
+  Layers,
 } from 'lucide-react';
 
 export default function ShoppingListPage() {
@@ -29,7 +31,6 @@ export default function ShoppingListPage() {
   const [generating, setGenerating] = useState(false);
   const [clearing, setClearing] = useState(false);
 
-  // Add item dialog
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
@@ -51,14 +52,61 @@ export default function ShoppingListPage() {
     }
   };
 
+  /**
+   * NOUVELLE LOGIQUE DE GÉNÉRATION
+   * Basée sur le stock total par sous-catégorie
+   */
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const response = await api.get('/shopping-list/generate');
-      setItems(response.data);
-      toast.success('Liste de courses générée');
+      // 1. On récupère les données actuelles
+      const [productsRes, subCatsRes] = await Promise.all([
+        api.get('/products'),
+        api.get('/subcategories')
+      ]);
+
+      const products = productsRes.data;
+      const subCategories = subCatsRes.data;
+
+      // 2. Calcul du stock total par sous-catégorie
+      const stockPerSubCat = products.reduce((acc, p) => {
+        if (!p.sub_category_id) return acc;
+        acc[p.sub_category_id] = (acc[p.sub_category_id] || 0) + p.quantity;
+        return acc;
+      }, {});
+
+      // 3. Identifier les sous-catégories en rupture (Total < Min)
+      const missingItems = subCategories
+        .filter(sub => {
+          const currentStock = stockPerSubCat[sub.id] || 0;
+          return currentStock < (sub.min_quantity || 0);
+        })
+        .map(sub => ({
+          name: sub.name,
+          quantity: sub.min_quantity - (stockPerSubCat[sub.id] || 0),
+          unit: 'unité',
+          is_from_subcategory: true // Flag pour l'affichage
+        }));
+
+      if (missingItems.length === 0) {
+        toast.info("Le stock global est suffisant pour toutes les catégories");
+        return;
+      }
+
+      // 4. Envoi à l'API pour mise à jour de la liste de courses
+      // Note : On utilise ici une boucle ou un endpoint bulk si disponible
+      for (const item of missingItems) {
+        // On évite les doublons simples par nom
+        if (!items.find(existing => existing.name === item.name && !existing.is_checked)) {
+          await api.post('/shopping-list', item);
+        }
+      }
+
+      fetchItems();
+      toast.success('Liste mise à jour selon les seuils de groupes');
     } catch (error) {
-      toast.error('Erreur lors de la génération');
+      console.error(error);
+      toast.error('Erreur lors de la génération intelligente');
     } finally {
       setGenerating(false);
     }
@@ -68,9 +116,7 @@ export default function ShoppingListPage() {
     try {
       const response = await api.patch(`/shopping-list/${item.id}/toggle`);
       setItems((prev) =>
-        prev.map((i) =>
-          i.id === item.id ? { ...i, is_checked: response.data.is_checked } : i
-        )
+        prev.map((i) => i.id === item.id ? { ...i, is_checked: response.data.is_checked } : i)
       );
     } catch (error) {
       toast.error('Erreur lors de la mise à jour');
@@ -101,11 +147,7 @@ export default function ShoppingListPage() {
   };
 
   const handleAddItem = async () => {
-    if (!newItemName.trim()) {
-      toast.error("Le nom de l'article est requis");
-      return;
-    }
-
+    if (!newItemName.trim()) return toast.error("Nom requis");
     setSaving(true);
     try {
       const response = await api.post('/shopping-list', {
@@ -116,8 +158,6 @@ export default function ShoppingListPage() {
       setItems((prev) => [...prev, response.data]);
       setAddDialogOpen(false);
       setNewItemName('');
-      setNewItemQuantity(1);
-      setNewItemUnit('unité');
       toast.success('Article ajouté');
     } catch (error) {
       toast.error("Erreur lors de l'ajout");
@@ -129,111 +169,78 @@ export default function ShoppingListPage() {
   const uncheckedItems = items.filter((i) => !i.is_checked);
   const checkedItems = items.filter((i) => i.is_checked);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="animate-spin h-12 w-12 text-primary" />
+    </div>
+  );
 
   return (
-    <div className="space-y-6" data-testid="shopping-list-page">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Liste de Courses</h1>
-          <p className="text-muted-foreground mt-1">
-            Gérez votre liste de courses
-          </p>
+          <p className="text-muted-foreground mt-1">Génération basée sur les seuils de groupes</p>
         </div>
         <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={handleGenerate}
-            disabled={generating}
-            data-testid="generate-list-btn"
-          >
-            {generating ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 mr-2" />
-            )}
-            Générer
+          <Button variant="outline" onClick={handleGenerate} disabled={generating}>
+            {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            Réapprovisionner les groupes
           </Button>
-          <Button onClick={() => setAddDialogOpen(true)} className="btn-glow" data-testid="add-item-btn">
-            <Plus className="w-4 h-4 mr-2" />
-            Ajouter
+          <Button onClick={() => setAddDialogOpen(true)} className="btn-glow">
+            <Plus className="w-4 h-4 mr-2" /> Ajouter
           </Button>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border shadow-sm">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-primary/10">
-              <ShoppingCart className="w-6 h-6 text-primary" />
-            </div>
+            <div className="p-3 rounded-xl bg-primary/10"><ShoppingCart className="w-6 h-6 text-primary" /></div>
             <div>
               <p className="text-2xl font-bold">{uncheckedItems.length}</p>
-              <p className="text-sm text-muted-foreground">À acheter</p>
+              <p className="text-sm text-muted-foreground">Manquants</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border shadow-sm">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-500/10">
-              <Check className="w-6 h-6 text-emerald-500" />
-            </div>
+            <div className="p-3 rounded-xl bg-emerald-500/10"><Check className="w-6 h-6 text-emerald-500" /></div>
             <div>
               <p className="text-2xl font-bold">{checkedItems.length}</p>
-              <p className="text-sm text-muted-foreground">Achetés</p>
+              <p className="text-sm text-muted-foreground">Dans le panier</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Shopping List */}
       {items.length > 0 ? (
         <div className="space-y-6">
-          {/* Unchecked Items */}
           {uncheckedItems.length > 0 && (
             <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">À acheter</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg font-semibold">Besoin immédiat</CardTitle></CardHeader>
               <CardContent className="space-y-2">
                 {uncheckedItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                    data-testid={`shopping-item-${item.id}`}
-                  >
+                  <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={item.is_checked}
-                        onCheckedChange={() => handleToggleItem(item)}
-                        data-testid={`check-item-${item.id}`}
-                      />
-                      <div className="flex items-center gap-2">
-                        {item.product_id ? (
-                          <Package className="w-4 h-4 text-primary" />
-                        ) : null}
-                        <span className="font-medium">{item.name}</span>
+                      <Checkbox checked={item.is_checked} onCheckedChange={() => handleToggleItem(item)} />
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{item.name}</span>
+                          {/* Badge spécial pour indiquer que c'est un besoin de groupe */}
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1 uppercase">
+                            <Layers className="w-2 h-2 mr-1" /> Groupe
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="text-sm text-muted-foreground">
-                        {item.quantity} {item.unit}
+                      <span className="text-sm font-medium bg-background px-2 py-1 rounded border">
+                        Manque : {item.quantity} {item.unit}
                       </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteItem(item.id)}
-                        data-testid={`delete-item-${item.id}`}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -243,56 +250,23 @@ export default function ShoppingListPage() {
             </Card>
           )}
 
-          {/* Checked Items */}
           {checkedItems.length > 0 && (
-            <Card className="bg-card border-border">
+            <Card className="bg-card border-border opacity-70">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-semibold text-muted-foreground">
-                  Achetés
-                </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearChecked}
-                  disabled={clearing}
-                  className="text-muted-foreground hover:text-destructive"
-                  data-testid="clear-checked-btn"
-                >
-                  {clearing ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4 mr-2" />
-                  )}
-                  Supprimer les achetés
+                <CardTitle className="text-lg font-semibold text-muted-foreground">Déjà pris</CardTitle>
+                <Button variant="ghost" size="sm" onClick={handleClearChecked} disabled={clearing} className="text-muted-foreground hover:text-destructive">
+                  {clearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                  Vider le panier
                 </Button>
               </CardHeader>
               <CardContent className="space-y-2">
                 {checkedItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 opacity-60"
-                    data-testid={`shopping-item-checked-${item.id}`}
-                  >
+                  <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/20">
                     <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={item.is_checked}
-                        onCheckedChange={() => handleToggleItem(item)}
-                      />
-                      <span className="font-medium line-through">{item.name}</span>
+                      <Checkbox checked={item.is_checked} onCheckedChange={() => handleToggleItem(item)} />
+                      <span className="font-medium line-through text-muted-foreground">{item.name}</span>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-muted-foreground">
-                        {item.quantity} {item.unit}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteItem(item.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.id)}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 ))}
               </CardContent>
@@ -300,27 +274,14 @@ export default function ShoppingListPage() {
           )}
         </div>
       ) : (
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <ShoppingCart className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Liste vide</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              Générez automatiquement une liste à partir de vos produits en stock bas
+            <ShoppingCart className="w-16 h-16 text-muted-foreground/20 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Tout est en ordre</h3>
+            <p className="text-muted-foreground text-center mb-6 max-w-xs">
+              Vos stocks par sous-catégories sont au-dessus des seuils d'alerte.
             </p>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleGenerate} disabled={generating}>
-                {generating ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                )}
-                Générer la liste
-              </Button>
-              <Button onClick={() => setAddDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Ajouter manuellement
-              </Button>
-            </div>
+            <Button onClick={handleGenerate} disabled={generating}>Vérifier à nouveau</Button>
           </CardContent>
         </Card>
       )}
@@ -328,58 +289,26 @@ export default function ShoppingListPage() {
       {/* Add Item Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader>
-            <DialogTitle>Ajouter un article</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Ajout manuel</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium">Nom *</label>
-              <Input
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                className="bg-input border-border mt-1"
-                placeholder="Ex: Lait, Pain..."
-                data-testid="new-item-name-input"
-              />
+              <label className="text-sm font-medium">Nom de l'article</label>
+              <Input value={newItemName} onChange={(e) => setNewItemName(e.target.value)} placeholder="Ex: Beurre doux" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Quantité</label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={newItemQuantity}
-                  onChange={(e) => setNewItemQuantity(parseInt(e.target.value) || 1)}
-                  className="bg-input border-border mt-1"
-                  data-testid="new-item-quantity-input"
-                />
+                <Input type="number" min="1" value={newItemQuantity} onChange={(e) => setNewItemQuantity(parseInt(e.target.value) || 1)} />
               </div>
               <div>
                 <label className="text-sm font-medium">Unité</label>
-                <Input
-                  value={newItemUnit}
-                  onChange={(e) => setNewItemUnit(e.target.value)}
-                  className="bg-input border-border mt-1"
-                  placeholder="unité"
-                  data-testid="new-item-unit-input"
-                />
+                <Input value={newItemUnit} onChange={(e) => setNewItemUnit(e.target.value)} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button onClick={handleAddItem} disabled={saving} data-testid="save-new-item-btn">
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Ajout...
-                </>
-              ) : (
-                'Ajouter'
-              )}
-            </Button>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Annuler</Button>
+            <Button onClick={handleAddItem} disabled={saving}>{saving ? 'Ajout...' : 'Ajouter'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
