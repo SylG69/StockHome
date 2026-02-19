@@ -53,29 +53,28 @@ export default function ShoppingListPage() {
     }
   };
 
-  // --- NOUVELLE FONCTION D'EXPORT ---
-  const handleExport = () => {
-    const activeItems = items.filter(i => !i.is_checked);
+  const handleExportToNotes = () => {
+  const activeItems = items.filter(i => !i.is_checked);
 
-    if (activeItems.length === 0) {
-      toast.error("La liste est vide");
-      return;
-    }
+  if (activeItems.length === 0) {
+    toast.error("La liste est vide");
+    return;
+  }
 
-    // Formatage : "Nom de l'article (Quantité Unité)"
-    const listString = activeItems
-      .map(i => `[ ] ${i.name} (${i.quantity} ${i.unit})`)
-      .join('\n');
+  const listString = activeItems
+    .map(i => `- ${i.name} : ${i.quantity} ${i.unit}`)
+    .join('\n');
 
-    navigator.clipboard.writeText(listString)
-      .then(() => {
-        toast.success("Liste copiée !");
-        window.location.href = "x-apple-reminder://";
-      })
-      .catch(() => {
-        toast.error("Erreur lors de la copie");
-      });
-  };
+  navigator.clipboard.writeText(listString)
+    .then(() => {
+      toast.success("Liste copiée ! Collez-la dans une Note.");
+      // Optionnel : Tentative d'ouverture de l'app Notes (marche sur bcp d'iOS)
+      window.location.href = "mobilenotes://";
+    })
+    .catch(() => {
+      toast.error("Erreur lors de la copie");
+    });
+};
 
   const handleGenerate = async () => {
     setGenerating(true);
