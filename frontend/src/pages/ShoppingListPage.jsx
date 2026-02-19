@@ -53,28 +53,28 @@ export default function ShoppingListPage() {
     }
   };
 
-  // --- NOUVELLE FONCTION D'EXPORT ---
-  const handleExport = () => {
-    const activeItems = items.filter(i => !i.is_checked);
+  const handleExportToNotes = () => {
+  const activeItems = items.filter(i => !i.is_checked);
 
-    if (activeItems.length === 0) {
-      toast.error("La liste est vide");
-      return;
-    }
+  if (activeItems.length === 0) {
+    toast.error("La liste est vide");
+    return;
+  }
 
-    // Formatage : "Nom de l'article (Quantité Unité)"
-    const listString = activeItems
-      .map(i => `${i.name} (${i.quantity} ${i.unit})`)
-      .join('\n');
+  const listString = activeItems
+    .map(i => `- ${i.name} : ${i.quantity} ${i.unit}`)
+    .join('\n');
 
-    navigator.clipboard.writeText(listString)
-      .then(() => {
-        toast.success("Liste copiée ! Ouvrez Rappels et collez dans une nouvelle tâche.");
-      })
-      .catch(() => {
-        toast.error("Erreur lors de la copie");
-      });
-  };
+  navigator.clipboard.writeText(listString)
+    .then(() => {
+      toast.success("Liste copiée ! Collez-la dans une Note.");
+      // Optionnel : Tentative d'ouverture de l'app Notes (marche sur bcp d'iOS)
+      window.location.href = "mobilenotes://";
+    })
+    .catch(() => {
+      toast.error("Erreur lors de la copie");
+    });
+};
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -165,9 +165,13 @@ export default function ShoppingListPage() {
           <p className="text-muted-foreground mt-1">Gérée par groupes de produits</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport} className="border-primary/20 hover:bg-primary/5 text-primary">
+          <Button
+            variant="outline"
+            onClick={handleExportToNotes}
+            className="bg-[#FFFBCC] border-[#E6B800] text-[#856404] hover:bg-[#FFF4A3]"
+          >
             <Share className="w-4 h-4 mr-2" />
-            Exporter
+            Exporter vers Notes
           </Button>
           <Button variant="outline" onClick={handleGenerate} disabled={generating}>
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
