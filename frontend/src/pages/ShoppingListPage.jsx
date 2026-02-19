@@ -165,9 +165,13 @@ export default function ShoppingListPage() {
           <p className="text-muted-foreground mt-1">Gérée par groupes de produits</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport} className="border-primary/20 hover:bg-primary/5 text-primary">
+          <Button
+            variant="outline"
+            onClick={handleExportToNotes}
+            className="bg-[#FFFBCC] border-[#E6B800] text-[#856404] hover:bg-[#FFF4A3]"
+          >
             <Share className="w-4 h-4 mr-2" />
-            Exporter
+            Exporter vers Notes
           </Button>
           <Button variant="outline" onClick={handleGenerate} disabled={generating}>
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
