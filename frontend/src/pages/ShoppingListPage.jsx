@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -22,6 +23,7 @@ import {
   Check,
   Layers,
   Share,
+  NotebookTabs,
 } from 'lucide-react';
 
 export default function ShoppingListPage() {
@@ -31,12 +33,15 @@ export default function ShoppingListPage() {
   const [generating, setGenerating] = useState(false);
   const [clearing, setClearing] = useState(false);
 
-  // Add item dialog
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [newItemUnit, setNewItemUnit] = useState('unité');
   const [saving, setSaving] = useState(false);
+
+  // Détection Apple / Android
+  const isApple = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
 
   useEffect(() => {
     fetchItems();
@@ -47,39 +52,37 @@ export default function ShoppingListPage() {
       const response = await api.get('/shopping-list');
       setItems(response.data);
     } catch (error) {
-      toast.error('Erreur lors du chargement de la liste');
+      toast.error('Erreur lors du chargement');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExportToNotes = () => {
-  const activeItems = items.filter(i => !i.is_checked);
+  // --- CORRECTION NOM DE FONCTION ---
+  const handleExport = () => {
+    const activeItems = items.filter(i => !i.is_checked);
+    if (activeItems.length === 0) return toast.error("Liste vide");
 
-  if (activeItems.length === 0) {
-    toast.error("La liste est vide");
-    return;
-  }
+    const listString = activeItems
+      .map(i => `- ${i.name} (${i.quantity} ${i.unit})`)
+      .join('\n');
 
-  const listString = activeItems
-    .map(i => `- ${i.name} : ${i.quantity} ${i.unit}`)
-    .join('\n');
-
-  navigator.clipboard.writeText(listString)
-    .then(() => {
-      toast.success("Liste copiée ! Collez-la dans une Note.");
-      // Optionnel : Tentative d'ouverture de l'app Notes (marche sur bcp d'iOS)
-      window.location.href = "mobilenotes://";
-    })
-    .catch(() => {
-      toast.error("Erreur lors de la copie");
+    navigator.clipboard.writeText(listString).then(() => {
+      if (isApple) {
+        toast.success("Copié ! Collez dans Notes.");
+        window.location.href = "mobilenotes://";
+      } else if (isAndroid) {
+        toast.success("Copié ! Collez dans Google Keep.");
+        window.open("https://keep.google.com/#create", "_blank");
+      } else {
+        toast.success("Liste copiée !");
+      }
     });
-};
+  };
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      // Logique basée sur les sous-catégories (Seuil - Stock Total)
       const [productsRes, subCatsRes] = await Promise.all([
         api.get('/products'),
         api.get('/subcategories')
@@ -109,9 +112,9 @@ export default function ShoppingListPage() {
       }
 
       fetchItems();
-      toast.success('Liste synchronisée avec les seuils de groupes');
+      toast.success('Liste synchronisée');
     } catch (error) {
-      toast.error('Erreur lors de la génération');
+      toast.error('Erreur génération');
     } finally {
       setGenerating(false);
     }
@@ -136,7 +139,6 @@ export default function ShoppingListPage() {
     try {
       await api.delete('/shopping-list?checked_only=true');
       setItems(prev => prev.filter(i => !i.is_checked));
-      toast.success('Panier vidé');
     } catch (error) { toast.error('Erreur'); } finally { setClearing(false); }
   };
 
@@ -154,32 +156,49 @@ export default function ShoppingListPage() {
   const uncheckedItems = items.filter((i) => !i.is_checked);
   const checkedItems = items.filter((i) => i.is_checked);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="animate-spin h-12 w-12 text-primary" />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-      {/* Header avec bouton EXPORT */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Liste de Courses</h1>
-          <p className="text-muted-foreground mt-1">Gérée par groupes de produits</p>
+          <p className="text-muted-foreground mt-1 text-sm italic">Basé sur les stocks de groupes</p>
         </div>
+
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleExportToNotes}
-            className="bg-[#FFFBCC] border-[#E6B800] text-[#856404] hover:bg-[#FFF4A3]"
-          >
-            <Share className="w-4 h-4 mr-2" />
-            Exporter vers Notes
-          </Button>
+          {/* BOUTON EXPORT CONDITIONNEL */}
+          {isApple && (
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              className="bg-[#FFF9E6] border-[#E6B800] text-[#856404] hover:bg-[#FFF4A3]"
+            >
+              <Share className="w-4 h-4 mr-2" /> Notes
+            </Button>
+          )}
+
+          {isAndroid && (
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              className="bg-[#F2F2F2] border-[#5F6368] text-[#3C4043] hover:bg-[#E8EAED]"
+            >
+              <NotebookTabs className="w-4 h-4 mr-2 text-[#F4B400]" /> Keep
+            </Button>
+          )}
+
           <Button variant="outline" onClick={handleGenerate} disabled={generating}>
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
             Générer
           </Button>
+
           <Button onClick={() => setAddDialogOpen(true)} className="btn-glow">
-            <Plus className="w-4 h-4 mr-2" />
-            Ajouter
+            <Plus className="w-4 h-4 mr-2" /> Ajouter
           </Button>
         </div>
       </div>
