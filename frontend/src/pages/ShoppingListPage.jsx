@@ -64,7 +64,7 @@ export default function ShoppingListPage() {
 
     // Formatage : "Nom de l'article (Quantité Unité)"
     const listString = activeItems
-      .map(i => `- ${i.name} (${i.quantity} ${i.unit})`)
+      .map(i => `[ ] ${i.name} (${i.quantity} ${i.unit})`)
       .join('\n');
 
     navigator.clipboard.writeText(listString)
