@@ -244,14 +244,14 @@ export default function ProductsPage() {
     }
   };
 
-  const ProductCard = ({ product }) => {
-    const subCat = subCategories.find(s => s.id === product.sub_category_id);
-    const threshold = subCat ? subCat.min_quantity : 0;
-    const isLowStock = product.quantity < threshold;
+// Remplace ton composant ProductCard (vers la ligne 210) par celui-ci :
+  const ProductCard = ({ product, groupTotalStock, groupThreshold }) => {
+    const isGroupLowStock = groupTotalStock < groupThreshold;
 
     return (
       <Card className="bg-card border-border card-hover animate-fade-in">
         <CardContent className="p-4">
+          {/* ... (haut de la carte inchangé) ... */}
           <div className="flex items-start justify-between mb-3">
             {product.image_url ? (
               <img src={product.image_url} alt={product.name} className="w-16 h-16 rounded-lg object-cover" />
@@ -260,19 +260,12 @@ export default function ProductsPage() {
                 <Package className="w-8 h-8 text-muted-foreground" />
               </div>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleOpenDialog(product)}><Edit className="w-4 h-4 mr-2" /> Modifier</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }} className="text-destructive">
-                  <Trash2 className="w-4 h-4 mr-2" /> Supprimer
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* DropdownMenu inchangé */}
           </div>
-          <Badge variant="default" className="text-xs mb-1">{subCat?.name || "Sans sous-catégorie"}</Badge>
+
+          <Badge variant="default" className="text-xs mb-1">
+            {subCategories.find(s => s.id === product.sub_category_id)?.name || "Sans sous-catégorie"}
+          </Badge>
           <h3 className="font-semibold text-sm truncate">{product.name}</h3>
           <p className="text-xs text-muted-foreground truncate mb-2">{product.brand || 'Sans marque'}</p>
 
@@ -281,16 +274,19 @@ export default function ProductsPage() {
               <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleQuantityChange(product, -1)} disabled={product.quantity <= 0}>
                 <Minus className="w-3 h-3" />
               </Button>
-              <span className={`text-lg font-bold min-w-[30px] text-center ${isLowStock ? 'text-destructive' : 'text-emerald-500'}`}>
+              {/* On garde la couleur du chiffre basée sur le stock individuel ou on la met en neutre */}
+              <span className="text-lg font-bold min-w-[30px] text-center">
                 {product.quantity}
               </span>
               <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleQuantityChange(product, 1)}>
                 <Plus className="w-3 h-3" />
               </Button>
             </div>
-            {isLowStock && (
+
+            {/* --- LOGIQUE MODIFIÉE ICI --- */}
+            {isGroupLowStock && (
               <div className="flex items-center gap-1 text-[10px] text-destructive font-bold uppercase">
-                <AlertTriangle className="w-3 h-3" /> Stock Bas
+                <AlertTriangle className="w-3 h-3" /> STOCK BAS
               </div>
             )}
           </div>
@@ -339,7 +335,14 @@ export default function ProductsPage() {
             </AccordionTrigger>
             <AccordionContent className="pt-4 px-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {group.products.map((product) => <ProductCard key={product.id} product={product} />)}
+                {group.products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    groupTotalStock={group.totalStock}   // On passe le total de la sous-catégorie
+                    groupThreshold={currentThreshold}     // On passe le seuil (MIN)
+                  />
+                ))}
               </div>
             </AccordionContent>
           </AccordionItem>
