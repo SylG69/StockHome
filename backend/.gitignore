@@ -1,0 +1,7 @@
+.env
+.serverless/
+node_modules/
+__pycache__/
+*.zip
+package/
+python/

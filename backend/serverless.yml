@@ -1,0 +1,298 @@
+# Les étapes pour déployer
+# Installer Serverless Framework :
+#
+# Bash
+# npm install -g serverless
+# Installer le plugin pour Python (pour gérer vos requirements.txt) :
+#
+# Bash
+# sls plugin install -n serverless-python-requirements
+# ou
+# serverless plugin install -n serverless-python-requirements
+# serverless plugin install -n serverless-s3-sync
+# Configurer vos accès AWS :
+# Assurez-vous d'avoir configuré vos clés AWS (aws configure).
+#
+# Déployer :
+#
+# Bash
+# sls deploy ou serverless deploy => par défaut pour la DEV
+# serverless deploy --stage prod => pour la PROD
+#
+# Pour voir les logs => serverless logs -f <nom_fonction> -t
+
+#   ANY - https://5mfczcfffk.execute-api.eu-west-3.amazonaws.com/prod/api/auth/{proxy+}
+#   ANY - https://5mfczcfffk.execute-api.eu-west-3.amazonaws.com/prod/api/products/{proxy+}
+#   ANY - https://5mfczcfffk.execute-api.eu-west-3.amazonaws.com/prod/api/barcode/{barcode}
+#   ANY - https://5mfczcfffk.execute-api.eu-west-3.amazonaws.com/prod/api/shopping-list/{proxy+}
+#   ANY - https://5mfczcfffk.execute-api.eu-west-3.amazonaws.com/prod/api/categories/{proxy+}
+#   ANY - https://5mfczcfffk.execute-api.eu-west-3.amazonaws.com/prod/api/subcategories/{proxy+}
+#   ANY - https://5mfczcfffk.execute-api.eu-west-3.amazonaws.com/prod/api/locations/{proxy+}
+#   ANY - https://5mfczcfffk.execute-api.eu-west-3.amazonaws.com/prod/api/dashboard/{proxy+}
+
+# Préparer les dépendances pour Linux (Sans Docker)
+# Le problème principal reste vos fichiers Windows. Pour obtenir les versions Linux de FastAPI et Pydantic sans Docker, nous allons utiliser une astuce de pip.
+#
+# Créez un dossier nommé python (le nom est obligatoire).
+#
+# Ouvrez un terminal dans ce dossier et tapez :
+#
+# PowerShell
+# pip install --platform manylinux2014_x86_64 --target . --implementation cp --python-version 3.11 --only-binary=:all: fastapi mangum pydantic-settings python-jose[cryptography] pydantic email-validator
+# Cette commande force le téléchargement des versions compatibles avec le Linux d'AWS.
+#
+# Vérifiez le dossier : vous ne devez voir aucun fichier .pyd (Windows), mais des fichiers .so (Linux).
+
+# 2. Créer la Layer sur AWS
+# Compressez le dossier python en un fichier nommé dependencies.zip. (Le ZIP doit contenir le dossier python/ à sa racine).
+#
+# Allez sur la Console AWS > Lambda > Layers > Create layer.
+#
+# Nommez-la StockHome-Deps, uploadez votre ZIP, et choisissez le runtime Python 3.11.
+#
+# Une fois créée, copiez l'ARN de la version (ex: arn:aws:lambda:eu-west-3:123456:layer:StockHome-Deps:1).
+
+# 3. Alléger votre serverless.yml
+# Maintenant, on dit à Serverless d'arrêter de gérer les librairies. Il ne s'occupe plus que de votre code Python.
+#
+# functions:
+#   auth:
+#     handler: auth_service.handler
+#     layers:
+#       - arn:aws:lambda:eu-west-3:XXXXX:layer:StockHome-Deps:1
+
+
+service: stockhome-api
+useDotenv: true
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: eu-west-3
+  environment:
+    JWT_SECRET: ${env:JWT_SECRET, 'iiQbCqBdh5cSwiGtjLb7ggjQvl22T8'}
+    USERS_TABLE: StockHome-Users
+    PRODUCTS_TABLE: StockHome-Products
+    SHOPPING_TABLE: StockHome-ShoppingList
+    REF_TABLE: StockHome-ReferenceData
+
+  httpApi:
+    cors:
+      allowedOrigins:
+        - https://d27lwojcid5nq4.cloudfront.net
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:*
+          Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/*"
+
+package:
+  individually: false
+  patterns:
+    - '!node_modules/**'
+    - '!.venv/**'
+    - '!venv/**'
+    - '!__pycache__/**'
+    - '!.serverless/**'
+    - '!.git/**'
+    - '!.requirements.zip'
+    - '!requirements.txt'
+    - '!package.json'
+    - '!package-lock.json'
+    - '!dependencies.zip'
+    - '!python/**'
+
+functions:
+  auth:
+    handler: auth_service.handler
+    layers:
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+    events:
+      - http:
+          path: api/auth/{proxy+}
+          method: any
+          cors: true
+
+  products:
+    handler: product_service.handler
+    layers:
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+    events:
+      - http:
+          path: api/products/{proxy+}
+          method: any
+          cors: true
+      - http:
+          path: api/barcode/{barcode}
+          method: any
+          cors: true
+
+  shopping:
+    handler: shopping_service.handler
+    layers:
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+    events:
+      - http:
+          path: api/shopping-list/{proxy+}
+          method: any
+          cors: true
+
+  config:
+    handler: config_service.handler
+    layers:
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+    events:
+      - http:
+          path: api/categories/{proxy+}
+          method: any
+          cors: true
+      - http:
+          path: api/subcategories/{proxy+}
+          method: any
+          cors: true
+      - http:
+          path: api/locations/{proxy+}
+          method: any
+          cors: true
+
+  dashboard:
+    handler: dashboard_service.handler
+    layers:
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+    events:
+      - http:
+          path: api/dashboard/{proxy+}
+          method: any
+          cors: true
+
+plugins:
+  - serverless-s3-sync
+
+custom:
+  s3Sync:
+    - bucketName: stockhome-front-storage-383842796189
+      localDir: ../frontend/dist
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: StockHome-Users
+        AttributeDefinitions: [{AttributeName: email, AttributeType: S}]
+        KeySchema: [{AttributeName: email, KeyType: HASH}]
+        BillingMode: PAY_PER_REQUEST
+
+    ProductsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: StockHome-Products
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+          - AttributeName: id
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    ShoppingListTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: StockHome-ShoppingList
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+          - AttributeName: id
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    ReferenceTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: StockHome-ReferenceData
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+          - AttributeName: id
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    FrontendBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: stockhome-front-storage-383842796189
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          ErrorDocument: index.html
+
+    CloudFrontOriginAccessIdentity:
+      Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+      Properties:
+        CloudFrontOriginAccessIdentityConfig:
+          Comment: "Access Identity for StockHome"
+
+    CloudFrontDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Origins:
+            - DomainName: { "Fn::GetAtt": [FrontendBucket, RegionalDomainName] }
+              Id: FrontendOrigin
+              S3OriginConfig:
+                OriginAccessIdentity:
+                  Fn::Join: ["", ["origin-access-identity/cloudfront/", { Ref: CloudFrontOriginAccessIdentity }]]
+          Enabled: true
+          DefaultRootObject: index.html
+          DefaultCacheBehavior:
+            TargetOriginId: FrontendOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            ForwardedValues:
+              QueryString: false
+          CustomErrorResponses:
+            - ErrorCode: 404
+              ResponseCode: 200
+              ResponsePagePath: /index.html
+
+    FrontendBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: { Ref: FrontendBucket }
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Principal:
+                AWS: { "Fn::Join": ["", ["arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ", { Ref: CloudFrontOriginAccessIdentity }]] }
+              Action: s3:GetObject
+              Resource: { "Fn::Join": ["", ["arn:aws:s3:::", { Ref: FrontendBucket }, "/*"]] }
+
+  Outputs:
+    WebsiteURL:
+      Value: { "Fn::GetAtt": [CloudFrontDistribution, DomainName] }
+      Description: "URL HTTPS de votre site"
