@@ -1,5 +1,6 @@
-import os, sys
-import boto3
+import hashlib
+import os
+import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, HTTPException
@@ -7,8 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from jose import jwt
 from mangum import Mangum
-import hashlib
-import secrets
+import boto3
 
 app = FastAPI()
 
@@ -20,13 +20,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-table = boto3.resource('dynamodb').Table('StockHome-Users')
+table = boto3.resource('dynamodb').Table(os.environ.get('USERS_TABLE', 'StockHome-Users'))
 
-# Configuration JWT (à mettre dans AWS Secrets Manager plus tard)
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
 ALGORITHM = "HS256"
 
 class UserRegister(BaseModel):
+    """
+    Classe représentant un utilisateur lors de l'enregistrement
+    """
     username: str
     email: EmailStr
     password: str
@@ -42,6 +44,9 @@ def hash_password(password: str) -> str:
     return f"{salt}${hash_obj.hexdigest()}"
 
 def verify_password(stored_password: str, provided_password: str) -> bool:
+    """
+    Fonction de vérification du mot de passe
+    """
     try:
         salt, stored_hash = stored_password.split('$')
         current_hash = hashlib.sha256(f"{provided_password}{salt}".encode('utf-8')).hexdigest()
@@ -51,6 +56,9 @@ def verify_password(stored_password: str, provided_password: str) -> bool:
 
 @app.post("/api/auth/register")
 async def register(user: UserRegister):
+    """
+    Fonction d'enregistrement d'un nouvel utilisateur
+    """
     # Vérifier si l'utilisateur existe déjà
     if 'Item' in table.get_item(Key={'email': user.email}):
         raise HTTPException(status_code=400, detail="Email déjà utilisé")
@@ -73,6 +81,9 @@ async def register(user: UserRegister):
 
 @app.post("/api/auth/login")
 async def login(data: dict):
+    """
+    Fonction de login
+    """
     res = table.get_item(Key={'email': data.get('email')})
 
     # Vérification avec notre nouvelle fonction verify_password

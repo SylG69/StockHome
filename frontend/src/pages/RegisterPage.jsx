@@ -10,7 +10,7 @@ import { Home, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
   const { register } = useAuth();
-  const [name, setName] = useState('');
+  const [username, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -19,7 +19,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !email || !password || !confirmPassword) {
+    if (!username || !email || !password || !confirmPassword) {
       toast.error('Veuillez remplir tous les champs');
       return;
     }
@@ -36,7 +36,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(name, email, password);
+      await register(username, email, password);
       toast.success('Compte créé avec succès');
     } catch (error) {
       toast.error(error.response?.data?.detail || "Erreur lors de l'inscription");
@@ -95,7 +95,7 @@ export default function RegisterPage() {
                   id="name"
                   type="text"
                   placeholder="Votre nom"
-                  value={name}
+                  value={username}
                   onChange={(e) => setName(e.target.value)}
                   className="bg-input border-border focus:border-primary"
                   data-testid="register-name-input"
