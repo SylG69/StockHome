@@ -5,11 +5,12 @@ import httpx
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
 from pydantic import BaseModel
 from mangum import Mangum
 from boto3.dynamodb.conditions import Key
 from datetime import datetime, timezone
-from jose import jwt
+from jose import jwt, JWTError
 
 app = FastAPI()
 app.add_middleware(
@@ -26,6 +27,9 @@ table = boto3.resource('dynamodb').Table('Products')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
 ALGORITHM = "HS256"
 
+# Ce paramètre indique à FastAPI que le token se trouve dans le header Authorization
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
 # --- Modèles ---
 class ProductBase(BaseModel):
     name: str
@@ -38,18 +42,22 @@ class ProductBase(BaseModel):
     location_id: Optional[str] = None
     image_url: Optional[str] = None
 
-# --- Sécurité (Extraction ID utilisateur) ---
-async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
+# Fonction utilitaire pour récupérer l'utilisateur via le token
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
-        # On décode le token avec la même clé secrète
+        # Décodage du token JWT
         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
-            raise HTTPException(status_code=401, detail="Token invalide")
-        return user_id
+            raise credentials_exception
+        return user_id # On retourne l'ID de l'utilisateur
     except JWTError:
-        raise HTTPException(status_code=401, detail="Session expirée ou invalide")
+        raise credentials_exception
 
 # --- Routes ---
 
@@ -93,7 +101,9 @@ async def update_quantity(product_id: str, delta: float, authorization: str = De
 
 @app.get("/api/barcode/{barcode}")
 async def scan_barcode(barcode: str):
-    # Appel externe à Open Food Facts (inchangé)
+    """
+    Appel externe à Open Food Facts
+    """
     async with httpx.AsyncClient() as client:
         url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
         response = await client.get(url)
