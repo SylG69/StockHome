@@ -3,14 +3,17 @@ import os
 import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr
-from jose import jwt
+from jose import jwt, JWTError
 from mangum import Mangum
 import boto3
 
 app = FastAPI()
+
+security = HTTPBearer()
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,6 +27,9 @@ table = boto3.resource('dynamodb').Table(os.environ.get('USERS_TABLE', 'StockHom
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
 ALGORITHM = "HS256"
+
+# Ce paramètre indique à FastAPI que le token se trouve dans le header Authorization
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 class UserRegister(BaseModel):
     """
@@ -53,6 +59,24 @@ def verify_password(stored_password: str, provided_password: str) -> bool:
         return current_hash == stored_hash
     except ValueError:
         return False
+
+# Fonction utilitaire pour récupérer l'utilisateur via le token
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        # Décodage du token JWT
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+        return user_id # On retourne l'ID de l'utilisateur
+    except JWTError:
+        raise credentials_exception
+
 
 @app.post("/api/auth/register")
 async def register(user: UserRegister):
@@ -105,6 +129,21 @@ async def login(data: dict):
             "email": user_item['email'],
             "username": user_item['username']
         }
+    }
+
+@app.get("/api/auth/me")
+async def read_users_me(user_id: str = Depends(get_current_user)):
+    """
+    Récupère les informations de l'utilisateur dans DynamoDB
+    """
+    # Optionnel : Aller chercher les infos complètes dans DynamoDB
+    # response = table.scan(FilterExpression=Attr('id').eq(user_id))
+    # user = response['Items'][0]
+
+    return {
+        "id": user_id,
+        "status": "active",
+        "message": "Connexion réussie"
     }
 
 handler = Mangum(app)
