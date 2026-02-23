@@ -23,6 +23,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Force la région pour être sûr de pointer au bon endroit
+region = os.environ.get('AWS_REGION', 'eu-west-3')
+dynamodb = boto3.resource('dynamodb', region_name=region)
+
 table = boto3.resource('dynamodb').Table(os.environ.get('USERS_TABLE', 'StockHome-Users'))
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')

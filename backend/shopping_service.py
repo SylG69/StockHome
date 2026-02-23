@@ -35,14 +35,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialisation hors du handler pour réutilisation (Performance)
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table(os.environ.get('DYNAMODB_TABLE', 'ShoppingList'))
+# Force la région pour être sûr de pointer au bon endroit
+region = os.environ.get('AWS_REGION', 'eu-west-3')
+dynamodb = boto3.resource('dynamodb', region_name=region)
+table = dynamodb.Table(os.environ.get('SHOPPING_TABLE', 'StockHome-ShoppingList'))
+t_products = dynamodb.Table(os.environ.get('PRODUCTS_TABLE', 'StockHome-Products'))
+
+JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
+ALGORITHM = "HS256"
 
 # --- Fonctions de secours pour l'Auth ---
 security = HTTPBearer()
 
-async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
         # On décode le token avec la même clé secrète
@@ -57,7 +62,7 @@ async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depend
 # --- Routes API ---
 
 @app.get("/api/shopping-list", response_model=List[ShoppingListItem])
-async def get_shopping_list(user_id: str = Depends(get_current_user_id)):
+async def get_shopping_list(user_id: str = Depends(get_current_user)):
     try:
         response = table.query(
             KeyConditionExpression=Key('user_id').eq(user_id)
@@ -67,7 +72,7 @@ async def get_shopping_list(user_id: str = Depends(get_current_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/shopping-list", response_model=ShoppingListItem)
-async def add_item(item_in: ShoppingListItemCreate, user_id: str = Depends(get_current_user_id)):
+async def add_item(item_in: ShoppingListItemCreate, user_id: str = Depends(get_current_user)):
     new_item = {
         "user_id": user_id,
         "id": str(uuid.uuid4()),
@@ -81,7 +86,7 @@ async def add_item(item_in: ShoppingListItemCreate, user_id: str = Depends(get_c
     return new_item
 
 @app.patch("/api/shopping-list/{item_id}/toggle")
-async def toggle_item(item_id: str, user_id: str = Depends(get_current_user_id)):
+async def toggle_item(item_id: str, user_id: str = Depends(get_current_user)):
     # Récupérer l'état actuel
     res = table.get_item(Key={'user_id': user_id, 'id': item_id})
     if 'Item' not in res:
@@ -97,12 +102,12 @@ async def toggle_item(item_id: str, user_id: str = Depends(get_current_user_id))
     return {"status": "updated", "is_checked": new_status}
 
 @app.delete("/api/shopping-list/{item_id}")
-async def delete_item(item_id: str, user_id: str = Depends(get_current_user_id)):
+async def delete_item(item_id: str, user_id: str = Depends(get_current_user)):
     table.delete_item(Key={'user_id': user_id, 'id': item_id})
     return {"status": "deleted"}
 
 @app.delete("/api/shopping-list")
-async def clear_checked_items(user_id: str = Depends(get_current_user_id)):
+async def clear_checked_items(user_id: str = Depends(get_current_user)):
     # DynamoDB ne permet pas de "delete many" par condition facilement.
     # On scan/query d'abord les items cochés puis on les supprime.
     response = table.query(
@@ -118,7 +123,7 @@ async def clear_checked_items(user_id: str = Depends(get_current_user_id)):
     return {"status": "cleared"}
 
 @app.get("/api/shopping-list/generate")
-async def generate_list(authorization: str = Depends(get_current_user_id)):
+async def generate_list(authorization: str = Depends(get_current_user)):
     uid = authorization
 
     # 1. Trouver les produits en rupture (current <= min)

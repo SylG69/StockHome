@@ -38,7 +38,7 @@
 # Ouvrez un terminal dans ce dossier et tapez :
 #
 # PowerShell
-# pip install --platform manylinux2014_x86_64 --target . --implementation cp --python-version 3.11 --only-binary=:all: fastapi mangum pydantic-settings python-jose[cryptography] pydantic email-validator
+# pip install --platform manylinux2014_x86_64 --target . --implementation cp --python-version 3.11 --only-binary=:all: fastapi mangum pydantic-settings python-jose[cryptography] pydantic email-validator httpx
 # Cette commande force le téléchargement des versions compatibles avec le Linux d'AWS.
 #
 # Vérifiez le dossier : vous ne devez voir aucun fichier .pyd (Windows), mais des fichiers .so (Linux).

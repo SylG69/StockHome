@@ -21,7 +21,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-table = boto3.resource('dynamodb').Table('Products')
+# Force la région pour être sûr de pointer au bon endroit
+region = os.environ.get('AWS_REGION', 'eu-west-3')
+dynamodb = boto3.resource('dynamodb', region_name=region)
+table = boto3.resource('dynamodb').Table(os.environ.get('PRODUCTS_TABLE', 'StockHome-Products'))
 
 # Configuration JWT
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
@@ -60,9 +63,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
 
 # --- Routes ---
-
 @app.get("/api/products")
-async def list_products(authorization: str = Depends(get_current_user_id)):
+async def list_products(authorization: str = Depends(get_current_user)):
     # Récupère tous les produits de l'utilisateur
     response = table.query(
         KeyConditionExpression=Key('user_id').eq(authorization)
@@ -70,7 +72,7 @@ async def list_products(authorization: str = Depends(get_current_user_id)):
     return response.get('Items', [])
 
 @app.post("/api/products")
-async def create_product(product: ProductBase, authorization: str = Depends(get_current_user_id)):
+async def create_product(product: ProductBase, authorization: str = Depends(get_current_user)):
     product_id = str(uuid.uuid4())
     item = product.model_dump()
     item.update({
@@ -83,7 +85,7 @@ async def create_product(product: ProductBase, authorization: str = Depends(get_
     return item
 
 @app.patch("/api/products/{product_id}/quantity")
-async def update_quantity(product_id: str, delta: float, authorization: str = Depends(get_current_user_id)):
+async def update_quantity(product_id: str, delta: float, authorization: str = Depends(get_current_user)):
     # Utilisation d'une expression atomique pour éviter les erreurs de concurrence
     try:
         response = table.update_item(
@@ -119,7 +121,7 @@ async def scan_barcode(barcode: str):
     raise HTTPException(status_code=404, detail="Produit non trouvé sur OFF")
 
 @app.delete("/api/products/{product_id}")
-async def delete_product(product_id: str, authorization: str = Depends(get_current_user_id)):
+async def delete_product(product_id: str, authorization: str = Depends(get_current_user)):
     table.delete_item(Key={'user_id': authorization, 'id': product_id})
     return {"message": "Supprimé"}
 

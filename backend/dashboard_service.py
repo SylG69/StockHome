@@ -14,10 +14,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-db = boto3.resource('dynamodb')
-t_products = db.Table('Products')
-t_shopping = db.Table('ShoppingList')
-t_ref = db.Table('ReferenceData')
+region = os.environ.get('AWS_REGION', 'eu-west-3')
+db = boto3.resource('dynamodb', region_name=region)
+
+t_products = db.Table(os.environ.get('PRODUCTS_TABLE', 'StockHome-Products'))
+t_shopping = db.Table(os.environ.get('SHOPPING_TABLE', 'StockHome-ShoppingList'))
+t_ref = db.Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret')
 
