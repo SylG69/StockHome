@@ -124,6 +124,9 @@ functions:
     events:
       - httpApi:
           method: any
+          path: /api/auth
+      - httpApi:
+          method: any
           path: /api/auth/{proxy+}
 
   products:
@@ -133,7 +136,13 @@ functions:
     events:
       - httpApi:
           method: any
+          path: /api/products
+      - httpApi:
+          method: any
           path: /api/products/{proxy+}
+      - httpApi:
+          method: any
+          path: /api/barcode
       - httpApi:
           method: any
           path: /api/barcode/{barcode}
@@ -145,6 +154,9 @@ functions:
     events:
       - httpApi:
           method: any
+          path: /api/shopping-list
+      - httpApi:
+          method: any
           path: /api/shopping-list/{proxy+}
 
   config:
@@ -154,10 +166,19 @@ functions:
     events:
       - httpApi:
           method: any
+          path: /api/categories
+      - httpApi:
+          method: any
           path: /api/categories/{proxy+}
       - httpApi:
           method: any
+          path: /api/subcategories
+      - httpApi:
+          method: any
           path: /api/subcategories/{proxy+}
+      - httpApi:
+          method: any
+          path: /api/locations
       - httpApi:
           method: any
           path: /api/locations/{proxy+}
@@ -167,6 +188,9 @@ functions:
     layers:
       - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:3
     events:
+      - httpApi:
+          method: any
+          path: /api/dashboard
       - httpApi:
           method: any
           path: /api/dashboard/{proxy+}
