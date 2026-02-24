@@ -130,7 +130,9 @@ export default function LocationsPage() {
     setSaving(true);
     try {
       if (editingLocation) {
-        await api.put(`/locations/${editingLocation.id}`, formData);
+        // Utilisation de encodeURIComponent pour gérer le '#' dans l'ID
+        const encodedId = encodeURIComponent(editingLocation.id);
+        await api.put(`/locations/${encodedId}`, formData);
         toast.success('Emplacement mis à jour');
       } else {
         await api.post('/locations', formData);

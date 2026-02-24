@@ -106,13 +106,20 @@ export default function ProductsPage() {
     try {
       const subCat = subCategories.find(s => s.id === subCatId);
       if (!subCat) return;
+
       const payload = {
         name: subCat.name,
         category_id: subCat.category_id,
         min_quantity: parseInt(newThreshold) || 0
       };
-      await api.put(`/subcategories/${subCatId}`, payload);
-      setSubCategories(prev => prev.map(s => s.id === subCatId ? { ...s, min_quantity: payload.min_quantity } : s));
+
+      // Utilisation de encodeURIComponent ici aussi
+      const encodedId = encodeURIComponent(subCatId);
+      await api.put(`/subcategories/${encodedId}`, payload);
+
+      setSubCategories(prev => prev.map(s =>
+        s.id === subCatId ? { ...s, min_quantity: payload.min_quantity } : s
+      ));
       toast.success("Seuil mis à jour");
     } catch (error) {
       toast.error("Erreur lors de la mise à jour");

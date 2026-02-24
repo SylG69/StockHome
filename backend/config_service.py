@@ -61,16 +61,19 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 # --- Logique générique pour éviter la répétition ---
 def list_items(uid: str, prefix: str):
-    res = table.query(KeyConditionExpression=Key('user_id').eq(uid) & Key('id').begins_with(prefix))
-    return res.get('Items', [])
+    try:
+        res = table.query(KeyConditionExpression=Key('user_id').eq(uid) & Key('id').begins_with(prefix))
+        return res.get('Items', [])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- ROUTES CATEGORIES ---
 @app.get("/api/categories")
-async def get_cats(uid: str = Depends(get_current_user)):
-    return await list_items(uid, "CAT#")
+def get_cats(uid: str = Depends(get_current_user)):
+    return list_items(uid, "CAT#")
 
 @app.post("/api/categories", response_model=CategoryBase)
-async def add_cat(data: CategoryBase, uid: str = Depends(get_current_user)):
+def add_cat(data: CategoryBase, uid: str = Depends(get_current_user)):
     cat_id = f"CAT#{uuid.uuid4()}"
     # .dict() ou .model_dump() transforme l'objet Pydantic en dictionnaire pour DynamoDB
     item = {"user_id": uid, "id": cat_id, **data.model_dump()}
@@ -78,21 +81,31 @@ async def add_cat(data: CategoryBase, uid: str = Depends(get_current_user)):
     return item
 
 @app.delete("/api/categories/{cat_id}")
-async def del_cat(cat_id: str, uid: str = Depends(get_current_user)):
+def del_cat(cat_id: str, uid: str = Depends(get_current_user)):
     table.delete_item(Key={'user_id': uid, 'id': cat_id})
     return {"status": "deleted"}
 
 
 @app.put("/api/categories/{cat_id}")
-async def update_cat(cat_id: str, data: CategoryBase, uid: str = Depends(get_current_user)):
+def update_cat(cat_id: str, data: CategoryBase, uid: str = Depends(get_current_user)):
     """
     Update des catégories
     """
     # TODO faire de même pour les sous-catégories et les emplacements
     try:
+        # On s'assure que cat_id n'est pas juste "CAT" ou vide
+        if not cat_id or cat_id.strip() == "CAT":
+            raise HTTPException(status_code=400, detail="ID de catégorie invalide")
+
+        # On garantit le bon format du préfixe sans le doubler
         full_id = cat_id if cat_id.startswith("CAT#") else f"CAT#{cat_id}"
 
-        item = {"user_id": uid, "id": full_id, **data.model_dump()}
+        item = {
+            "user_id": uid,
+            "id": full_id,
+            **data.model_dump()
+        }
+
         table.put_item(Item=item)
         return item
     except KeyError as e:
@@ -102,11 +115,11 @@ async def update_cat(cat_id: str, data: CategoryBase, uid: str = Depends(get_cur
 
 # --- ROUTES SUBCATEGORIES ---
 @app.get("/api/subcategories")
-async def get_subs(uid: str = Depends(get_current_user)):
-    return await list_items(uid, "SUBCAT#")
+def get_subs(uid: str = Depends(get_current_user)):
+    return list_items(uid, "SUBCAT#")
 
 @app.post("/api/subcategories")
-async def add_sub(data: dict, uid: str = Depends(get_current_user)):
+def add_sub(data: dict, uid: str = Depends(get_current_user)):
     sub_id = f"SUBCAT#{uuid.uuid4()}"
     item = {
         "user_id": uid,
@@ -119,22 +132,48 @@ async def add_sub(data: dict, uid: str = Depends(get_current_user)):
 
 # --- ROUTES LOCATIONS ---
 @app.get("/api/locations")
-async def get_locs(uid: str = Depends(get_current_user)):
-    return await list_items(uid, "LOC#")
+def get_locs(uid: str = Depends(get_current_user)):
+    """
+    Récupération des emplacements
+    """
+    return list_items(uid, "LOC#")
 
 @app.post("/api/locations")
-async def add_loc(data: LocationBase, uid: str = Depends(get_current_user)):
-    loc_id = f"LOC#{uuid.uuid4()}"
-    item = {"user_id": uid, "id": loc_id, **data.model_dump()}
-    table.put_item(Item=item)
-    return item
+def add_loc(data: LocationBase, uid: str = Depends(get_current_user)):
+    """
+    Création d'un emplacement
+    """
+    try:
+        loc_id = f"LOC#{uuid.uuid4()}"
+        item = {"user_id": uid, "id": loc_id, **data.model_dump()}
+        table.put_item(Item=item)
+        return item
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/locations/{loc_id}")
-async def update_loc(loc_id: str, data: LocationBase, uid: str = Depends(get_current_user)):
-    full_id = loc_id if loc_id.startswith("LOC#") else f"LOC#{loc_id}"
+def update_loc(loc_id: str, data: LocationBase, uid: str = Depends(get_current_user)):
+    """
+    Mise à jour des emplacements
+    """
+    try:
+        if not loc_id or loc_id.strip() == "LOC":
+            raise HTTPException(status_code=400, detail="ID d'emplacement invalide")
 
-    item = {"user_id": uid, "id": full_id, **data.model_dump()}
-    table.put_item(Item=item)
-    return item
+        full_id = loc_id if loc_id.startswith("LOC#") else f"LOC#{loc_id}"
+
+        item = {
+            "user_id": uid,
+            "id": full_id,
+            **data.model_dump()
+        }
+        table.put_item(Item=item)
+        return item
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 handler = Mangum(app)
