@@ -10,7 +10,13 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # En prod, vous pourrez remplacer par votre URL CloudFront
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 region = os.environ.get('AWS_REGION', 'eu-west-3')
 dynamodb = boto3.resource('dynamodb', region_name=region)

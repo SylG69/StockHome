@@ -53,6 +53,17 @@ const iconOptions = [
   { value: 'MapPin', label: 'Autre' },
 ];
 
+const colorOptions = [
+  { value: '#10B981', label: 'Vert' },
+  { value: '#3B82F6', label: 'Bleu' },
+  { value: '#8B5CF6', label: 'Violet' },
+  { value: '#F59E0B', label: 'Orange' },
+  { value: '#EF4444', label: 'Rouge' },
+  { value: '#6B7280', label: 'Gris' },
+  { value: '#EC4899', label: 'Rose' },
+  { value: '#14B8A6', label: 'Turquoise' },
+];
+
 export default function LocationsPage() {
   const { api } = useAuth();
   const [locations, setLocations] = useState([]);
@@ -288,6 +299,43 @@ export default function LocationsPage() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+            <div>
+              <Label>Couleur</Label>
+              <div className="grid grid-cols-8 gap-2 mt-2">
+                {colorOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, color: option.value })}
+                    className={`w-8 h-8 rounded-full border-2 transition-transform ${
+                      formData.color === option.value
+                        ? 'border-white scale-110'
+                        : 'border-transparent hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: option.value }}
+                    data-testid={`color-option-${option.value}`}
+                  />
+                ))}
+              </div>
+            </div>
+            {/* Preview */}
+            <div className="pt-4 border-t border-border">
+              <Label>Aperçu</Label>
+              <div className="flex items-center gap-3 mt-2 p-4 rounded-lg bg-secondary/50">
+                <div
+                  className="p-3 rounded-xl"
+                  style={{ backgroundColor: `${formData.color}20` }}
+                >
+                  {(() => {
+                    const Icon = iconMap[formData.icon] || Package;
+                    return <Icon className="w-6 h-6" style={{ color: formData.color }} />;
+                  })()}
+                </div>
+                <span className="font-semibold">
+                  {formData.name || 'Nom de la catégorie'}
+                </span>
               </div>
             </div>
           </div>

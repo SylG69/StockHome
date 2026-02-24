@@ -28,6 +28,7 @@ region = os.environ.get('AWS_REGION', 'eu-west-3')
 dynamodb = boto3.resource('dynamodb', region_name=region)
 
 table = boto3.resource('dynamodb').Table(os.environ.get('USERS_TABLE', 'StockHome-Users'))
+table_ref = boto3.resource('dynamodb').Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
 ALGORITHM = "HS256"
@@ -102,6 +103,74 @@ async def register(user: UserRegister):
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     table.put_item(Item=user_item)
+
+    default_categories = [
+        {"name": "Alimentaire",
+         "icon": "Apple",
+         "color": "#10B981"
+        },
+        {"name": "Boissons",
+         "icon": "Wine",
+         "color": "#3B82F6"
+        },
+        {"name": "Hygiène",
+         "icon": "Sparkles",
+         "color": "#8B5CF6"
+        },
+        {"name": "Entretien",
+         "icon": "SprayCan",
+         "color": "#F59E0B"
+        },
+        {"name": "Animaux",
+         "icon": "PawPrint",
+         "color": "#EF4444"
+        },
+        {"name": "Autre",
+         "icon": "Package",
+         "color": "#6B7280"
+        },
+    ]
+    for cat in default_categories:
+        table_ref.put_item(Item={
+            "user_id": user_id,
+            "id": f"CAT#{uuid.uuid4()}",
+            "name": cat['name'],
+            "icon": cat['icon'],
+            "color": cat['color']
+        })
+
+    default_locations = [
+        {"name": "Cuisine",
+         "description": "Placards et étagères de cuisine",
+         "icon": "ChefHat",
+         "color": "#3B82F6"
+        },
+        {"name": "Réfrigérateur",
+         "description": "Produits frais",
+         "icon": "Snowflake",
+         "color": "#10B981"
+        },
+        {"name": "Salle de bain",
+         "description": "Produits d'hygiène",
+         "icon": "Bath",
+         "color": "#8B5CF6"
+        },
+        {"name": "Garage",
+         "description": "Stockage garage",
+         "icon": "Warehouse",
+         "color": "#EF4444"
+        },
+    ]
+
+    for loc in default_locations:
+        table_ref.put_item(Item={
+            "user_id": user_id,
+            "id": f"LOC#{uuid.uuid4()}",
+            "name": loc['name'],
+            "description": loc['description'],
+            "icon": loc['icon'],
+            "color": loc['color']
+        })
 
     # Pour que le front se connecte direct, on peut aussi générer le token ici
     # ou rester sur votre logique actuelle

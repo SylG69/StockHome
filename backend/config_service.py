@@ -57,7 +57,13 @@ async def get_cats(uid: str = Depends(get_current_user)):
 @app.post("/api/categories")
 async def add_cat(data: dict, uid: str = Depends(get_current_user)):
     cat_id = f"CAT#{uuid.uuid4()}"
-    item = {"user_id": uid, "id": cat_id, "name": data['name'], "icon": data.get('icon')}
+    item = {
+        "user_id": uid,
+        "id": cat_id,
+        "name": data['name'],
+        "icon": data.get('icon'),
+        "color": data.get('color')
+    }
     table.put_item(Item=item)
     return item
 
@@ -74,7 +80,12 @@ async def get_subs(uid: str = Depends(get_current_user)):
 @app.post("/api/subcategories")
 async def add_sub(data: dict, uid: str = Depends(get_current_user)):
     sub_id = f"SUBCAT#{uuid.uuid4()}"
-    item = {"user_id": uid, "id": sub_id, "name": data['name'], "category_id": data.get('category_id')}
+    item = {
+        "user_id": uid,
+        "id": sub_id,
+        "name": data['name'],
+        "category_id": data.get('category_id')
+    }
     table.put_item(Item=item)
     return item
 
@@ -82,5 +93,19 @@ async def add_sub(data: dict, uid: str = Depends(get_current_user)):
 @app.get("/api/locations")
 async def get_locs(uid: str = Depends(get_current_user)):
     return await list_items(uid, "LOC#")
+
+@app.post("/api/locations")
+async def add_loc(data: dict, uid: str = Depends(get_current_user)):
+    loc_id = f"LOC#{uuid.uuid4()}"
+    item = {
+        "user_id": uid,
+        "id": loc_id,
+        "name": data['name'],
+        "description": data.get('description'),
+        "icon": data.get('icon'),
+        "color": data.get('color')
+    }
+    table.put_item(Item=item)
+    return item
 
 handler = Mangum(app)
