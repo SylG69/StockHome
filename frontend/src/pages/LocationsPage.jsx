@@ -134,8 +134,9 @@ export default function LocationsPage() {
         toast.success('Emplacement créé');
       }
       setDialogOpen(false);
-      fetchLocations();
+      await fetchLocations();
     } catch (error) {
+      console.error(error);
       toast.error("Erreur lors de l'enregistrement");
     } finally {
       setSaving(false);

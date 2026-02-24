@@ -133,8 +133,10 @@ export default function CategoriesPage() {
         toast.success('Catégorie créée');
       }
       setDialogOpen(false);
-      fetchCategories();
+      await fetchCategories();
+
     } catch (error) {
+      console.error(error);
       toast.error("Erreur lors de l'enregistrement");
     } finally {
       setSaving(false);
