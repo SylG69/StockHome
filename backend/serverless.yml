@@ -89,15 +89,16 @@ provider:
         - POST
         - PUT
         - DELETE
+        - PATCH
         - OPTIONS
+      maxAge: 600
 
   iam:
     role:
       statements:
         - Effect: Allow
-          Action:
-            - dynamodb:*
-          Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/*"
+          Action: ["dynamodb:*"]
+          Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/StockHome-*"
 
 package:
   individually: false
@@ -119,64 +120,56 @@ functions:
   auth:
     handler: auth_service.handler
     layers:
-      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:3
     events:
-      - http:
-          path: api/auth/{proxy+}
+      - httpApi:
           method: any
-          cors: true
+          path: /api/auth/{proxy+}
 
   products:
     handler: product_service.handler
     layers:
-      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:3
     events:
-      - http:
-          path: api/products/{proxy+}
+      - httpApi:
           method: any
-          cors: true
-      - http:
-          path: api/barcode/{barcode}
+          path: /api/products/{proxy+}
+      - httpApi:
           method: any
-          cors: true
+          path: /api/barcode/{barcode}
 
   shopping:
     handler: shopping_service.handler
     layers:
-      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:3
     events:
-      - http:
-          path: api/shopping-list/{proxy+}
+      - httpApi:
           method: any
-          cors: true
+          path: /api/shopping-list/{proxy+}
 
   config:
     handler: config_service.handler
     layers:
-      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:3
     events:
-      - http:
-          path: api/categories/{proxy+}
+      - httpApi:
           method: any
-          cors: true
-      - http:
-          path: api/subcategories/{proxy+}
+          path: /api/categories/{proxy+}
+      - httpApi:
           method: any
-          cors: true
-      - http:
-          path: api/locations/{proxy+}
+          path: /api/subcategories/{proxy+}
+      - httpApi:
           method: any
-          cors: true
+          path: /api/locations/{proxy+}
 
   dashboard:
     handler: dashboard_service.handler
     layers:
-      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:2
+      - arn:aws:lambda:eu-west-3:383842796189:layer:StockHome-Deps:3
     events:
-      - http:
-          path: api/dashboard/{proxy+}
+      - httpApi:
           method: any
-          cors: true
+          path: /api/dashboard/{proxy+}
 
 plugins:
   - serverless-s3-sync
