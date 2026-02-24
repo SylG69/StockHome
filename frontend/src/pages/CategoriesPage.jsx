@@ -126,16 +126,16 @@ export default function CategoriesPage() {
     setSaving(true);
     try {
       if (editingCategory) {
-        await api.put(`/categories/${editingCategory.id}`, formData);
+        // Utilisation de encodeURIComponent pour protéger le caractère '#' dans l'ID
+        const encodedId = encodeURIComponent(editingCategory.id);
+        await api.put(`/categories/${encodedId}`, formData);
         toast.success('Catégorie mise à jour');
       } else {
         await api.post('/categories', formData);
         toast.success('Catégorie créée');
       }
       setDialogOpen(false);
-      // Rafraîchissement systématique après modification ou ajout
       await fetchCategories();
-
     } catch (error) {
       console.error(error);
       toast.error("Erreur lors de l'enregistrement");
