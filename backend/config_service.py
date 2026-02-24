@@ -5,6 +5,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2Pas
 from mangum import Mangum
 from boto3.dynamodb.conditions import Key
 from jose import jwt, JWTError
+from pydantic import BaseModel, Field
+from typing import Optional
 
 app = FastAPI()
 
@@ -27,8 +29,21 @@ ALGORITHM = "HS256"
 # Ce paramètre indique à FastAPI que le token se trouve dans le header Authorization
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
+# Modèle de base pour la Catégorie
+class CategoryBase(BaseModel):
+    name: str
+    icon: Optional[str] = None
+    color: Optional[str] = None
+
+# Modèle pour la Location
+class LocationBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+
 # Fonction utilitaire pour récupérer l'utilisateur via le token
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -45,7 +60,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 # --- Logique générique pour éviter la répétition ---
-async def list_items(uid: str, prefix: str):
+def list_items(uid: str, prefix: str):
     res = table.query(KeyConditionExpression=Key('user_id').eq(uid) & Key('id').begins_with(prefix))
     return res.get('Items', [])
 
@@ -54,16 +69,11 @@ async def list_items(uid: str, prefix: str):
 async def get_cats(uid: str = Depends(get_current_user)):
     return await list_items(uid, "CAT#")
 
-@app.post("/api/categories")
-async def add_cat(data: dict, uid: str = Depends(get_current_user)):
+@app.post("/api/categories", response_model=CategoryBase)
+async def add_cat(data: CategoryBase, uid: str = Depends(get_current_user)):
     cat_id = f"CAT#{uuid.uuid4()}"
-    item = {
-        "user_id": uid,
-        "id": cat_id,
-        "name": data['name'],
-        "icon": data.get('icon'),
-        "color": data.get('color')
-    }
+    # .dict() ou .model_dump() transforme l'objet Pydantic en dictionnaire pour DynamoDB
+    item = {"user_id": uid, "id": cat_id, **data.model_dump()}
     table.put_item(Item=item)
     return item
 
@@ -72,20 +82,23 @@ async def del_cat(cat_id: str, uid: str = Depends(get_current_user)):
     table.delete_item(Key={'user_id': uid, 'id': cat_id})
     return {"status": "deleted"}
 
+
 @app.put("/api/categories/{cat_id}")
-async def update_cat(cat_id: str, data: dict, uid: str = Depends(get_current_user)):
+async def update_cat(cat_id: str, data: CategoryBase, uid: str = Depends(get_current_user)):
     """
     Update des catégories
     """
-    item = {
-        "user_id": uid,
-        "id": cat_id,
-        "name": data['name'],
-        "icon": data.get('icon'),
-        "color": data.get('color')
-    }
-    table.put_item(Item=item) # put_item écrase l'ancien item avec les nouvelles données
-    return item
+    # TODO faire de même pour les sous-catégories et les emplacements
+    try:
+        full_id = cat_id if cat_id.startswith("CAT#") else f"CAT#{cat_id}"
+
+        item = {"user_id": uid, "id": full_id, **data.model_dump()}
+        table.put_item(Item=item)
+        return item
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- ROUTES SUBCATEGORIES ---
 @app.get("/api/subcategories")
@@ -110,32 +123,17 @@ async def get_locs(uid: str = Depends(get_current_user)):
     return await list_items(uid, "LOC#")
 
 @app.post("/api/locations")
-async def add_loc(data: dict, uid: str = Depends(get_current_user)):
+async def add_loc(data: LocationBase, uid: str = Depends(get_current_user)):
     loc_id = f"LOC#{uuid.uuid4()}"
-    item = {
-        "user_id": uid,
-        "id": loc_id,
-        "name": data['name'],
-        "description": data.get('description'),
-        "icon": data.get('icon'),
-        "color": data.get('color')
-    }
+    item = {"user_id": uid, "id": loc_id, **data.model_dump()}
     table.put_item(Item=item)
     return item
 
 @app.put("/api/locations/{loc_id}")
-async def update_loc(loc_id: str, data: dict, uid: str = Depends(get_current_user)):
-    """
-    Mise à jour des emplacements
-    """
-    item = {
-        "user_id": uid,
-        "id": loc_id,
-        "name": data['name'],
-        "description": data.get('description'),
-        "icon": data.get('icon'),
-        "color": data.get('color')
-    }
+async def update_loc(loc_id: str, data: LocationBase, uid: str = Depends(get_current_user)):
+    full_id = loc_id if loc_id.startswith("LOC#") else f"LOC#{loc_id}"
+
+    item = {"user_id": uid, "id": full_id, **data.model_dump()}
     table.put_item(Item=item)
     return item
 
