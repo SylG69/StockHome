@@ -1,5 +1,5 @@
 # --- CONFIGURATION ---
-$API_GATEWAY_URL = "https://5mfczcfffk.execute-api.eu-west-3.amazonaws.com"
+$API_GATEWAY_URL = "https://a51zkfw33h.execute-api.eu-west-3.amazonaws.com"
 $FRONTEND_PATH = "./frontend"
 $BACKEND_PATH = "./backend"
 
