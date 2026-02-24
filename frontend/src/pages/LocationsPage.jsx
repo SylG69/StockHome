@@ -89,10 +89,13 @@ export default function LocationsPage() {
   }, []);
 
   const fetchLocations = async () => {
+    setLoading(true); // Optionnel : afficher un loader pendant le rafraîchissement
     try {
       const response = await api.get('/locations');
+      // On met à jour l'état avec les données fraîches de DynamoDB
       setLocations(response.data);
     } catch (error) {
+      console.error('Erreur fetch:', error);
       toast.error('Erreur lors du chargement des emplacements');
     } finally {
       setLoading(false);
@@ -229,11 +232,11 @@ export default function LocationsPage() {
                     </DropdownMenu>
                   </div>
                   <h3 className="font-semibold text-lg">{location.name}</h3>
-                  {location.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {location.description}
-                    </p>
-                  )}
+                    {location.description && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {location.description}
+                      </p>
+                    )}
                 </CardContent>
               </Card>
             );

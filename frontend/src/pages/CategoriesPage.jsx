@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -133,6 +133,7 @@ export default function CategoriesPage() {
         toast.success('Catégorie créée');
       }
       setDialogOpen(false);
+      // Rafraîchissement systématique après modification ou ajout
       await fetchCategories();
 
     } catch (error) {
@@ -166,47 +167,39 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="space-y-6" data-testid="categories-page">
-      {/* Header */}
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Catégories</h1>
-          <p className="text-muted-foreground mt-1">
-            Organisez vos produits par catégories
-          </p>
+          <p className="text-muted-foreground mt-1">Organisez vos produits par catégories</p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="btn-glow" data-testid="add-category-btn">
+        <Button onClick={() => handleOpenDialog()} className="btn-glow">
           <Plus className="w-4 h-4 mr-2" />
           Ajouter une catégorie
         </Button>
       </div>
 
-      {/* Categories Grid */}
       {categories.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {categories.map((category, index) => {
             const IconComponent = iconMap[category.icon] || Package;
             return (
-              <Card
-                key={category.id}
-                className="bg-card border-border card-hover animate-fade-in"
-                style={{ animationDelay: `${index * 0.05}s` }}
-                data-testid={`category-card-${category.id}`}
-              >
+              <Card key={category.id} className="bg-card border-border card-hover animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
+                    {/* Utilisation de la couleur dynamique pour le fond et l'icône */}
                     <div
                       className="p-3 rounded-xl"
-                      style={{ backgroundColor: `${category.color}20` }}
+                      style={{ backgroundColor: `${category.color || '#3B82F6'}20` }}
                     >
                       <IconComponent
                         className="w-6 h-6"
-                        style={{ color: category.color }}
+                        style={{ color: category.color || '#3B82F6' }}
                       />
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" data-testid={`category-menu-${category.id}`}>
+                        <Button variant="ghost" size="icon">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -215,13 +208,7 @@ export default function CategoriesPage() {
                           <Edit className="w-4 h-4 mr-2" />
                           Modifier
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setCategoryToDelete(category);
-                            setDeleteDialogOpen(true);
-                          }}
-                          className="text-destructive"
-                        >
+                        <DropdownMenuItem onClick={() => { setCategoryToDelete(category); setDeleteDialogOpen(true); }} className="text-destructive">
                           <Trash2 className="w-4 h-4 mr-2" />
                           Supprimer
                         </DropdownMenuItem>
@@ -235,39 +222,26 @@ export default function CategoriesPage() {
           })}
         </div>
       ) : (
-        <Card className="bg-card border-border">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <FolderOpen className="w-16 h-16 text-muted-foreground mb-4" />
+        <Card className="bg-card border-border py-16 text-center">
+            <FolderOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Aucune catégorie</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              Créez des catégories pour organiser vos produits
-            </p>
-            <Button onClick={() => handleOpenDialog()} data-testid="add-first-category-btn">
+            <Button onClick={() => handleOpenDialog()} className="mt-4">
               <Plus className="w-4 h-4 mr-2" />
               Ajouter une catégorie
             </Button>
-          </CardContent>
         </Card>
       )}
 
-      {/* Add/Edit Dialog */}
+      {/* Dialog Ajout/Edition */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle>
-              {editingCategory ? 'Modifier la catégorie' : 'Ajouter une catégorie'}
-            </DialogTitle>
+            <DialogTitle>{editingCategory ? 'Modifier la catégorie' : 'Ajouter une catégorie'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <Label htmlFor="name">Nom *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="bg-input border-border"
-                data-testid="category-name-input"
-              />
+              <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-input border-border" />
             </div>
             <div>
               <Label>Icône</Label>
@@ -279,12 +253,7 @@ export default function CategoriesPage() {
                       key={option.value}
                       type="button"
                       onClick={() => setFormData({ ...formData, icon: option.value })}
-                      className={`p-3 rounded-lg border transition-colors ${
-                        formData.icon === option.value
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                      data-testid={`icon-option-${option.value}`}
+                      className={`p-3 rounded-lg border transition-colors ${formData.icon === option.value ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'}`}
                     >
                       <Icon className="w-5 h-5 mx-auto" />
                     </button>
@@ -300,71 +269,30 @@ export default function CategoriesPage() {
                     key={option.value}
                     type="button"
                     onClick={() => setFormData({ ...formData, color: option.value })}
-                    className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                      formData.color === option.value
-                        ? 'border-white scale-110'
-                        : 'border-transparent hover:scale-105'
-                    }`}
+                    className={`w-8 h-8 rounded-full border-2 transition-transform ${formData.color === option.value ? 'border-white scale-110' : 'border-transparent hover:scale-105'}`}
                     style={{ backgroundColor: option.value }}
-                    data-testid={`color-option-${option.value}`}
                   />
                 ))}
               </div>
             </div>
-            {/* Preview */}
-            <div className="pt-4 border-t border-border">
-              <Label>Aperçu</Label>
-              <div className="flex items-center gap-3 mt-2 p-4 rounded-lg bg-secondary/50">
-                <div
-                  className="p-3 rounded-xl"
-                  style={{ backgroundColor: `${formData.color}20` }}
-                >
-                  {(() => {
-                    const Icon = iconMap[formData.icon] || Package;
-                    return <Icon className="w-6 h-6" style={{ color: formData.color }} />;
-                  })()}
-                </div>
-                <span className="font-semibold">
-                  {formData.name || 'Nom de la catégorie'}
-                </span>
-              </div>
-            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button onClick={handleSave} disabled={saving} data-testid="save-category-btn">
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Enregistrement...
-                </>
-              ) : (
-                'Enregistrer'
-              )}
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Dialog Suppression */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
-          </DialogHeader>
-          <p className="text-muted-foreground">
-            Êtes-vous sûr de vouloir supprimer la catégorie "{categoryToDelete?.name}" ?
-            Les produits associés ne seront pas supprimés mais n'auront plus de catégorie.
-          </p>
+          <DialogHeader><DialogTitle>Confirmer la suppression</DialogTitle></DialogHeader>
+          <p className="text-muted-foreground">Êtes-vous sûr de vouloir supprimer la catégorie "{categoryToDelete?.name}" ?</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} data-testid="confirm-delete-category-btn">
-              Supprimer
-            </Button>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Annuler</Button>
+            <Button variant="destructive" onClick={handleDelete}>Supprimer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
