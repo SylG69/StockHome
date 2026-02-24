@@ -11,7 +11,7 @@ Write-Host "D�marrage du d�ploiement StockHome..." -ForegroundColor Cyan
 Write-Host "Build du Frontend React..." -ForegroundColor Yellow
 cd $FRONTEND_PATH
 $env:VITE_API_URL=$API_GATEWAY_URL
-npx run build
+npm run build
 
 # 2. D�ploiement Backend + Frontend (S3/CloudFront)
 Write-Host "D�ploiement sur AWS via Serverless..." -ForegroundColor Yellow
