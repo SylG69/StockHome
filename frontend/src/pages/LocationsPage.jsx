@@ -81,6 +81,7 @@ export default function LocationsPage() {
     name: '',
     description: '',
     icon: 'Home',
+    color: '#3B82F6',
   });
 
   useEffect(() => {
@@ -193,8 +194,14 @@ export default function LocationsPage() {
               >
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
-                    <div className="p-3 rounded-xl bg-primary/10">
-                      <IconComponent className="w-6 h-6 text-primary" />
+                    <div
+                      className="p-3 rounded-xl"
+                      style={{ backgroundColor: `${location.color || '#3B82F6'}20` }}
+                    >
+                      <IconComponent
+                        className="w-6 h-6"
+                        style={{ color: location.color || '#3B82F6' }}
+                      />
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

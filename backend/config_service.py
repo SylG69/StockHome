@@ -72,6 +72,21 @@ async def del_cat(cat_id: str, uid: str = Depends(get_current_user)):
     table.delete_item(Key={'user_id': uid, 'id': cat_id})
     return {"status": "deleted"}
 
+@app.put("/api/categories/{cat_id}")
+async def update_cat(cat_id: str, data: dict, uid: str = Depends(get_current_user)):
+    """
+    Update des catégories
+    """
+    item = {
+        "user_id": uid,
+        "id": cat_id,
+        "name": data['name'],
+        "icon": data.get('icon'),
+        "color": data.get('color')
+    }
+    table.put_item(Item=item) # put_item écrase l'ancien item avec les nouvelles données
+    return item
+
 # --- ROUTES SUBCATEGORIES ---
 @app.get("/api/subcategories")
 async def get_subs(uid: str = Depends(get_current_user)):
@@ -97,6 +112,22 @@ async def get_locs(uid: str = Depends(get_current_user)):
 @app.post("/api/locations")
 async def add_loc(data: dict, uid: str = Depends(get_current_user)):
     loc_id = f"LOC#{uuid.uuid4()}"
+    item = {
+        "user_id": uid,
+        "id": loc_id,
+        "name": data['name'],
+        "description": data.get('description'),
+        "icon": data.get('icon'),
+        "color": data.get('color')
+    }
+    table.put_item(Item=item)
+    return item
+
+@app.put("/api/locations/{loc_id}")
+async def update_loc(loc_id: str, data: dict, uid: str = Depends(get_current_user)):
+    """
+    Mise à jour des emplacements
+    """
     item = {
         "user_id": uid,
         "id": loc_id,
