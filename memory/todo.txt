@@ -1,0 +1,3 @@
+- La suppression des catégories ne fonctionne pas
+- La suppression des emplacements ne fonctionne pas
+- La caméra ne fonctionne pas
