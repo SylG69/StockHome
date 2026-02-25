@@ -213,6 +213,7 @@ export default function ScannerPage() {
           image_url: offRes.data.image_url || '',
           // On peut pré-remplir avec la suggestion la plus précise par défaut
           sub_category_id: matchedSubCategoryId,
+          sub_category_name: offSuggestions.length > 0 ? offSuggestions[offSuggestions.length - 1] : '',
           description: offRes.data.categories || '',
         });
       } catch (error) {
@@ -233,7 +234,7 @@ export default function ScannerPage() {
     } finally {
       setSearching(false);
     }
-  }, [searching, api, formData, allSubCategories]);
+  }, [searching, api, formData, subcategories]);
 
   const handleManualSearch = () => {
     if (!manualBarcode.trim()) {
@@ -707,7 +708,8 @@ export default function ScannerPage() {
                       aria-expanded={open}
                       className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
                     >
-                      {formData.sub_category_name || "Chercher ou saisir une précision..."}
+                      {/* Affiche le nom sélectionné ou le texte par défaut */}
+                      {formData.sub_category_name || "Chercher ou choisir..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </button>
                   </PopoverTrigger>
@@ -736,22 +738,26 @@ export default function ScannerPage() {
                         </CommandEmpty>
 
                         <CommandGroup title="Suggestions">
-                          {allPossibleSubCats.map((name) => (
+                          {subcategories.map((sub) => ( // On boucle sur les vraies sous-catégories
                             <CommandItem
-                              key={name}
-                              value={name}
-                              onSelect={(currentValue) => {
-                                setFormData({ ...formData, sub_category_name: currentValue });
+                              key={sub.id}
+                              value={sub.name}
+                              onSelect={() => {
+                                setFormData({
+                                  ...formData,
+                                  sub_category_id: sub.id,   // On enregistre l'ID pour la base de données
+                                  sub_category_name: sub.name // On garde le nom pour l'affichage UI
+                                });
                                 setOpen(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  formData.sub_category_name === name ? "opacity-100" : "opacity-0"
+                                  formData.sub_category_id === sub.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              {name}
+                              {sub.name}
                             </CommandItem>
                           ))}
                         </CommandGroup>
