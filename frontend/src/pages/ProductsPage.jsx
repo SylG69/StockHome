@@ -102,27 +102,22 @@ export default function ProductsPage() {
     }
   };
 
-  const updateThreshold = async (subCatId, newThreshold) => {
+  const handleUpdateThreshold = async (subId, value) => {
+    const min_stock = parseInt(value, 10);
+    if (isNaN(min_stock)) return;
+
     try {
-      const subCat = subCategories.find(s => s.id === subCatId);
-      if (!subCat) return;
+      // On appelle l'API pour mettre à jour le seuil de la sous-catégorie
+      const encodedId = encodeURIComponent(subId);
+      await api.patch(`/subcategories/${encodedId}/threshold`, {
+        min_stock: min_stock
+      });
 
-      const payload = {
-        name: subCat.name,
-        category_id: subCat.category_id,
-        min_quantity: parseInt(newThreshold) || 0
-      };
-
-      // Utilisation de encodeURIComponent ici aussi
-      const encodedId = encodeURIComponent(subCatId);
-      await api.put(`/subcategories/${encodedId}`, payload);
-
-      setSubCategories(prev => prev.map(s =>
-        s.id === subCatId ? { ...s, min_quantity: payload.min_quantity } : s
-      ));
       toast.success("Seuil mis à jour");
+      fetchData(); // On rafraîchit les données pour mettre à jour les badges de couleur
     } catch (error) {
-      toast.error("Erreur lors de la mise à jour");
+      console.error("Erreur lors de la mise à jour du seuil:", error);
+      toast.error("Erreur de sauvegarde du seuil");
     }
   };
 
@@ -244,8 +239,8 @@ export default function ProductsPage() {
                       type="number"
                       className="h-6 w-12 text-center text-xs bg-transparent border-none focus-visible:ring-0 p-0 font-bold"
                       defaultValue={group.threshold}
-                      onBlur={(e) => updateThreshold(subCatId, e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && (updateThreshold(subCatId, e.target.value), e.target.blur())}
+                      onBlur={(e) => handleUpdateThreshold(subCatId, e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (handleUpdateThreshold(subCatId, e.target.value), e.target.blur())}
                     />
                   </div>
                   <div className="flex items-center gap-2">
