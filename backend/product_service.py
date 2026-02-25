@@ -202,7 +202,8 @@ def update_subcategory_threshold(sub_id: str, data: SubCategoryUpdate, uid: str 
         )
         return {"status": "success", "min_stock": data.min_stock}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Erreur threshold: {e}")
+        raise HTTPException(status_code=500, detail="Erreur lors de la sauvegarde du seuil")
 
 
 handler = Mangum(app)

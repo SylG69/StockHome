@@ -263,12 +263,15 @@ export default function ProductsPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <Label size="sm">Seuil Alerte :</Label>
+                    <Label className="text-xs text-muted-foreground whitespace-nowrap">Seuil :</Label>
                     <Input
                       type="number"
-                      className="w-20 h-8"
+                      className="w-16 h-7 text-xs"
                       defaultValue={sub.min_stock || 0}
-                      onBlur={(e) => handleUpdateThreshold(sub.id, e.target.value)} // Sauvegarde quand on quitte le champ
+                      onBlur={(e) => handleUpdateThreshold(sub.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleUpdateThreshold(sub.id, e.target.value);
+                      }}
                     />
                   </div>
                   <div className="flex items-center gap-2">
