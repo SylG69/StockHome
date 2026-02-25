@@ -213,13 +213,13 @@ async def lookup_barcode(barcode: str):
                 brand=product.get('brands'),
                 image_url=product.get('image_url') or product.get('image_front_url'),
                 categories=product.get('categories'),
-                sub_categories_suggestions=suggestions,
+                sub_categories_suggestions=main_cat,
                 quantity_info=product.get('quantity')
             )
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="Timeout lors de la requête Open Food Facts")
         except Exception as e:
-            raise HTTPException(status_code=500, detail="Erreur lors de la recherche du produit")
+            raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche du produit: {str(e)}")
 
 @app.patch("/api/subcategories/{sub_id}/threshold")
 def update_subcategory_threshold(sub_id: str, data: SubCategoryUpdate, uid: str = Depends(get_current_user)):

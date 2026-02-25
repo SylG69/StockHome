@@ -66,7 +66,7 @@ def verify_password(stored_password: str, provided_password: str) -> bool:
         return False
 
 # Fonction utilitaire pour récupérer l'utilisateur via le token
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -84,7 +84,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 @app.post("/api/auth/register")
-async def register(user: UserRegister):
+def register(user: UserRegister):
     """
     Fonction d'enregistrement d'un nouvel utilisateur
     """
@@ -177,7 +177,7 @@ async def register(user: UserRegister):
     return {"message": "Utilisateur créé", "id": user_id}
 
 @app.post("/api/auth/login")
-async def login(data: dict):
+def login(data: dict):
     """
     Fonction de login
     """
@@ -205,7 +205,7 @@ async def login(data: dict):
     }
 
 @app.get("/api/auth/me")
-async def read_users_me(user_id: str = Depends(get_current_user)):
+def read_users_me(user_id: str = Depends(get_current_user)):
     """
     Récupère les informations de l'utilisateur dans DynamoDB
     """

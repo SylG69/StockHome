@@ -42,6 +42,10 @@ class LocationBase(BaseModel):
     icon: Optional[str] = None
     color: Optional[str] = None
 
+class SubCategoryBase(BaseModel):
+    name: str
+    sub_category_id: str
+
 # Fonction utilitaire pour récupérer l'utilisateur via le token
 def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -74,11 +78,20 @@ def get_cats(uid: str = Depends(get_current_user)):
 
 @app.post("/api/categories", response_model=CategoryBase)
 def add_cat(data: CategoryBase, uid: str = Depends(get_current_user)):
-    cat_id = f"CAT#{uuid.uuid4()}"
-    # .dict() ou .model_dump() transforme l'objet Pydantic en dictionnaire pour DynamoDB
-    item = {"user_id": uid, "id": cat_id, **data.model_dump()}
-    table.put_item(Item=item)
-    return item
+    """Création d'une catégorie"""
+    try:
+        cat_id = f"CAT#{uuid.uuid4()}"
+        item = {
+            "user_id": uid,
+            "id": cat_id,
+            **data.model_dump()
+        }
+        table.put_item(Item=item)
+        return item
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/categories/{cat_id}")
 def del_cat(cat_id: str, uid: str = Depends(get_current_user)):
@@ -94,7 +107,6 @@ def update_cat(cat_id: str, data: CategoryBase, uid: str = Depends(get_current_u
     """
     Update des catégories
     """
-    # TODO faire de même pour les sous-catégories et les emplacements
     try:
         # On s'assure que cat_id n'est pas juste "CAT" ou vide
         if not cat_id or cat_id.strip() == "CAT":
@@ -122,16 +134,20 @@ def get_subs(uid: str = Depends(get_current_user)):
     return list_items(uid, "SUBCAT#")
 
 @app.post("/api/subcategories")
-def add_sub(data: dict, uid: str = Depends(get_current_user)):
-    sub_id = f"SUBCAT#{uuid.uuid4()}"
-    item = {
-        "user_id": uid,
-        "id": sub_id,
-        "name": data['name'],
-        "category_id": data.get('category_id')
-    }
-    table.put_item(Item=item)
-    return item
+def add_sub(data: SubCategoryBase, uid: str = Depends(get_current_user)):
+    try:
+        sub_id = f"SUBCAT#{uuid.uuid4()}"
+        item = {
+            "user_id": uid,
+            "id": sub_id,
+            **data.model_dump()
+        }
+        table.put_item(Item=item)
+        return item
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- ROUTES LOCATIONS ---
 @app.get("/api/locations")
@@ -148,7 +164,11 @@ def add_loc(data: LocationBase, uid: str = Depends(get_current_user)):
     """
     try:
         loc_id = f"LOC#{uuid.uuid4()}"
-        item = {"user_id": uid, "id": loc_id, **data.model_dump()}
+        item = {
+            "user_id": uid,
+            "id": loc_id,
+            **data.model_dump()
+        }
         table.put_item(Item=item)
         return item
     except KeyError as e:
