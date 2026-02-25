@@ -82,50 +82,16 @@ export default function ShoppingListPage() {
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const [productsRes, subCatsRes] = await Promise.all([
-        api.get('/products'),
-        api.get('/subcategories')
-      ]);
-
-      const products = productsRes.data;
-      const subCategories = subCatsRes.data;
-
-      const stockPerSubCat = products.reduce((acc, p) => {
-        if (!p.sub_category_id) return acc;
-        const qty = Number(p.quantity) || 0;
-        acc[p.sub_category_id] = (acc[p.sub_category_id] || 0) + qty;
-        return acc;
-      }, {});
-
-      const missingItems = subCategories
-        .filter(sub => {
-          const totalStock = Number(stockPerSubCat[sub.id]) || 0;
-          const minRequired = Number(sub.min_quantity) || 0;
-
-          // DEBUG: Affiche les valeurs pour comprendre pourquoi Beurre passe ou non
-          console.log(`Groupe: ${sub.name} | Stock: ${totalStock} | Min: ${minRequired}`);
-
-          return totalStock < minRequired;
-        })
-        .map(sub => ({
-          name: sub.name,
-          quantity: Math.max(1, Number(sub.min_quantity) - (stockPerSubCat[sub.id] || 0)),
-          unit: 'unité'
-        }))
-        .filter(newItem => !items.find(ex => ex.name === newItem.name && !ex.is_checked));
-
-      if (missingItems.length === 0) {
-        toast.info('Stock suffisant selon vos réglages.');
-        return;
+      // Cet appel va déclencher la fonction Python corrigée ci-dessus
+      const response = await api.get('/shopping-list/generate');
+      if (response.data.added > 0) {
+        toast.success(`${response.data.added} articles ajoutés à la liste`);
+        fetchItems(); // Recharge la liste pour afficher les nouveaux éléments
+      } else {
+        toast.info("Tout est déjà en stock !");
       }
-
-      await api.post('/shopping-list/bulk', missingItems);
-      await fetchItems();
-      toast.success(`${missingItems.length} groupe(s) ajouté(s)`);
-
     } catch (error) {
-      console.error("Erreur détaillée:", error);
-      toast.error('Erreur de génération');
+      toast.error("Erreur lors de la génération");
     } finally {
       setGenerating(false);
     }

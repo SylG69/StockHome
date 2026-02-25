@@ -21,7 +21,8 @@ app.add_middleware(
 region = os.environ.get('AWS_REGION', 'eu-west-3')
 dynamodb = boto3.resource('dynamodb', region_name=region)
 table = dynamodb.Table(os.environ.get('SHOPPING_TABLE', 'StockHome-ShoppingList'))
-t_products = dynamodb.Table(os.environ.get('PRODUCTS_TABLE', 'StockHome-Products'))
+table_products = dynamodb.Table(os.environ.get('PRODUCTS_TABLE', 'StockHome-Products'))
+table_ref = dynamodb.Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
 ALGORITHM = "HS256"
@@ -40,7 +41,7 @@ class ShoppingListItemCreate(BaseModel):
     quantity: float = 1.0
     unit: str = "unité"
 
-async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[ALGORITHM])
         return payload.get("sub")
@@ -48,12 +49,12 @@ async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depend
         raise HTTPException(status_code=401, detail="Session expirée")
 
 @app.get("/api/shopping-list", response_model=List[ShoppingListItem])
-async def get_shopping_list(uid: str = Depends(get_current_user_id)):
+def get_shopping_list(uid: str = Depends(get_current_user_id)):
     res = table.query(KeyConditionExpression=Key('user_id').eq(uid))
     return res.get('Items', [])
 
 @app.post("/api/shopping-list")
-async def add_item(item_in: ShoppingListItemCreate, uid: str = Depends(get_current_user_id)):
+def add_item(item_in: ShoppingListItemCreate, uid: str = Depends(get_current_user_id)):
     item = {
         "user_id": uid, "id": str(uuid.uuid4()), "name": item_in.name,
         "quantity": item_in.quantity, "unit": item_in.unit, "is_checked": False,
@@ -62,28 +63,48 @@ async def add_item(item_in: ShoppingListItemCreate, uid: str = Depends(get_curre
     table.put_item(Item=item)
     return item
 
-@app.get("/api/shopping-list/generate")
-async def generate_list(uid: str = Depends(get_current_user_id)):
-    prods_res = t_products.query(KeyConditionExpression=Key('user_id').eq(uid))
-    to_add = [p for p in prods_res.get('Items', []) if float(p.get('current_stock', 0)) <= float(p.get('min_stock', 0))]
+def generate_list(uid: str = Depends(get_current_user_id)):
+    # A. On récupère les sous-catégories de l'utilisateur
+    # Note: On filtre pour ne prendre que les items qui ont un type 'subcategory'
+    # ou simplement tous les items de ReferenceData liés à l'utilisateur
+    ref_res = table_ref.query(KeyConditionExpression=Key('user_id').eq(uid))
+    all_refs = ref_res.get('Items', [])
 
+    # B. On filtre celles qui sont en alerte (current_stock <= min_stock)
+    # On ignore les catégories principales (qui n'ont pas de parent_id ou ont un flag spécifique)
+    to_add = []
+    for item in all_refs:
+        # On vérifie si c'est une sous-catégorie (elle a un parent_id)
+        if item.get('parent_id'):
+            current = int(item.get('current_stock', 0))
+            threshold = int(item.get('min_stock', 0))
+
+            if current <= threshold:
+                to_add.append(item)
+
+    # C. On vérifie ce qui est déjà dans la liste de courses pour éviter les doublons
     shop_res = table.query(KeyConditionExpression=Key('user_id').eq(uid))
     existing_names = {item['name'].lower() for item in shop_res.get('Items', [])}
 
     added_count = 0
     with table.batch_writer() as batch:
-        for p in to_add:
-            if p['name'].lower() not in existing_names:
+        for sub in to_add:
+            if sub['name'].lower() not in existing_names:
                 batch.put_item(Item={
-                    "user_id": uid, "id": str(uuid.uuid4()), "name": p['name'],
-                    "quantity": 1, "unit": p.get('unit', 'unité'), "is_checked": False,
+                    "user_id": uid,
+                    "id": str(uuid.uuid4()),
+                    "name": sub['name'], # On ajoute le nom de la sous-catégorie (ex: "Pâtes")
+                    "quantity": 1,
+                    "unit": "unité",
+                    "is_checked": False,
                     "added_at": datetime.now(timezone.utc).isoformat()
                 })
                 added_count += 1
-    return {"message": f"{added_count} articles ajoutés"}
+
+    return {"added": added_count}
 
 @app.delete("/api/shopping-list/{item_id}")
-async def delete_item(item_id: str, uid: str = Depends(get_current_user_id)):
+def delete_item(item_id: str, uid: str = Depends(get_current_user_id)):
     table.delete_item(Key={'user_id': uid, 'id': item_id})
     return {"status": "deleted"}
 
