@@ -105,7 +105,7 @@ export default function ScannerPage() {
 
   const fetchData = async () => {
     try {
-      const [categoriesRes, locationsRes] = await Promise.all([
+      const [categoriesRes, locationsRes, subcategoriesRes] = await Promise.all([
         api.get('/categories'),
         api.get('/locations'),
         api.get('/subcategories'),
@@ -121,24 +121,21 @@ export default function ScannerPage() {
   const startCamera = async () => {
     setCameraError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-      });
+      setCameraActive(true); // On active l'interface d'abord
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setCameraActive(true);
-
-        codeReader.current.decodeFromVideoDevice(
-          null,
-          videoRef.current,
-          (result, error) => {
-            if (result) {
-              handleBarcodeDetected(result.getText());
-            }
+      // On utilise null pour le premier argument pour laisser ZXing choisir la caméra par défaut (arrière)
+      // On passe la vidéoRef.current pour que ZXing sache où afficher le flux
+      await codeReader.current.decodeFromVideoDevice(
+        undefined,
+        videoRef.current,
+        (result, error) => {
+          if (result) {
+            handleBarcodeDetected(result.getText());
           }
-        );
-      }
+          // L'erreur ici est normale tant qu'aucun code n'est détecté,
+          // on ne logge rien pour éviter de spammer la console
+        }
+      );
     } catch (error) {
       console.error('Camera error:', error);
       setCameraError("Impossible d'accéder à la caméra. Vérifiez les permissions.");

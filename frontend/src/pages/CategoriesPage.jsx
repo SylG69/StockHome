@@ -148,7 +148,8 @@ export default function CategoriesPage() {
     if (!categoryToDelete) return;
 
     try {
-      await api.delete(`/categories/${categoryToDelete.id}`);
+      const encodedId = encodeURIComponent(categoryToDelete.id);
+      await api.delete(`/categories/${encodedId}`);
       toast.success('Catégorie supprimée');
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);

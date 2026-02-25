@@ -82,8 +82,11 @@ def add_cat(data: CategoryBase, uid: str = Depends(get_current_user)):
 
 @app.delete("/api/categories/{cat_id}")
 def del_cat(cat_id: str, uid: str = Depends(get_current_user)):
-    table.delete_item(Key={'user_id': uid, 'id': cat_id})
-    return {"status": "deleted"}
+    try:
+        table.delete_item(Key={'user_id': uid, 'id': cat_id})
+        return {"status": "deleted", "id": cat_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.put("/api/categories/{cat_id}")
@@ -173,6 +176,14 @@ def update_loc(loc_id: str, data: LocationBase, uid: str = Depends(get_current_u
         return item
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/locations/{loc_id}")
+def del_loc(loc_id: str, uid: str = Depends(get_current_user)):
+    try:
+        table.delete_item(Key={'user_id': uid, 'id': loc_id})
+        return {"status": "deleted", "id": loc_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
