@@ -62,7 +62,7 @@ export default function ProductsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
 
-  // État du formulaire
+  // Formulaire complet
   const initialForm = {
     name: '',
     barcode: '',
@@ -76,263 +76,239 @@ export default function ProductsPage() {
   };
   const [formData, setFormData] = useState(initialForm);
 
-  // --- LOGIQUE DE RÉCUPÉRATION DES DONNÉES ---
+  // --- RÉCUPÉRATION DONNÉES ---
   const fetchData = async () => {
     try {
-      const [productsRes, categoriesRes, locationsRes] = await Promise.all([
+      setLoading(true);
+      const [pRes, cRes, lRes] = await Promise.all([
         api.get('/products'),
         api.get('/categories'),
         api.get('/locations')
       ]);
-      setProducts(productsRes.data);
-      setCategories(categoriesRes.data);
-      setLocations(locationsRes.data);
+      setProducts(pRes.data);
+      setCategories(cRes.data);
+      setLocations(lRes.data);
     } catch (error) {
-      console.error(error);
-      toast.error("Erreur de chargement");
+      toast.error("Erreur de synchronisation");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
-  // --- CALCUL DES VARIABLES GLOBALES ---
-  const subCategories = categories.flatMap(c => c.sub_categories || c.subcategories || []);
+  // --- VARIABLES DE CALCUL (Indispensables pour éviter l'écran noir) ---
+  const subCategories = (categories || []).flatMap(c => c.sub_categories || c.subcategories || []);
 
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const groupedProducts = filteredProducts.reduce((acc, product) => {
-    const subId = product.sub_category_id || 'none';
+  const groupedProducts = filteredProducts.reduce((acc, p) => {
+    const subId = p.sub_category_id || 'none';
     if (!acc[subId]) acc[subId] = { items: [], total: 0 };
-    acc[subId].items.push(product);
-    acc[subId].total += (product.quantity || 0);
+    acc[subId].items.push(p);
+    acc[subId].total += (p.quantity || 0);
     return acc;
   }, {});
 
   // --- ACTIONS ---
   const handleUpdateThreshold = async (subId, value) => {
-    const min_stock = parseInt(value, 10);
-    if (isNaN(min_stock)) return;
+    const val = parseInt(value, 10);
+    if (isNaN(val)) return;
     try {
-      const encodedId = encodeURIComponent(subId);
-      await api.patch(`/subcategories/${encodedId}/threshold`, { min_stock });
+      await api.patch(`/subcategories/${encodeURIComponent(subId)}/threshold`, { min_stock: val });
       toast.success("Seuil mis à jour");
       fetchData();
-    } catch (error) {
-      toast.error("Erreur de sauvegarde du seuil");
-    }
+    } catch (e) { toast.error("Erreur seuil"); }
   };
 
   const handleSave = async () => {
-    if (!formData.name) return toast.error("Le nom est requis");
     setSaving(true);
     try {
       if (editingProduct) {
         await api.put(`/products/${encodeURIComponent(editingProduct.id)}`, formData);
-        toast.success("Produit mis à jour");
       } else {
         await api.post('/products', formData);
-        toast.success("Produit ajouté");
       }
       setDialogOpen(false);
       fetchData();
-    } catch (error) {
-      toast.error("Erreur d'enregistrement");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!productToDelete) return;
-    try {
-      await api.delete(`/products/${encodeURIComponent(productToDelete.id)}`);
-      setDeleteDialogOpen(false);
-      fetchData();
-      toast.success("Produit supprimé");
-    } catch (error) {
-      toast.error("Erreur de suppression");
-    }
+      toast.success("Stock mis à jour");
+    } catch (e) { toast.error("Erreur de sauvegarde"); }
+    finally { setSaving(false); }
   };
 
   const updateQty = async (id, delta) => {
     try {
       await api.patch(`/products/${encodeURIComponent(id)}/quantity`, { delta });
+      // On met à jour localement pour la réactivité avant le refresh
       fetchData();
-    } catch (error) {
-      toast.error("Erreur mise à jour quantité");
-    }
+    } catch (e) { toast.error("Erreur quantité"); }
   };
 
-  if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin" /></div>;
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/products/${encodeURIComponent(productToDelete.id)}`);
+      setDeleteDialogOpen(false);
+      fetchData();
+      toast.success("Supprimé");
+    } catch (e) { toast.error("Erreur"); }
+  };
+
+  if (loading) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="animate-spin text-primary w-10 h-10" /></div>;
 
   return (
-    <div className="p-4 pb-24 max-w-5xl mx-auto space-y-6">
-      {/* Header & Search */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Package className="w-8 h-8 text-primary" /> Inventaire
+    <div className="p-4 pb-24 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-2">
+          <Package className="text-primary" /> Inventaire
         </h1>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher..."
-              className="pl-9"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Button onClick={() => { setEditingProduct(null); setFormData(initialForm); setDialogOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" /> Produit
-          </Button>
-        </div>
+        <Button onClick={() => { setEditingProduct(null); setFormData(initialForm); setDialogOpen(true); }}>
+          <Plus className="mr-2 h-4 w-4" /> Ajouter
+        </Button>
       </div>
 
-      {/* Accordion List */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          className="pl-10"
+          placeholder="Rechercher un produit ou une marque..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+        />
+      </div>
+
       <Accordion type="multiple" defaultValue={Object.keys(groupedProducts)} className="space-y-4">
         {Object.entries(groupedProducts).map(([subId, data]) => {
           const sub = subCategories.find(s => s.id === subId) || { name: "Non classé", min_stock: 0 };
-          const isAlert = data.total <= (sub.min_stock || 0);
+          const isLow = data.total <= (sub.min_stock || 0);
 
           return (
-            <AccordionItem key={subId} value={subId} className="border rounded-xl bg-card shadow-sm overflow-hidden">
-              <div className="flex items-center bg-muted/30 pr-4">
-                <AccordionTrigger className="flex-1 px-4 hover:no-underline">
-                  <div className="flex items-center gap-4 text-left">
-                    <span className="text-lg font-semibold">{sub.name}</span>
-                    <Badge variant={isAlert ? "destructive" : "outline"} className="px-3">
-                      {data.total} en stock
+            <AccordionItem key={subId} value={subId} className="border rounded-xl bg-card shadow-sm border-border overflow-hidden">
+              <div className="flex items-center pr-4 bg-muted/20">
+                <AccordionTrigger className="flex-1 px-4 py-4 hover:no-underline">
+                  <div className="flex items-center gap-4">
+                    <span className="text-lg font-bold">{sub.name}</span>
+                    <Badge variant={isLow ? "destructive" : "secondary"} className="font-mono">
+                      {data.total}
                     </Badge>
                   </div>
                 </AccordionTrigger>
 
-                {/* Réglage du seuil directement dans la ligne */}
-                <div className="flex items-center gap-2 bg-background/50 border rounded-lg px-2 py-1">
-                  <AlertTriangle className={`w-3 h-3 ${isAlert ? "text-destructive" : "text-muted-foreground"}`} />
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground">Alerte :</span>
-                  <Input
+                <div className="flex items-center gap-2 bg-background/80 px-3 py-1.5 rounded-full border border-border shadow-sm">
+                  <AlertTriangle className={`h-3.5 w-3.5 ${isLow ? "text-destructive" : "text-muted-foreground"}`} />
+                  <span className="text-[10px] font-black uppercase text-muted-foreground">Seuil</span>
+                  <input
                     type="number"
+                    className="w-8 bg-transparent text-center text-sm font-bold focus:outline-none"
                     defaultValue={sub.min_stock || 0}
-                    className="w-12 h-6 text-xs border-none bg-transparent p-0 text-center font-bold"
-                    onBlur={(e) => handleUpdateThreshold(subId, e.target.value)}
+                    onBlur={e => handleUpdateThreshold(subId, e.target.value)}
                   />
                 </div>
               </div>
 
-              <AccordionContent className="px-4 pt-4 pb-2">
-                <div className="grid gap-3">
-                  {data.items.map((product) => (
-                    <div key={product.id} className="flex items-center justify-between p-3 rounded-lg border bg-background/50 group">
-                      <div className="flex items-center gap-3">
-                        {product.image_url && (
-                          <img src={product.image_url} alt="" className="w-10 h-10 rounded object-cover border" />
-                        )}
-                        <div>
-                          <p className="font-medium">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">{product.brand || 'Sans marque'}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(product.id, -1)}>
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-8 text-center font-bold">{product.quantity}</span>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(product.id, 1)}>
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setEditingProduct(product); setFormData(product); setDialogOpen(true); }}>
-                              <Edit className="w-4 h-4 mr-2" /> Modifier
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
-                              <Trash2 className="w-4 h-4 mr-2" /> Supprimer
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+              <AccordionContent className="p-2 space-y-2">
+                {data.items.map(product => (
+                  <div key={product.id} className="flex items-center justify-between p-3 rounded-lg bg-background border border-border/50 group transition-all hover:border-primary/50">
+                    <div className="flex items-center gap-4">
+                      {product.image_url ? (
+                        <img src={product.image_url} className="h-12 w-12 rounded-md object-cover border border-border" />
+                      ) : (
+                        <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center text-muted-foreground"><Package size={20}/></div>
+                      )}
+                      <div>
+                        <h4 className="font-semibold leading-none">{product.name}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">{product.brand || 'Générique'}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center bg-muted rounded-md p-1 border">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateQty(product.id, -1)}><Minus size={14}/></Button>
+                        <span className="w-10 text-center font-bold text-sm">{product.quantity}</span>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateQty(product.id, 1)}><Plus size={14}/></Button>
+                      </div>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="rounded-full"><MoreVertical size={16}/></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { setEditingProduct(product); setFormData(product); setDialogOpen(true); }}>
+                            <Edit className="mr-2 h-4 w-4" /> Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
               </AccordionContent>
             </AccordionItem>
           );
         })}
       </Accordion>
 
-      {/* Dialog Ajout/Modif */}
+      {/* MODAL AJOUT / MODIF (Restauré avec tous les champs) */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>{editingProduct ? "Modifier le produit" : "Ajouter un produit"}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Nom du produit</Label>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader><DialogTitle>{editingProduct ? "Éditer le produit" : "Nouveau produit"}</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="col-span-2 space-y-2">
+              <Label>Nom du produit *</Label>
               <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Quantité actuelle</Label>
-                <Input type="number" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Unité (ex: kg, pack)</Label>
-                <Input value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
-              </div>
+            <div className="space-y-2">
+              <Label>Quantité</Label>
+              <Input type="number" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})} />
             </div>
-            <div className="grid gap-2">
+            <div className="space-y-2">
+              <Label>Unité</Label>
+              <Input value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} placeholder="ex: kg, pack, boîte" />
+            </div>
+            <div className="space-y-2">
               <Label>Sous-catégorie</Label>
               <Select value={formData.sub_category_id || "none"} onValueChange={v => setFormData({...formData, sub_category_id: v === "none" ? null : v})}>
-                <SelectTrigger><SelectValue placeholder="Choisir une catégorie" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Catégorie..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sans catégorie</SelectItem>
+                  <SelectItem value="none">Aucune</SelectItem>
                   {subCategories.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
+            <div className="space-y-2">
               <Label>Emplacement</Label>
               <Select value={formData.location_id || "none"} onValueChange={v => setFormData({...formData, location_id: v === "none" ? null : v})}>
-                <SelectTrigger><SelectValue placeholder="Choisir un lieu" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Rangement..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Inconnu</SelectItem>
                   {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            <div className="col-span-2 space-y-2">
+              <Label>Marque (optionnel)</Label>
+              <Input value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Enregistrer
-            </Button>
+            <Button onClick={handleSave} disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Suppression */}
+      {/* MODAL SUPPRESSION */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Supprimer ?</DialogTitle></DialogHeader>
-          <p>Êtes-vous sûr de vouloir supprimer <b>{productToDelete?.name}</b> ?</p>
+          <DialogHeader><DialogTitle className="text-destructive">Confirmer la suppression</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Voulez-vous vraiment retirer <b>{productToDelete?.name}</b> de l'inventaire ?</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Annuler</Button>
-            <Button variant="destructive" onClick={handleDelete}>Supprimer</Button>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Conserver</Button>
+            <Button variant="destructive" onClick={handleDelete}>Supprimer définitivement</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
