@@ -1,26 +1,39 @@
-import os, uuid, boto3, httpx
-from typing import List, Optional
+import os
+import uuid
+from datetime import datetime, timezone
+from typing import Optional
+import httpx
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from mangum import Mangum
+import boto3
 from boto3.dynamodb.conditions import Key
-from datetime import datetime, timezone
 from jose import jwt, JWTError
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 region = os.environ.get('AWS_REGION', 'eu-west-3')
 dynamodb = boto3.resource('dynamodb', region_name=region)
 table = dynamodb.Table(os.environ.get('PRODUCTS_TABLE', 'StockHome-Products'))
+table_ref = dynamodb.Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
 ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 class ProductBase(BaseModel):
+    """
+    Modèle de base pour un produit
+    """
     name: str
     barcode: Optional[str] = None
     quantity: int = 0
@@ -33,21 +46,64 @@ class ProductBase(BaseModel):
     image_url: Optional[str] = None
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
+    """
+    Récupère l'utilisateur courant à partir du token JWT
+    """
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
-        if user_id is None: raise HTTPException(status_code=401)
+        if user_id is None:
+            raise HTTPException(status_code=401)
         return user_id
     except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
+def sync_subcategory_stock(uid: str, sub_category_id: str):
+    """
+    Fonction pour recalculer et mettre à jour la sous-catégorie
+    """
+    if not sub_category_id or sub_category_id == "none":
+        return
+
+    # A. Calculer la somme de TOUS les produits de cette sous-catégorie pour cet utilisateur
+    products_response = table.query(
+        KeyConditionExpression=Key('user_id').eq(uid)
+    )
+    products = products_response.get('Items', [])
+
+    total_qty = sum(
+        int(p.get('quantity', 0))
+        for p in products
+        if p.get('sub_category_id') == sub_category_id
+    )
+
+    # B. Mettre à jour la sous-catégorie dans la table ReferenceData
+    # On met à jour un champ 'current_stock' dans la sous-catégorie
+    try:
+        table_ref.update_item(
+            Key={'user_id': uid, 'id': sub_category_id},
+            UpdateExpression="SET current_stock = :qty, updated_at = :now",
+            ExpressionAttributeValues={
+                ':qty': total_qty,
+                ':now': datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception as e:
+        print(f"Erreur synchro sub_cat: {e}")
+
 @app.get("/api/products")
 def list_products(uid: str = Depends(get_current_user)):
+    """
+    Liste des produits
+    """
     response = table.query(KeyConditionExpression=Key('user_id').eq(uid))
     return response.get('Items', [])
 
 @app.post("/api/products")
 def add_product(data: ProductBase, uid: str = Depends(get_current_user)):
+    """
+    Ajout d'un produit
+    """
     product_id = str(uuid.uuid4())
     item = {
         "user_id": uid,
@@ -56,10 +112,14 @@ def add_product(data: ProductBase, uid: str = Depends(get_current_user)):
         **data.model_dump(exclude_none=True)
     }
     table.put_item(Item=item)
+    sync_subcategory_stock(uid, data.sub_category_id)
     return item
 
 @app.put("/api/products/{product_id}")
 def update_product(product_id: str, data: ProductBase, uid: str = Depends(get_current_user)):
+    """
+    Mise à jour d'un produit
+    """
     item = {
         "user_id": uid,
         "id": product_id,
@@ -67,10 +127,14 @@ def update_product(product_id: str, data: ProductBase, uid: str = Depends(get_cu
         **data.model_dump(exclude_none=True)
     }
     table.put_item(Item=item)
+    sync_subcategory_stock(uid, data.sub_category_id)
     return item
 
 @app.patch("/api/products/{product_id}/quantity")
 def update_quantity(product_id: str, delta: int, uid: str = Depends(get_current_user)):
+    """
+    Mise à jour de la quantité d'un produit
+    """
     try:
         response = table.update_item(
             Key={'user_id': uid, 'id': product_id},
@@ -81,17 +145,26 @@ def update_quantity(product_id: str, delta: int, uid: str = Depends(get_current_
             },
             ReturnValues="UPDATED_NEW"
         )
+        prod = table.get_item(Key={'user_id': uid, 'id': product_id}).get('Item')
+        if prod:
+            sync_subcategory_stock(uid, prod.get('sub_category_id'))
         return response.get('Attributes')
     except Exception:
         raise HTTPException(status_code=404, detail="Produit non trouvé")
 
 @app.delete("/api/products/{product_id}")
 def delete_product(product_id: str, uid: str = Depends(get_current_user)):
+    """
+    Suppression d'un produit
+    """
     table.delete_item(Key={'user_id': uid, 'id': product_id})
     return {"message": "Supprimé"}
 
 @app.get("/api/barcode/{barcode}")
 def scan_barcode(barcode: str):
+    """
+    Scan a barcode
+    """
     with httpx.Client() as client:
         url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
         response = client.get(url)

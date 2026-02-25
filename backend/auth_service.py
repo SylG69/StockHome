@@ -27,8 +27,8 @@ app.add_middleware(
 region = os.environ.get('AWS_REGION', 'eu-west-3')
 dynamodb = boto3.resource('dynamodb', region_name=region)
 
-table = boto3.resource('dynamodb').Table(os.environ.get('USERS_TABLE', 'StockHome-Users'))
-table_ref = boto3.resource('dynamodb').Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
+table = dynamodb.Table(os.environ.get('USERS_TABLE', 'StockHome-Users'))
+table_ref = dynamodb.Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
 ALGORITHM = "HS256"
