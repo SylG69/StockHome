@@ -202,8 +202,6 @@ custom:
   s3Sync:
     - bucketName: stockhome-front-storage-383842796189
       localDir: ../frontend/dist
-    - bucketName: stockhome-front-storage-383842796189
-      localDir: ../frontend/favicon.ico
 
 resources:
   Resources:
