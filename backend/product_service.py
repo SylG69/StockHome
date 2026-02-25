@@ -45,6 +45,12 @@ class ProductBase(BaseModel):
     location_id: Optional[str] = None
     image_url: Optional[str] = None
 
+class SubCategoryUpdate(BaseModel):
+    """
+    Modèle de mise à jour pour une sous-catégorie
+    """
+    min_stock: int
+
 def get_current_user(token: str = Depends(oauth2_scheme)):
     """
     Récupère l'utilisateur courant à partir du token JWT
@@ -179,5 +185,24 @@ def scan_barcode(barcode: str):
                     "barcode": barcode
                 }
     raise HTTPException(status_code=404, detail="Produit non trouvé")
+
+@app.patch("/api/subcategories/{sub_id}/threshold")
+def update_subcategory_threshold(sub_id: str, data: SubCategoryUpdate, uid: str = Depends(get_current_user)):
+    """
+    Met à jour uniquement le seuil minimal d'une sous-catégorie
+    """
+    try:
+        table_ref.update_item(
+            Key={'user_id': uid, 'id': sub_id},
+            UpdateExpression="SET min_stock = :ms, updated_at = :now",
+            ExpressionAttributeValues={
+                ':ms': data.min_stock,
+                ':now': datetime.now(timezone.utc).isoformat()
+            }
+        )
+        return {"status": "success", "min_stock": data.min_stock}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 handler = Mangum(app)

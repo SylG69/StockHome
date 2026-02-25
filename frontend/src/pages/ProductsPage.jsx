@@ -168,6 +168,20 @@ export default function ProductsPage() {
     return acc;
   }, {});
 
+  const handleUpdateThreshold = async (subId, newThreshold) => {
+    try {
+      const encodedId = encodeURIComponent(subId);
+      await api.patch(`/subcategories/${encodedId}/threshold`, {
+        min_stock: parseInt(newThreshold, 10) || 0
+      });
+      toast.success("Seuil mis à jour");
+      fetchData(); // Pour rafraîchir l'affichage
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour du seuil");
+    }
+  };
+
+
   // --- COMPOSANT CARTE PRODUIT ---
   const ProductCard = ({ product, groupTotalStock, groupThreshold }) => {
     const isLowStock = groupTotalStock < groupThreshold;
@@ -246,6 +260,15 @@ export default function ProductsPage() {
                       defaultValue={group.threshold}
                       onBlur={(e) => updateThreshold(subCatId, e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && (updateThreshold(subCatId, e.target.value), e.target.blur())}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label size="sm">Seuil Alerte :</Label>
+                    <Input
+                      type="number"
+                      className="w-20 h-8"
+                      defaultValue={sub.min_stock || 0}
+                      onBlur={(e) => handleUpdateThreshold(sub.id, e.target.value)} // Sauvegarde quand on quitte le champ
                     />
                   </div>
                   <div className="flex items-center gap-2">
