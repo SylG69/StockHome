@@ -63,6 +63,7 @@ export default function ScannerPage() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [allSubCategories, setAllSubCategories] = useState([]);
 
   // Scanned product state
   const [scannedProduct, setScannedProduct] = useState(null);
@@ -185,6 +186,21 @@ export default function ScannerPage() {
         // On récupère les suggestions envoyées par le backend
         const offSuggestions = offRes.data.sub_categories_suggestions || [];
         setSuggestions(offSuggestions);
+        // On cherche si un nom de suggestion correspond à une de nos sous-catégories
+        let matchedSubCategoryId = null;
+        if (offSuggestions.length > 0) {
+          // "subcategories" doit être votre état contenant la liste des sous-cats chargées depuis l'API
+          for (let i = offSuggestions.length - 1; i >= 0; i--) {
+            const found = subcategories.find(s =>
+              s.name.toLowerCase() === offSuggestions[i].toLowerCase()
+            );
+            if (found) {
+              matchedSubCategoryId = found.id;
+              break;
+            }
+          }
+        }
+
         setFormData({
           name: offRes.data.name || '',
           brand: offRes.data.brand || '',
@@ -192,11 +208,11 @@ export default function ScannerPage() {
           quantity: 1,
           min_quantity: 1,
           unit: 'unité',
-          category_id: '',
+          category_id: offRes.data.categories || '',
           location_id: '',
           image_url: offRes.data.image_url || '',
           // On peut pré-remplir avec la suggestion la plus précise par défaut
-          sub_category_name: offSuggestions.length > 0 ? offSuggestions[offSuggestions.length - 1] : '',
+          sub_category_id: matchedSubCategoryId,
           description: offRes.data.categories || '',
         });
       } catch (error) {
@@ -217,7 +233,7 @@ export default function ScannerPage() {
     } finally {
       setSearching(false);
     }
-  }, [searching, api, formData]);
+  }, [searching, api, formData, allSubCategories]);
 
   const handleManualSearch = () => {
     if (!manualBarcode.trim()) {
@@ -280,7 +296,7 @@ export default function ScannerPage() {
       toast.error('Erreur lors de la mise à jour');
     }
   };
-  // Dans ScannerPage.jsx, remplacez handleScan par ceci :
+
   const handleScan = async (barcode) => {
     if (isScanning) return;
     setIsScanning(true);

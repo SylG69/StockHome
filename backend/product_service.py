@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 import httpx
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,6 +50,15 @@ class SubCategoryUpdate(BaseModel):
     Modèle de mise à jour pour une sous-catégorie
     """
     min_stock: int
+
+class OpenFoodFactsProduct(BaseModel):
+    barcode: str
+    name: Optional[str] = None
+    brand: Optional[str] = None
+    image_url: Optional[str] = None
+    categories: Optional[str] = None
+    sub_categories_suggestions: List[str] = []
+    quantity_info: Optional[str] = None
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     """
@@ -166,25 +175,51 @@ def delete_product(product_id: str, uid: str = Depends(get_current_user)):
     table.delete_item(Key={'user_id': uid, 'id': product_id})
     return {"message": "Supprimé"}
 
-@app.get("/api/barcode/{barcode}")
-def scan_barcode(barcode: str):
-    """
-    Scan a barcode
-    """
-    with httpx.Client() as client:
-        url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
-        response = client.get(url)
-        if response.status_code == 200:
+@app.get("/api/barcode/{barcode}", response_model=OpenFoodFactsProduct)
+async def lookup_barcode(barcode: str):
+    """Look up product info from Open Food Facts"""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json",
+                timeout=10.0
+            )
             data = response.json()
-            if data.get('status') == 1:
-                p = data['product']
-                return {
-                    "name": p.get('product_name', 'Inconnu'),
-                    "image_url": p.get('image_url'),
-                    "brand": p.get('brands'),
-                    "barcode": barcode
-                }
-    raise HTTPException(status_code=404, detail="Produit non trouvé")
+
+            if data.get('status') != 1:
+                raise HTTPException(status_code=404, detail="Produit non trouvé dans Open Food Facts")
+
+            product = data.get('product', {})
+            # 1. On récupère la chaîne brute (ex: "Produits laitiers, Matières grasses")
+            categories_str = product.get('categories_old', '')
+
+            def clean_categories(categories_str):
+                if not categories_str or not isinstance(categories_str, str):
+                    return []
+                raw_tags = categories_str.split(',')
+                cleaned_list = []
+                for t in raw_tags:
+                    clean = t.strip().split(':')[-1].replace('-', ' ').capitalize()
+                    if clean:
+                        cleaned_list.append(clean)
+
+                return cleaned_list
+
+            suggestions = clean_categories(categories_str)
+            main_cat = suggestions[min(len(suggestions)-1, 2)] if suggestions else None
+            return OpenFoodFactsProduct(
+                barcode=barcode,
+                name=product.get('product_name') or product.get('product_name_fr'),
+                brand=product.get('brands'),
+                image_url=product.get('image_url') or product.get('image_front_url'),
+                categories=product.get('categories'),
+                sub_categories_suggestions=suggestions,
+                quantity_info=product.get('quantity')
+            )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Timeout lors de la requête Open Food Facts")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="Erreur lors de la recherche du produit")
 
 @app.patch("/api/subcategories/{sub_id}/threshold")
 def update_subcategory_threshold(sub_id: str, data: SubCategoryUpdate, uid: str = Depends(get_current_user)):
