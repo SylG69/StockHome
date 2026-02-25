@@ -2,6 +2,7 @@
 
 - La caméra ne fonctionne pas
 - Revoir les sub cat en général
+- Ajouter l'apercu sur catégorie ou location
 
 # Fait !
 

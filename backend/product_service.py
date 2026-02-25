@@ -53,17 +53,13 @@ def add_product(data: ProductBase, uid: str = Depends(get_current_user)):
         "user_id": uid,
         "id": product_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        **data.model_dump(exclude_none=True)
     }
-    # exclude_none=True évite d'envoyer des champs vides à DynamoDB
-    product_data = data.model_dump(exclude_none=True)
-    item.update(product_data)
-
     table.put_item(Item=item)
     return item
 
 @app.put("/api/products/{product_id}")
 def update_product(product_id: str, data: ProductBase, uid: str = Depends(get_current_user)):
-    # On reconstruit l'item complet pour s'assurer que tous les champs sont mis à jour
     item = {
         "user_id": uid,
         "id": product_id,
@@ -90,5 +86,22 @@ def update_quantity(product_id: str, delta: float, uid: str = Depends(get_curren
 def delete_product(product_id: str, uid: str = Depends(get_current_user)):
     table.delete_item(Key={'user_id': uid, 'id': product_id})
     return {"message": "Supprimé"}
+
+@app.get("/api/barcode/{barcode}")
+def scan_barcode(barcode: str):
+    with httpx.Client() as client:
+        url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
+        response = client.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 1:
+                p = data['product']
+                return {
+                    "name": p.get('product_name', 'Inconnu'),
+                    "image_url": p.get('image_url'),
+                    "brand": p.get('brands'),
+                    "barcode": barcode
+                }
+    raise HTTPException(status_code=404, detail="Produit non trouvé")
 
 handler = Mangum(app)

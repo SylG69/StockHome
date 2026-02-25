@@ -317,14 +317,12 @@ export default function ProductsPage() {
   const handleDelete = async () => {
     if (!productToDelete) return;
     try {
-      // Sécurité : toujours encoder l'ID dans l'URL
       const encodedId = encodeURIComponent(productToDelete.id);
       await api.delete(`/products/${encodedId}`);
       toast.success('Produit supprimé');
       setDeleteDialogOpen(false);
-      fetchData(); // Rafraîchir la liste complète
+      fetchProducts();
     } catch (e) {
-      console.error(e);
       toast.error("Erreur lors de la suppression");
     }
   };

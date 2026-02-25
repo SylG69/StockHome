@@ -280,32 +280,59 @@ export default function ScannerPage() {
       toast.error('Erreur lors de la mise à jour');
     }
   };
+  // Dans ScannerPage.jsx, remplacez handleScan par ceci :
+  const handleScan = async (barcode) => {
+    if (isScanning) return;
+    setIsScanning(true);
 
-  const handleSaveNewProduct = async () => {
-    if (!formData.name.trim()) {
-      toast.error('Le nom du produit est requis');
-      return;
+    try {
+      const response = await api.get(`/barcode/${barcode}`);
+      const productData = response.data;
+
+      // On pré-remplit TOUT le formulaire
+      setFormData({
+        name: productData.name || '',
+        brand: productData.brand || '',
+        image_url: productData.image_url || '',
+        barcode: barcode,
+        quantity: 1,
+        min_quantity: 1,
+        unit: "unité",
+        location_id: "none",
+        category_id: null,
+        sub_category_id: null
+      });
+
+      setResultDialogOpen(true); // Ouvre le dialogue de confirmation
+    } catch (error) {
+      toast.error("Produit non trouvé");
+      // Optionnel : ouvrir le dialogue vide pour saisie manuelle
+      setFormData({ ...initialForm, barcode: barcode });
+      setResultDialogOpen(true);
+    } finally {
+      setIsScanning(false);
     }
+  };
 
+  // Et la fonction de sauvegarde associée :
+  const handleSaveNewProduct = async () => {
     setSaving(true);
     try {
-      await api.post('/products', {
-        ...formData,
-        sub_category_name: formData.sub_category_name || null,
-        category_id: formData.category_id || null,
-        location_id: formData.location_id || null,
-        // sub_category_id: formData.sub_category_id || null,
-      });
-      toast.success('Produit ajouté à votre inventaire');
+      const dataToSend = { ...formData };
+      if (dataToSend.location_id === "none") delete dataToSend.location_id;
+
+      await api.post('/products', dataToSend);
+      toast.success("Produit ajouté au stock");
       setResultDialogOpen(false);
-      setAddDialogOpen(false);
-      setManualBarcode('');
+      navigate('/products');
     } catch (error) {
       toast.error("Erreur lors de l'enregistrement");
     } finally {
       setSaving(false);
     }
   };
+
+
 
   return (
     <div className="space-y-6" data-testid="scanner-page">
