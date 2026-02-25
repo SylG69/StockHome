@@ -297,17 +297,15 @@ export default function ProductsPage() {
     setSaving(true);
     try {
       if (editingProduct) {
-        // Même sans PROD#, on encode par sécurité car l'ID est dans l'URL
         const encodedId = encodeURIComponent(editingProduct.id);
         await api.put(`/products/${encodedId}`, formData);
         toast.success("Produit mis à jour");
       } else {
-        // Pour la création, pas besoin d'ID dans l'URL
         await api.post('/products', formData);
         toast.success("Produit ajouté");
       }
       setDialogOpen(false);
-      fetchProducts();
+      fetchData(); // Utilise fetchData au lieu de fetchProducts pour tout recharger
     } catch (error) {
       console.error(error);
       toast.error("Erreur lors de l'enregistrement");
@@ -317,12 +315,18 @@ export default function ProductsPage() {
   };
 
   const handleDelete = async () => {
+    if (!productToDelete) return;
     try {
-      await api.delete(`/products/${productToDelete.id}`);
-      toast.success('Supprimé');
+      // Sécurité : toujours encoder l'ID dans l'URL
+      const encodedId = encodeURIComponent(productToDelete.id);
+      await api.delete(`/products/${encodedId}`);
+      toast.success('Produit supprimé');
       setDeleteDialogOpen(false);
-      fetchData();
-    } catch (e) { toast.error("Erreur"); }
+      fetchData(); // Rafraîchir la liste complète
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur lors de la suppression");
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin h-12 w-12" /></div>;
@@ -393,7 +397,17 @@ export default function ProductsPage() {
           <DialogHeader><DialogTitle>{editingProduct ? 'Modifier' : 'Ajouter'}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4 max-h-[60vh] overflow-y-auto">
             <div className="col-span-2"><Label>Nom *</Label><Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
-            <div><Label>Quantité</Label><Input type="number" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})} /></div>
+            <div>
+              <Label>Quantité</Label>
+              <Input
+                type="number"
+                value={formData.quantity}
+                onChange={e => setFormData({
+                  ...formData,
+                  quantity: e.target.value === "" ? 0 : Number(e.target.value)
+                })}
+              />
+            </div>
             <div><Label>Sous-catégorie</Label>
               <Select value={formData.sub_category_id || "none"} onValueChange={v => setFormData({...formData, sub_category_id: v === "none" ? null : v})}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

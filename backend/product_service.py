@@ -23,12 +23,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 class ProductBase(BaseModel):
     name: str
     barcode: Optional[str] = None
-    quantity: float = 0  # Changé de current_stock -> quantity
-    min_quantity: float = 1 # Changé de min_stock -> min_quantity
+    quantity: float = 0
+    min_quantity: float = 1
     unit: str = "unité"
     brand: Optional[str] = None
     category_id: Optional[str] = None
-    sub_category_id: Optional[str] = None # Changé de subcategory_id -> sub_category_id
+    sub_category_id: Optional[str] = None
     location_id: Optional[str] = None
     image_url: Optional[str] = None
 
@@ -53,18 +53,22 @@ def add_product(data: ProductBase, uid: str = Depends(get_current_user)):
         "user_id": uid,
         "id": product_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        **data.model_dump()
     }
+    # exclude_none=True évite d'envoyer des champs vides à DynamoDB
+    product_data = data.model_dump(exclude_none=True)
+    item.update(product_data)
+
     table.put_item(Item=item)
     return item
 
 @app.put("/api/products/{product_id}")
 def update_product(product_id: str, data: ProductBase, uid: str = Depends(get_current_user)):
+    # On reconstruit l'item complet pour s'assurer que tous les champs sont mis à jour
     item = {
         "user_id": uid,
         "id": product_id,
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        **data.model_dump()
+        **data.model_dump(exclude_none=True)
     }
     table.put_item(Item=item)
     return item
@@ -74,29 +78,13 @@ def update_quantity(product_id: str, delta: float, uid: str = Depends(get_curren
     try:
         response = table.update_item(
             Key={'user_id': uid, 'id': product_id},
-            UpdateExpression="SET current_stock = current_stock + :val, updated_at = :now",
+            UpdateExpression="SET quantity = quantity + :val, updated_at = :now",
             ExpressionAttributeValues={':val': delta, ':now': datetime.now(timezone.utc).isoformat()},
             ReturnValues="UPDATED_NEW"
         )
         return response.get('Attributes')
     except Exception:
         raise HTTPException(status_code=404, detail="Produit non trouvé")
-
-@app.get("/api/barcode/{barcode}")
-def scan_barcode(barcode: str):
-    with httpx.Client() as client:
-        url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
-        response = client.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('status') == 1:
-                p = data['product']
-                return {
-                    "name": p.get('product_name', 'Inconnu'),
-                    "image_url": p.get('image_url'),
-                    "brand": p.get('brands')
-                }
-    raise HTTPException(status_code=404, detail="Produit non trouvé")
 
 @app.delete("/api/products/{product_id}")
 def delete_product(product_id: str, uid: str = Depends(get_current_user)):
