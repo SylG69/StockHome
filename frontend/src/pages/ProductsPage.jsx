@@ -289,15 +289,31 @@ export default function ProductsPage() {
   };
 
   const handleSave = async () => {
-    if (!formData.name.trim()) return toast.error('Nom requis');
+    if (!formData.name.trim()) {
+      toast.error("Le nom est requis");
+      return;
+    }
+
     setSaving(true);
     try {
-      const payload = { ...formData, category_id: formData.category_id || null, sub_category_id: formData.sub_category_id || null, location_id: formData.location_id || null };
-      editingProduct ? await api.put(`/products/${editingProduct.id}`, payload) : await api.post('/products', payload);
-      toast.success('Opération réussie');
+      if (editingProduct) {
+        // Même sans PROD#, on encode par sécurité car l'ID est dans l'URL
+        const encodedId = encodeURIComponent(editingProduct.id);
+        await api.put(`/products/${encodedId}`, formData);
+        toast.success("Produit mis à jour");
+      } else {
+        // Pour la création, pas besoin d'ID dans l'URL
+        await api.post('/products', formData);
+        toast.success("Produit ajouté");
+      }
       setDialogOpen(false);
-      fetchData();
-    } catch (e) { toast.error("Erreur d'enregistrement"); } finally { setSaving(false); }
+      fetchProducts();
+    } catch (error) {
+      console.error(error);
+      toast.error("Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {

@@ -276,6 +276,24 @@ export default function CategoriesPage() {
                 ))}
               </div>
             </div>
+            {/* Preview */}
+            <div className="pt-4 border-t border-border">
+              <Label>Aperçu</Label>
+              <div className="flex items-center gap-3 mt-2 p-4 rounded-lg bg-secondary/50">
+                <div
+                  className="p-3 rounded-xl"
+                  style={{ backgroundColor: `${formData.color}20` }}
+                >
+                  {(() => {
+                    const Icon = iconMap[formData.icon] || Package;
+                    return <Icon className="w-6 h-6" style={{ color: formData.color }} />;
+                  })()}
+                </div>
+                <span className="font-semibold">
+                  {formData.name || 'Nom de la catégorie'}
+                </span>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
