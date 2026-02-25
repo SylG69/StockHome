@@ -399,10 +399,11 @@ export default function ProductsPage() {
               <Label>Quantité</Label>
               <Input
                 type="number"
+                step="1"
                 value={formData.quantity}
                 onChange={e => setFormData({
                   ...formData,
-                  quantity: e.target.value === "" ? 0 : Number(e.target.value)
+                  quantity: parseInt(e.target.value, 10) || 0
                 })}
               />
             </div>

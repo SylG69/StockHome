@@ -23,8 +23,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 class ProductBase(BaseModel):
     name: str
     barcode: Optional[str] = None
-    quantity: float = 0
-    min_quantity: float = 1
+    quantity: int = 0
+    min_quantity: int = 1
     unit: str = "unité"
     brand: Optional[str] = None
     category_id: Optional[str] = None
@@ -70,12 +70,15 @@ def update_product(product_id: str, data: ProductBase, uid: str = Depends(get_cu
     return item
 
 @app.patch("/api/products/{product_id}/quantity")
-def update_quantity(product_id: str, delta: float, uid: str = Depends(get_current_user)):
+def update_quantity(product_id: str, delta: int, uid: str = Depends(get_current_user)):
     try:
         response = table.update_item(
             Key={'user_id': uid, 'id': product_id},
             UpdateExpression="SET quantity = quantity + :val, updated_at = :now",
-            ExpressionAttributeValues={':val': delta, ':now': datetime.now(timezone.utc).isoformat()},
+            ExpressionAttributeValues={
+                ':val': delta,
+                ':now': datetime.now(timezone.utc).isoformat()
+            },
             ReturnValues="UPDATED_NEW"
         )
         return response.get('Attributes')
