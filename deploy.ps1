@@ -26,6 +26,7 @@ Write-Host "Mise à jour du site sur S3..." -ForegroundColor Yellow
 cd ..
 cd $FRONTEND_PATH
 aws s3 sync dist/ $S3_BUCKET --delete --region eu-west-3
+aws s3 sync favicon.ico $S3_BUCKET --delete --region eu-west-3
 
 Write-Host "Invalidation du cache CloudFront (pour propager la nouvelle URL)..." -ForegroundColor Yellow
 aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/*"

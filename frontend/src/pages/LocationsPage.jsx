@@ -153,7 +153,7 @@ export default function LocationsPage() {
 
     try {
       const encodedId = encodeURIComponent(locationToDelete.id);
-      await api.delete(`/locations/${encodedId.id}`);
+      await api.delete(`/locations/${encodedId}`);
       toast.success('Emplacement supprimé');
       setDeleteDialogOpen(false);
       setLocationToDelete(null);
