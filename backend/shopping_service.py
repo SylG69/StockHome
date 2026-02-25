@@ -63,6 +63,7 @@ def add_item(item_in: ShoppingListItemCreate, uid: str = Depends(get_current_use
     table.put_item(Item=item)
     return item
 
+@app.get("/api/shopping-list/generate")
 def generate_list(uid: str = Depends(get_current_user_id)):
     # A. On récupère les sous-catégories de l'utilisateur
     # Note: On filtre pour ne prendre que les items qui ont un type 'subcategory'
