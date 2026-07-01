@@ -94,7 +94,7 @@ rm -rf "${APACHE_DIR:?}"/*
 
 # Copie du nouveau build
 log "Copie du nouveau build…"
-cp -r "${FRONTEND_DIR}/build/." "${APACHE_DIR}/"
+cp -r "${FRONTEND_DIR}/dist/." "${APACHE_DIR}/"
 
 # Permissions
 chown -R www-data:www-data "${APACHE_DIR}"
