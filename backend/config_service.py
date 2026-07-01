@@ -1,210 +1,202 @@
-import os, uuid, boto3
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
-from mangum import Mangum
-from boto3.dynamodb.conditions import Key
-from jose import jwt, JWTError
-from pydantic import BaseModel, Field
-from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-app = FastAPI()
+import models
+import schemas
+from auth import get_current_user
+from database import get_db
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], # En prod, vous pourrez remplacer par votre URL CloudFront
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Force la région pour être sûr de pointer au bon endroit
-region = os.environ.get('AWS_REGION', 'eu-west-3')
-dynamodb = boto3.resource('dynamodb', region_name=region)
-
-table = boto3.resource('dynamodb').Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
-JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret')
-ALGORITHM = "HS256"
-
-# Ce paramètre indique à FastAPI que le token se trouve dans le header Authorization
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
-
-# Modèle de base pour la Catégorie
-class CategoryBase(BaseModel):
-    name: str
-    icon: Optional[str] = None
-    color: Optional[str] = None
-
-# Modèle pour la Location
-class LocationBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-    icon: Optional[str] = None
-    color: Optional[str] = None
-
-class SubCategoryBase(BaseModel):
-    name: str
-    sub_category_id: str
-
-# Fonction utilitaire pour récupérer l'utilisateur via le token
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-        return user_id
-    except JWTError:
-        raise credentials_exception
+router = APIRouter(prefix="/api", tags=["config"])
 
 
-# --- Logique générique pour éviter la répétition ---
-def list_items(uid: str, prefix: str):
-    try:
-        res = table.query(KeyConditionExpression=Key('user_id').eq(uid) & Key('id').begins_with(prefix))
-        return res.get('Items', [])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# ==================== CATEGORIES ====================
 
-# --- ROUTES CATEGORIES ---
-@app.get("/api/categories")
-def get_cats(uid: str = Depends(get_current_user)):
-    return list_items(uid, "CAT#")
-
-@app.post("/api/categories", response_model=CategoryBase)
-def add_cat(data: CategoryBase, uid: str = Depends(get_current_user)):
-    """Création d'une catégorie"""
-    try:
-        cat_id = f"CAT#{uuid.uuid4()}"
-        item = {
-            "user_id": uid,
-            "id": cat_id,
-            **data.model_dump()
-        }
-        table.put_item(Item=item)
-        return item
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.delete("/api/categories/{cat_id}")
-def del_cat(cat_id: str, uid: str = Depends(get_current_user)):
-    try:
-        table.delete_item(Key={'user_id': uid, 'id': cat_id})
-        return {"status": "deleted", "id": cat_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.get("/categories", response_model=list[schemas.CategoryResponse])
+def get_categories(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    result = db.execute(select(models.Category).where(models.Category.user_id == current_user.id))
+    return result.scalars().all()
 
 
-@app.put("/api/categories/{cat_id}")
-def update_cat(cat_id: str, data: CategoryBase, uid: str = Depends(get_current_user)):
-    """
-    Update des catégories
-    """
-    try:
-        # On s'assure que cat_id n'est pas juste "CAT" ou vide
-        if not cat_id or cat_id.strip() == "CAT":
-            raise HTTPException(status_code=400, detail="ID de catégorie invalide")
+@router.post("/categories", response_model=schemas.CategoryResponse)
+def create_category(
+    data: schemas.CategoryCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    category = models.Category(**data.model_dump(), user_id=current_user.id)
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
 
-        # On garantit le bon format du préfixe sans le doubler
-        full_id = cat_id if cat_id.startswith("CAT#") else f"CAT#{cat_id}"
 
-        item = {
-            "user_id": uid,
-            "id": full_id,
-            **data.model_dump()
-        }
+@router.put("/categories/{category_id}", response_model=schemas.CategoryResponse)
+def update_category(
+    category_id: str,
+    data: schemas.CategoryCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    category = db.execute(
+        select(models.Category).where(models.Category.id == category_id, models.Category.user_id == current_user.id)
+    ).scalar_one_or_none()
+    if not category:
+        raise HTTPException(status_code=404, detail="Catégorie non trouvée")
+    for key, value in data.model_dump().items():
+        setattr(category, key, value)
+    db.commit()
+    db.refresh(category)
+    return category
 
-        table.put_item(Item=item)
-        return item
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-# --- ROUTES SUBCATEGORIES ---
-@app.get("/api/subcategories")
-def get_subs(uid: str = Depends(get_current_user)):
-    return list_items(uid, "SUBCAT#")
+@router.delete("/categories/{category_id}")
+def delete_category(
+    category_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    category = db.execute(
+        select(models.Category).where(models.Category.id == category_id, models.Category.user_id == current_user.id)
+    ).scalar_one_or_none()
+    if not category:
+        raise HTTPException(status_code=404, detail="Catégorie non trouvée")
+    db.delete(category)  # les produits liés passent à category_id=NULL via ON DELETE SET NULL
+    db.commit()
+    return {"message": "Catégorie supprimée"}
 
-@app.post("/api/subcategories")
-def add_sub(data: SubCategoryBase, uid: str = Depends(get_current_user)):
-    try:
-        sub_id = f"SUBCAT#{uuid.uuid4()}"
-        item = {
-            "user_id": uid,
-            "id": sub_id,
-            **data.model_dump()
-        }
-        table.put_item(Item=item)
-        return item
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-# --- ROUTES LOCATIONS ---
-@app.get("/api/locations")
-def get_locs(uid: str = Depends(get_current_user)):
-    """
-    Récupération des emplacements
-    """
-    return list_items(uid, "LOC#")
+# ==================== SUB-CATEGORIES ====================
 
-@app.post("/api/locations")
-def add_loc(data: LocationBase, uid: str = Depends(get_current_user)):
-    """
-    Création d'un emplacement
-    """
-    try:
-        loc_id = f"LOC#{uuid.uuid4()}"
-        item = {
-            "user_id": uid,
-            "id": loc_id,
-            **data.model_dump()
-        }
-        table.put_item(Item=item)
-        return item
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.get("/subcategories", response_model=list[schemas.SubCategoryResponse])
+def get_subcategories(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    result = db.execute(select(models.SubCategory).where(models.SubCategory.user_id == current_user.id))
+    return result.scalars().all()
 
-@app.put("/api/locations/{loc_id}")
-def update_loc(loc_id: str, data: LocationBase, uid: str = Depends(get_current_user)):
-    """
-    Mise à jour des emplacements
-    """
-    try:
-        if not loc_id or loc_id.strip() == "LOC":
-            raise HTTPException(status_code=400, detail="ID d'emplacement invalide")
 
-        full_id = loc_id if loc_id.startswith("LOC#") else f"LOC#{loc_id}"
+@router.post("/subcategories", response_model=schemas.SubCategoryResponse)
+def create_subcategory(
+    data: schemas.SubCategoryCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    sub_category = models.SubCategory(**data.model_dump(), user_id=current_user.id)
+    db.add(sub_category)
+    db.commit()
+    db.refresh(sub_category)
+    return sub_category
 
-        item = {
-            "user_id": uid,
-            "id": full_id,
-            **data.model_dump()
-        }
-        table.put_item(Item=item)
-        return item
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=f"Champ manquant : {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/locations/{loc_id}")
-def del_loc(loc_id: str, uid: str = Depends(get_current_user)):
-    try:
-        table.delete_item(Key={'user_id': uid, 'id': loc_id})
-        return {"status": "deleted", "id": loc_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.put("/subcategories/{sub_category_id}", response_model=schemas.SubCategoryResponse)
+def update_subcategory(
+    sub_category_id: str,
+    data: schemas.SubCategoryCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    sub_category = db.execute(
+        select(models.SubCategory).where(
+            models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
+        )
+    ).scalar_one_or_none()
+    if not sub_category:
+        raise HTTPException(status_code=404, detail="Sous-catégorie non trouvée")
+    for key, value in data.model_dump().items():
+        setattr(sub_category, key, value)
+    db.commit()
+    db.refresh(sub_category)
+    return sub_category
 
-handler = Mangum(app)
+
+@router.patch("/subcategories/{sub_category_id}/threshold", response_model=schemas.SubCategoryResponse)
+def update_subcategory_threshold(
+    sub_category_id: str,
+    data: schemas.SubCategoryUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Met à jour uniquement le seuil minimal d'une sous-catégorie."""
+    sub_category = db.execute(
+        select(models.SubCategory).where(
+            models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
+        )
+    ).scalar_one_or_none()
+    if not sub_category:
+        raise HTTPException(status_code=404, detail="Sous-catégorie non trouvée")
+    if data.min_quantity is not None:
+        sub_category.min_quantity = data.min_quantity
+    db.commit()
+    db.refresh(sub_category)
+    return sub_category
+
+
+@router.delete("/subcategories/{sub_category_id}")
+def delete_subcategory(
+    sub_category_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    sub_category = db.execute(
+        select(models.SubCategory).where(
+            models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
+        )
+    ).scalar_one_or_none()
+    if not sub_category:
+        raise HTTPException(status_code=404, detail="Sous-catégorie non trouvée")
+    db.delete(sub_category)
+    db.commit()
+    return {"message": "Sous-catégorie supprimée"}
+
+
+# ==================== STORAGE LOCATIONS ====================
+
+@router.get("/locations", response_model=list[schemas.StorageLocationResponse])
+def get_locations(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    result = db.execute(select(models.StorageLocation).where(models.StorageLocation.user_id == current_user.id))
+    return result.scalars().all()
+
+
+@router.post("/locations", response_model=schemas.StorageLocationResponse)
+def create_location(
+    data: schemas.StorageLocationCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    location = models.StorageLocation(**data.model_dump(), user_id=current_user.id)
+    db.add(location)
+    db.commit()
+    db.refresh(location)
+    return location
+
+
+@router.put("/locations/{location_id}", response_model=schemas.StorageLocationResponse)
+def update_location(
+    location_id: str,
+    data: schemas.StorageLocationCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    location = db.execute(
+        select(models.StorageLocation).where(
+            models.StorageLocation.id == location_id, models.StorageLocation.user_id == current_user.id
+        )
+    ).scalar_one_or_none()
+    if not location:
+        raise HTTPException(status_code=404, detail="Emplacement non trouvé")
+    for key, value in data.model_dump().items():
+        setattr(location, key, value)
+    db.commit()
+    db.refresh(location)
+    return location
+
+
+@router.delete("/locations/{location_id}")
+def delete_location(
+    location_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    location = db.execute(
+        select(models.StorageLocation).where(
+            models.StorageLocation.id == location_id, models.StorageLocation.user_id == current_user.id
+        )
+    ).scalar_one_or_none()
+    if not location:
+        raise HTTPException(status_code=404, detail="Emplacement non trouvé")
+    db.delete(location)
+    db.commit()
+    return {"message": "Emplacement supprimé"}

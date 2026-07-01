@@ -1,244 +1,230 @@
-import os
-import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional
+
 import httpx
-from fastapi import FastAPI, HTTPException, Depends, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel
-from mangum import Mangum
-import boto3
-from boto3.dynamodb.conditions import Key
-from jose import jwt, JWTError
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session, selectinload
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+import models
+import schemas
+from auth import get_current_user
+from database import get_db
 
-region = os.environ.get('AWS_REGION', 'eu-west-3')
-dynamodb = boto3.resource('dynamodb', region_name=region)
-table = dynamodb.Table(os.environ.get('PRODUCTS_TABLE', 'StockHome-Products'))
-table_ref = dynamodb.Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
+router = APIRouter(prefix="/api", tags=["products"])
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
-ALGORITHM = "HS256"
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
-class ProductBase(BaseModel):
-    """
-    Modèle de base pour un produit
-    """
-    name: str
-    barcode: Optional[str] = None
-    quantity: int = 0
-    min_quantity: int = 1
-    unit: str = "unité"
-    brand: Optional[str] = None
-    category_id: Optional[str] = None
-    sub_category_id: Optional[str] = None
-    location_id: Optional[str] = None
-    image_url: Optional[str] = None
+def _enrich_product(product: models.Product) -> schemas.ProductResponse:
+    data = schemas.ProductResponse.model_validate(product)
+    data.category_name = product.category.name if product.category else None
+    data.location_name = product.location.name if product.location else None
+    data.sub_category_name = product.sub_category.name if product.sub_category else None
+    return data
 
-class SubCategoryUpdate(BaseModel):
-    """
-    Modèle de mise à jour pour une sous-catégorie
-    """
-    min_stock: int
 
-class OpenFoodFactsProduct(BaseModel):
-    barcode: str
-    name: Optional[str] = None
-    brand: Optional[str] = None
-    image_url: Optional[str] = None
-    categories: Optional[str] = None
-    sub_categories_suggestions: List[str] = []
-    quantity_info: Optional[str] = None
-
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    """
-    Récupère l'utilisateur courant à partir du token JWT
-    """
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401)
-        return user_id
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
-
-def sync_subcategory_stock(uid: str, sub_category_id: str):
-    """
-    Fonction pour recalculer et mettre à jour la sous-catégorie
-    """
-    if not sub_category_id or sub_category_id == "none":
-        return
-
-    # A. Calculer la somme de TOUS les produits de cette sous-catégorie pour cet utilisateur
-    products_response = table.query(
-        KeyConditionExpression=Key('user_id').eq(uid)
+@router.get("/products", response_model=list[schemas.ProductResponse])
+def get_products(
+    category_id: Optional[str] = None,
+    location_id: Optional[str] = None,
+    low_stock: Optional[bool] = None,
+    search: Optional[str] = None,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    query = select(models.Product).where(models.Product.user_id == current_user.id).options(
+        selectinload(models.Product.category),
+        selectinload(models.Product.location),
+        selectinload(models.Product.sub_category),
     )
-    products = products_response.get('Items', [])
-
-    total_qty = sum(
-        int(p.get('quantity', 0))
-        for p in products
-        if p.get('sub_category_id') == sub_category_id
-    )
-
-    # B. Mettre à jour la sous-catégorie dans la table ReferenceData
-    # On met à jour un champ 'current_stock' dans la sous-catégorie
-    try:
-        table_ref.update_item(
-            Key={'user_id': uid, 'id': sub_category_id},
-            UpdateExpression="SET current_stock = :qty, updated_at = :now",
-            ExpressionAttributeValues={
-                ':qty': total_qty,
-                ':now': datetime.now(timezone.utc).isoformat()
-            }
+    if category_id:
+        query = query.where(models.Product.category_id == category_id)
+    if location_id:
+        query = query.where(models.Product.location_id == location_id)
+    if search:
+        like = f"%{search}%"
+        query = query.where(
+            or_(models.Product.name.ilike(like), models.Product.barcode.ilike(like), models.Product.brand.ilike(like))
         )
-    except Exception as e:
-        print(f"Erreur synchro sub_cat: {e}")
+    if low_stock:
+        query = query.where(models.Product.quantity < models.Product.min_quantity)
 
-@app.get("/api/products")
-def list_products(uid: str = Depends(get_current_user)):
-    """
-    Liste des produits
-    """
-    response = table.query(KeyConditionExpression=Key('user_id').eq(uid))
-    return response.get('Items', [])
+    products = db.execute(query).scalars().all()
+    return [_enrich_product(p) for p in products]
 
-@app.post("/api/products")
-def add_product(data: ProductBase, uid: str = Depends(get_current_user)):
-    """
-    Ajout d'un produit
-    """
-    product_id = str(uuid.uuid4())
-    item = {
-        "user_id": uid,
-        "id": product_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        **data.model_dump(exclude_none=True)
-    }
-    table.put_item(Item=item)
-    sync_subcategory_stock(uid, data.sub_category_id)
-    return item
 
-@app.put("/api/products/{product_id}")
-def update_product(product_id: str, data: ProductBase, uid: str = Depends(get_current_user)):
-    """
-    Mise à jour d'un produit
-    """
-    item = {
-        "user_id": uid,
-        "id": product_id,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        **data.model_dump(exclude_none=True)
-    }
-    table.put_item(Item=item)
-    sync_subcategory_stock(uid, data.sub_category_id)
-    return item
+@router.get("/products/barcode/{barcode}", response_model=schemas.ProductResponse)
+def get_product_by_barcode(
+    barcode: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    product = db.execute(
+        select(models.Product)
+        .where(models.Product.barcode == barcode, models.Product.user_id == current_user.id)
+        .options(selectinload(models.Product.category), selectinload(models.Product.location), selectinload(models.Product.sub_category))
+    ).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Produit non trouvé")
+    return _enrich_product(product)
 
-@app.patch("/api/products/{product_id}/quantity")
-def update_quantity(product_id: str, delta: int, uid: str = Depends(get_current_user)):
-    """
-    Mise à jour de la quantité d'un produit
-    """
-    try:
-        response = table.update_item(
-            Key={'user_id': uid, 'id': product_id},
-            UpdateExpression="SET quantity = quantity + :val, updated_at = :now",
-            ExpressionAttributeValues={
-                ':val': delta,
-                ':now': datetime.now(timezone.utc).isoformat()
-            },
-            ReturnValues="UPDATED_NEW"
-        )
-        prod = table.get_item(Key={'user_id': uid, 'id': product_id}).get('Item')
-        if prod:
-            sync_subcategory_stock(uid, prod.get('sub_category_id'))
-        return response.get('Attributes')
-    except Exception:
+
+@router.get("/products/{product_id}", response_model=schemas.ProductResponse)
+def get_product(
+    product_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    product = db.execute(
+        select(models.Product)
+        .where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+        .options(selectinload(models.Product.category), selectinload(models.Product.location), selectinload(models.Product.sub_category))
+    ).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Produit non trouvé")
+    return _enrich_product(product)
+
+
+@router.post("/products", response_model=schemas.ProductResponse)
+def create_product(
+    data: schemas.ProductCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    payload = data.model_dump()
+    sub_category_name = payload.pop("sub_category_name", None)
+    if sub_category_name:
+        sub_category_name = sub_category_name.strip().capitalize()
+
+    sub_category_id = payload.get("sub_category_id")
+
+    # Résolution automatique/manuelle de la sous-catégorie par nom
+    if sub_category_name and not sub_category_id:
+        existing_sub = db.execute(
+            select(models.SubCategory).where(
+                models.SubCategory.user_id == current_user.id,
+                func.lower(models.SubCategory.name) == sub_category_name.lower(),
+            )
+        ).scalar_one_or_none()
+        if existing_sub:
+            sub_category_id = existing_sub.id
+        else:
+            new_sub = models.SubCategory(
+                name=sub_category_name,
+                user_id=current_user.id,
+                category_id=payload.get("category_id"),
+            )
+            db.add(new_sub)
+            db.flush()
+            sub_category_id = new_sub.id
+        payload["sub_category_id"] = sub_category_id
+
+    product = models.Product(**payload, user_id=current_user.id)
+    db.add(product)
+    db.commit()
+
+    product = db.execute(
+        select(models.Product)
+        .where(models.Product.id == product.id)
+        .options(selectinload(models.Product.category), selectinload(models.Product.location), selectinload(models.Product.sub_category))
+    ).scalar_one()
+    return _enrich_product(product)
+
+
+@router.put("/products/{product_id}", response_model=schemas.ProductResponse)
+def update_product(
+    product_id: str,
+    data: schemas.ProductUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    product = db.execute(
+        select(models.Product)
+        .where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+        .options(selectinload(models.Product.category), selectinload(models.Product.location), selectinload(models.Product.sub_category))
+    ).scalar_one_or_none()
+    if not product:
         raise HTTPException(status_code=404, detail="Produit non trouvé")
 
-@app.delete("/api/products/{product_id}")
-def delete_product(product_id: str, uid: str = Depends(get_current_user)):
-    """
-    Suppression d'un produit
-    """
-    table.delete_item(Key={'user_id': uid, 'id': product_id})
-    return {"message": "Supprimé"}
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    for key, value in update_data.items():
+        setattr(product, key, value)
+    product.updated_at = datetime.now(timezone.utc)
 
-@app.get("/api/barcode/{barcode}", response_model=OpenFoodFactsProduct)
+    db.commit()
+    db.refresh(product, attribute_names=["category", "location", "sub_category"])
+    return _enrich_product(product)
+
+
+@router.patch("/products/{product_id}/quantity")
+def update_product_quantity(
+    product_id: str,
+    delta: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Incrémente ou décrémente la quantité d'un produit."""
+    product = db.execute(
+        select(models.Product).where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+    ).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Produit non trouvé")
+
+    product.quantity = max(0, product.quantity + delta)
+    product.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"quantity": product.quantity}
+
+
+@router.delete("/products/{product_id}")
+def delete_product(
+    product_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    product = db.execute(
+        select(models.Product).where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+    ).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Produit non trouvé")
+    db.delete(product)
+    db.commit()
+    return {"message": "Produit supprimé"}
+
+
+@router.get("/barcode/{barcode}", response_model=schemas.OpenFoodFactsProduct)
 async def lookup_barcode(barcode: str):
-    """Look up product info from Open Food Facts"""
+    """Recherche d'informations produit sur Open Food Facts (appel HTTP externe, reste async)."""
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
-                f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json",
-                timeout=10.0
+                f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json", timeout=10.0
             )
             data = response.json()
 
-            if data.get('status') != 1:
+            if data.get("status") != 1:
                 raise HTTPException(status_code=404, detail="Produit non trouvé dans Open Food Facts")
 
-            product = data.get('product', {})
-            # 1. On récupère la chaîne brute (ex: "Produits laitiers, Matières grasses")
-            categories_str = product.get('categories_old', '')
+            product = data.get("product", {})
+            categories_str = product.get("categories_old", "")
 
-            def clean_categories(categories_str):
-                if not categories_str or not isinstance(categories_str, str):
+            def clean_categories(raw: str) -> list[str]:
+                if not raw or not isinstance(raw, str):
                     return []
-                raw_tags = categories_str.split(',')
-                cleaned_list = []
-                for t in raw_tags:
-                    clean = t.strip().split(':')[-1].replace('-', ' ').capitalize()
-                    if clean:
-                        cleaned_list.append(clean)
-
-                return cleaned_list
+                cleaned = []
+                for tag in raw.split(","):
+                    value = tag.strip().split(":")[-1].replace("-", " ").capitalize()
+                    if value:
+                        cleaned.append(value)
+                return cleaned
 
             suggestions = clean_categories(categories_str)
-            main_cat = suggestions[min(len(suggestions)-1, 2)] if suggestions else None
-            return OpenFoodFactsProduct(
+
+            return schemas.OpenFoodFactsProduct(
                 barcode=barcode,
-                name=product.get('product_name') or product.get('product_name_fr'),
-                brand=product.get('brands'),
-                image_url=product.get('image_url') or product.get('image_front_url'),
-                categories=product.get('categories'),
-                sub_categories_suggestions=main_cat,
-                quantity_info=product.get('quantity')
+                name=product.get("product_name") or product.get("product_name_fr"),
+                brand=product.get("brands"),
+                image_url=product.get("image_url") or product.get("image_front_url"),
+                categories=product.get("categories"),
+                sub_categories_suggestions=suggestions,
+                quantity_info=product.get("quantity"),
             )
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="Timeout lors de la requête Open Food Facts")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche du produit: {str(e)}")
-
-@app.patch("/api/subcategories/{sub_id}/threshold")
-def update_subcategory_threshold(sub_id: str, data: SubCategoryUpdate, uid: str = Depends(get_current_user)):
-    """
-    Met à jour uniquement le seuil minimal d'une sous-catégorie
-    """
-    try:
-        table_ref.update_item(
-            Key={'user_id': uid, 'id': sub_id},
-            UpdateExpression="SET min_stock = :ms, updated_at = :now",
-            ExpressionAttributeValues={
-                ':ms': data.min_stock,
-                ':now': datetime.now(timezone.utc).isoformat()
-            }
-        )
-        return {"status": "success", "min_stock": data.min_stock}
-    except Exception as e:
-        print(f"Erreur threshold: {e}")
-        raise HTTPException(status_code=500, detail="Erreur lors de la sauvegarde du seuil")
-
-
-handler = Mangum(app)
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=500, detail="Erreur lors de la recherche du produit")

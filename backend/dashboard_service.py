@@ -1,66 +1,64 @@
-import os, boto3
-from fastapi import FastAPI, Depends, Header, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum
-from boto3.dynamodb.conditions import Key, Attr
-from jose import jwt
+from fastapi import APIRouter, Depends
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], # En prod, vous pourrez remplacer par votre URL CloudFront
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+import models
+import schemas
+from auth import get_current_user
+from database import get_db
 
-# Correction : Utilisation des variables d'environnement et de la région
-region = os.environ.get('AWS_REGION', 'eu-west-3')
-db = boto3.resource('dynamodb', region_name=region)
+router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
-t_products = db.Table(os.environ.get('PRODUCTS_TABLE', 'StockHome-Products'))
-t_shopping = db.Table(os.environ.get('SHOPPING_TABLE', 'StockHome-ShoppingList'))
-t_ref = db.Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
+@router.get("/stats")
+def get_dashboard_stats(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_id = current_user.id
 
-@app.get("/api/dashboard/stats")
-async def get_stats(authorization: str = Header(...)):
-    try:
-        token = authorization.replace("Bearer ", "")
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        uid = payload.get("sub")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Token invalide")
+    total_products = db.execute(
+        select(func.count()).select_from(models.Product).where(models.Product.user_id == user_id)
+    ).scalar_one()
 
-    # 1. Récupération des produits
-    prods_res = t_products.query(KeyConditionExpression=Key('user_id').eq(uid))
-    products = prods_res.get('Items', [])
-    low_stock = [p for p in products if float(p.get('current_stock', 0)) <= float(p.get('min_stock', 0))]
+    low_stock_count = db.execute(
+        select(func.count()).select_from(models.Product).where(
+            models.Product.user_id == user_id, models.Product.quantity < models.Product.min_quantity
+        )
+    ).scalar_one()
 
-    # 2. Shopping list
-    shop_res = t_shopping.query(
-        KeyConditionExpression=Key('user_id').eq(uid),
-        FilterExpression=Attr('is_checked').eq(False)
+    total_categories = db.execute(
+        select(func.count()).select_from(models.Category).where(models.Category.user_id == user_id)
+    ).scalar_one()
+
+    total_locations = db.execute(
+        select(func.count()).select_from(models.StorageLocation).where(models.StorageLocation.user_id == user_id)
+    ).scalar_one()
+
+    shopping_list_count = db.execute(
+        select(func.count()).select_from(models.ShoppingListItem).where(
+            models.ShoppingListItem.user_id == user_id, models.ShoppingListItem.is_checked.is_(False)
+        )
+    ).scalar_one()
+
+    by_category_rows = db.execute(
+        select(models.Product.category_id, func.count()).where(models.Product.user_id == user_id).group_by(
+            models.Product.category_id
+        )
+    ).all()
+    products_by_category = {(cat_id or "uncategorized"): count for cat_id, count in by_category_rows}
+
+    recent_result = db.execute(
+        select(models.Product)
+        .where(models.Product.user_id == user_id)
+        .order_by(models.Product.updated_at.desc())
+        .limit(5)
     )
-
-    # 3. Références
-    ref_res = t_ref.query(KeyConditionExpression=Key('user_id').eq(uid))
-    refs = ref_res.get('Items', [])
-
-    by_cat = {}
-    for p in products:
-        cid = p.get('category_id', 'uncategorized')
-        by_cat[cid] = by_cat.get(cid, 0) + 1
+    recent_products = [schemas.ProductResponse.model_validate(p) for p in recent_result.scalars().all()]
 
     return {
-        "total_products": len(products),
-        "low_stock_count": len(low_stock),
-        "total_categories": len([r for r in refs if r['id'].startswith("CAT#")]),
-        "total_locations": len([r for r in refs if r['id'].startswith("LOC#")]),
-        "shopping_list_count": len(shop_res.get('Items', [])),
-        "products_by_category": by_cat,
-        "recent_products": sorted(products, key=lambda x: x.get('updated_at', ''), reverse=True)[:5]
+        "total_products": total_products,
+        "low_stock_count": low_stock_count,
+        "total_categories": total_categories,
+        "total_locations": total_locations,
+        "shopping_list_count": shopping_list_count,
+        "products_by_category": products_by_category,
+        "recent_products": recent_products,
     }
-
-handler = Mangum(app)

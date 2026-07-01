@@ -1,222 +1,73 @@
-import hashlib
-import os
-import secrets
-import uuid
-from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, HTTPException, Depends, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
-from pydantic import BaseModel, EmailStr
-from jose import jwt, JWTError
-from mangum import Mangum
-import boto3
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-app = FastAPI()
+import models
+import schemas
+from auth import create_token, get_current_user, hash_password, needs_rehash, verify_password
+from database import get_db
 
-security = HTTPBearer()
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], # En prod, vous pourrez remplacer par votre URL CloudFront
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+DEFAULT_CATEGORIES = [
+    {"name": "Alimentaire", "icon": "Apple", "color": "#10B981"},
+    {"name": "Boissons", "icon": "Wine", "color": "#3B82F6"},
+    {"name": "Hygiène", "icon": "Sparkles", "color": "#8B5CF6"},
+    {"name": "Entretien", "icon": "SprayCan", "color": "#F59E0B"},
+    {"name": "Animaux", "icon": "PawPrint", "color": "#EF4444"},
+    {"name": "Autre", "icon": "Package", "color": "#6B7280"},
+]
 
-# Force la région pour être sûr de pointer au bon endroit
-region = os.environ.get('AWS_REGION', 'eu-west-3')
-dynamodb = boto3.resource('dynamodb', region_name=region)
+DEFAULT_LOCATIONS = [
+    {"name": "Cuisine", "description": "Placards et étagères de cuisine", "icon": "ChefHat", "color": "#3B82F6"},
+    {"name": "Réfrigérateur", "description": "Produits frais", "icon": "Snowflake", "color": "#10B981"},
+    {"name": "Salle de bain", "description": "Produits d'hygiène", "icon": "Bath", "color": "#8B5CF6"},
+    {"name": "Garage", "description": "Stockage garage", "icon": "Warehouse", "color": "#EF4444"},
+]
 
-table = dynamodb.Table(os.environ.get('USERS_TABLE', 'StockHome-Users'))
-table_ref = dynamodb.Table(os.environ.get('REF_TABLE', 'StockHome-ReferenceData'))
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'votre_secret_tres_long')
-ALGORITHM = "HS256"
+@router.post("/register", response_model=schemas.TokenResponse)
+def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
+    existing = db.execute(select(models.User).where(models.User.email == data.email)).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
 
-# Ce paramètre indique à FastAPI que le token se trouve dans le header Authorization
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
-
-class UserRegister(BaseModel):
-    """
-    Classe représentant un utilisateur lors de l'enregistrement
-    """
-    username: str
-    email: EmailStr
-    password: str
-
-def hash_password(password: str) -> str:
-    """
-    Génération d'un salt aléatoire de 32 octets
-    """
-    salt = secrets.token_hex(16)
-    # On crée le hash en combinant password + sel
-    hash_obj = hashlib.sha256(f"{password}{salt}".encode('utf-8'))
-    # On stocke le sel et le hash ensemble pour pouvoir vérifier plus tard
-    return f"{salt}${hash_obj.hexdigest()}"
-
-def verify_password(stored_password: str, provided_password: str) -> bool:
-    """
-    Fonction de vérification du mot de passe
-    """
-    try:
-        salt, stored_hash = stored_password.split('$')
-        current_hash = hashlib.sha256(f"{provided_password}{salt}".encode('utf-8')).hexdigest()
-        return current_hash == stored_hash
-    except ValueError:
-        return False
-
-# Fonction utilitaire pour récupérer l'utilisateur via le token
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+    user = models.User(
+        email=data.email,
+        username=data.username,
+        password_hash=hash_password(data.password),
     )
-    try:
-        # Décodage du token JWT
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-        return user_id # On retourne l'ID de l'utilisateur
-    except JWTError:
-        raise credentials_exception
+    db.add(user)
+    db.flush()
+
+    # Catégories et emplacements par défaut, créés à chaque inscription
+    for cat in DEFAULT_CATEGORIES:
+        db.add(models.Category(**cat, user_id=user.id))
+    for loc in DEFAULT_LOCATIONS:
+        db.add(models.StorageLocation(**loc, user_id=user.id))
+
+    db.commit()
+    db.refresh(user)
+
+    token = create_token(user.id)
+    return schemas.TokenResponse(access_token=token, user=schemas.UserResponse.model_validate(user))
 
 
-@app.post("/api/auth/register")
-def register(user: UserRegister):
-    """
-    Fonction d'enregistrement d'un nouvel utilisateur
-    """
-    # Vérifier si l'utilisateur existe déjà
-    if 'Item' in table.get_item(Key={'email': user.email}):
-        raise HTTPException(status_code=400, detail="Email déjà utilisé")
+@router.post("/login", response_model=schemas.TokenResponse)
+def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    user = db.execute(select(models.User).where(models.User.email == credentials.email)).scalar_one_or_none()
+    if not user or not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
 
-    hashed_password = hash_password(user.password)
-    user_id = str(uuid.uuid4())
+    # Migration transparente des anciens hash DynamoDB (sha256+salt) vers bcrypt
+    if needs_rehash(user.password_hash):
+        user.password_hash = hash_password(credentials.password)
+        db.commit()
 
-    user_item = {
-        "email": user.email,
-        "id": user_id,
-        "username": user.username,
-        "password": hashed_password,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    table.put_item(Item=user_item)
+    token = create_token(user.id)
+    return schemas.TokenResponse(access_token=token, user=schemas.UserResponse.model_validate(user))
 
-    default_categories = [
-        {"name": "Alimentaire",
-         "icon": "Apple",
-         "color": "#10B981"
-        },
-        {"name": "Boissons",
-         "icon": "Wine",
-         "color": "#3B82F6"
-        },
-        {"name": "Hygiène",
-         "icon": "Sparkles",
-         "color": "#8B5CF6"
-        },
-        {"name": "Entretien",
-         "icon": "SprayCan",
-         "color": "#F59E0B"
-        },
-        {"name": "Animaux",
-         "icon": "PawPrint",
-         "color": "#EF4444"
-        },
-        {"name": "Autre",
-         "icon": "Package",
-         "color": "#6B7280"
-        },
-    ]
-    for cat in default_categories:
-        table_ref.put_item(Item={
-            "user_id": user_id,
-            "id": f"CAT#{uuid.uuid4()}",
-            "name": cat['name'],
-            "icon": cat['icon'],
-            "color": cat['color']
-        })
 
-    default_locations = [
-        {"name": "Cuisine",
-         "description": "Placards et étagères de cuisine",
-         "icon": "ChefHat",
-         "color": "#3B82F6"
-        },
-        {"name": "Réfrigérateur",
-         "description": "Produits frais",
-         "icon": "Snowflake",
-         "color": "#10B981"
-        },
-        {"name": "Salle de bain",
-         "description": "Produits d'hygiène",
-         "icon": "Bath",
-         "color": "#8B5CF6"
-        },
-        {"name": "Garage",
-         "description": "Stockage garage",
-         "icon": "Warehouse",
-         "color": "#EF4444"
-        },
-    ]
-
-    for loc in default_locations:
-        table_ref.put_item(Item={
-            "user_id": user_id,
-            "id": f"LOC#{uuid.uuid4()}",
-            "name": loc['name'],
-            "description": loc['description'],
-            "icon": loc['icon'],
-            "color": loc['color']
-        })
-
-    # Pour que le front se connecte direct, on peut aussi générer le token ici
-    # ou rester sur votre logique actuelle
-    return {"message": "Utilisateur créé", "id": user_id}
-
-@app.post("/api/auth/login")
-def login(data: dict):
-    """
-    Fonction de login
-    """
-    res = table.get_item(Key={'email': data.get('email')})
-
-    # Vérification avec notre nouvelle fonction verify_password
-    if 'Item' not in res or not verify_password(res['Item']['password'], data.get('password', '')):
-        raise HTTPException(status_code=401, detail="Identifiants invalides")
-
-    user_item = res['Item']
-
-    # Création du Token
-    expire = datetime.now(timezone.utc) + timedelta(hours=24)
-    to_encode = {"sub": user_item['id'], "exp": expire}
-    token = jwt.encode(to_encode, JWT_SECRET, algorithm=ALGORITHM)
-
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": {
-            "id": user_item['id'],
-            "email": user_item['email'],
-            "username": user_item['username']
-        }
-    }
-
-@app.get("/api/auth/me")
-def read_users_me(user_id: str = Depends(get_current_user)):
-    """
-    Récupère les informations de l'utilisateur dans DynamoDB
-    """
-    # Optionnel : Aller chercher les infos complètes dans DynamoDB
-    # response = table.scan(FilterExpression=Attr('id').eq(user_id))
-    # user = response['Items'][0]
-
-    return {
-        "id": user_id,
-        "status": "active",
-        "message": "Connexion réussie"
-    }
-
-handler = Mangum(app)
+@router.get("/me", response_model=schemas.UserResponse)
+def get_me(current_user: models.User = Depends(get_current_user)):
+    return schemas.UserResponse.model_validate(current_user)
