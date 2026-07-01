@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 import models
 import schemas
-from auth import create_token, get_current_user, hash_password, needs_rehash, verify_password
+from auth import create_token, get_current_user, hash_password, verify_password
 from database import get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -58,11 +58,6 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.execute(select(models.User).where(models.User.email == credentials.email)).scalar_one_or_none()
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-
-    # Migration transparente des anciens hash DynamoDB (sha256+salt) vers bcrypt
-    if needs_rehash(user.password_hash):
-        user.password_hash = hash_password(credentials.password)
-        db.commit()
 
     token = create_token(user.id)
     return schemas.TokenResponse(access_token=token, user=schemas.UserResponse.model_validate(user))

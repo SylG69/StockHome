@@ -28,7 +28,6 @@ emplacements de rangement et liste de courses automatique en cas de stock bas.
 │   ├── schemas.py                    # Schémas Pydantic (requêtes/réponses)
 │   ├── auth.py                       # JWT + hash des mots de passe
 │   ├── database.py                   # Connexion PostgreSQL (psycopg2, synchrone)
-│   ├── migrate_dynamo_to_postgres.py # Migration depuis l'ancienne version AWS/DynamoDB
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/                         # Application React
@@ -127,33 +126,6 @@ Si vous préférez ne pas utiliser le script tout-en-un :
 | `DATABASE_URL`  | Connexion PostgreSQL (psycopg2)                            | `postgresql+psycopg2://stockhome:motdepasse@localhost:5432/stockhome` |
 | `JWT_SECRET`    | Secret de signature des tokens JWT                          | chaîne aléatoire longue |
 | `CORS_ORIGINS`  | Origines autorisées, séparées par des virgules              | `https://stockhome.domolinux.eu` |
-
-Variables supplémentaires, utilisées uniquement par `migrate_dynamo_to_postgres.py`
-(migration depuis l'ancienne version AWS) :
-
-| Variable         | Description                          |
-|------------------|---------------------------------------|
-| `AWS_REGION`     | Région AWS des anciennes tables       |
-| `USERS_TABLE`    | Nom de la table DynamoDB des users    |
-| `REF_TABLE`      | Nom de la table DynamoDB de référence (catégories/sous-catégories/emplacements) |
-| `PRODUCTS_TABLE` | Nom de la table DynamoDB des produits |
-| `SHOPPING_TABLE` | Nom de la table DynamoDB de la liste de courses |
-
-## Migration depuis l'ancienne version AWS (DynamoDB)
-
-Si vous migrez depuis l'ancienne architecture Lambda + DynamoDB :
-
-```bash
-cd backend
-source venv/bin/activate
-pip install boto3
-
-python migrate_dynamo_to_postgres.py --dry-run   # vérifie les comptages sans écrire
-python migrate_dynamo_to_postgres.py              # migration réelle
-```
-
-Les choix de correspondance de champs (hash de mot de passe hérité, sous-catégories,
-`quantity`/`min_quantity`, etc.) sont documentés en commentaire en tête du script.
 
 ## API
 

@@ -21,9 +21,6 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(100), nullable=False)
-    # Peut contenir un hash bcrypt ("$2b$...") ou un ancien hash "salt$sha256hex"
-    # hérité de DynamoDB. auth.py sait vérifier les deux et migre vers bcrypt
-    # de façon transparente à la prochaine connexion réussie.
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -54,9 +51,7 @@ class SubCategory(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    # Catégorie parente (optionnelle). Remplace le champ "parent_id" /
-    # "sub_category_id" mal nommé et incohérent entre config_service.py et
-    # shopping_service.py dans l'ancienne version DynamoDB.
+    # Catégorie parente (optionnelle)
     category_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     min_quantity: Mapped[int] = mapped_column(Integer, default=0)

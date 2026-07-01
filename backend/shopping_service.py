@@ -20,8 +20,7 @@ def get_shopping_list(current_user: models.User = Depends(get_current_user), db:
 def generate_shopping_list(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Recalcule la liste de courses à partir des produits en stock bas
-    (quantity < min_quantity), calculé à la volée -- pas de champ dénormalisé
-    à resynchroniser (contrairement à l'ancienne version DynamoDB).
+    (quantity < min_quantity), calculé à la volée à chaque appel.
     """
     low_stock_products = db.execute(
         select(models.Product).where(
