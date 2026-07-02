@@ -4,9 +4,9 @@ import axios from 'axios';
 const AuthContext = createContext(null);
 
 // On s'assure que l'URL ne finit pas par un slash pour éviter les doubles //
-const VITE_API_URL = "https://a51zkfw33h.execute-api.eu-west-3.amazonaws.com";
+const VITE_API_URL = "https://stockhome.domolinux.eu";
 // const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:8000';
-const API_URL = "https://a51zkfw33h.execute-api.eu-west-3.amazonaws.com";
+const API_URL = "https://stockhome.domolinux.eu";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
