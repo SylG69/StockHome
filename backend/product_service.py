@@ -189,17 +189,40 @@ def delete_product(
 async def lookup_barcode(barcode: str):
     """Recherche d'informations produit sur Open Food Facts (appel HTTP externe, reste async)."""
     async with httpx.AsyncClient() as client:
+            # Liste des APIs à interroger dans l'ordre de priorité
+        api_urls = [
+            f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json",
+            f"https://world.openbeautyfacts.org/api/v0/product/{barcode}.json",
+            f"https://world.openpetfoodfacts.org/api/v0/product/{barcode}.json"
+        ]
+
+        product_data = None
+
+        async with httpx.AsyncClient() as client:
+            for url in api_urls:
+                try:
+
+                    response = await client.get(url, timeout=4.0)
+
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("status") == 1:
+                            product_data = data.get("product", {})
+                            break  # Produit trouvé ! On sort de la boucle for
+
+                except (httpx.TimeoutException, httpx.RequestError):
+                    # Si l'API actuelle est en timeout ou inaccessible,
+                    # on passe silencieusement à la suivante dans la boucle
+                    continue
+
+            # Si après avoir parcouru toutes les URLs, aucun produit n'a été trouvé
+            if product_data is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)"
+                )
         try:
-            response = await client.get(
-                f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json", timeout=10.0
-            )
-            data = response.json()
-
-            if data.get("status") != 1:
-                raise HTTPException(status_code=404, detail="Produit non trouvé dans Open Food Facts")
-
-            product = data.get("product", {})
-            categories_str = product.get("categories_old", "")
+            categories_str = product_data.get("categories_old", "")
 
             def clean_categories(raw: str) -> list[str]:
                 if not raw or not isinstance(raw, str):
@@ -215,12 +238,12 @@ async def lookup_barcode(barcode: str):
 
             return schemas.OpenFoodFactsProduct(
                 barcode=barcode,
-                name=product.get("product_name") or product.get("product_name_fr"),
-                brand=product.get("brands"),
-                image_url=product.get("image_url") or product.get("image_front_url"),
-                categories=product.get("categories"),
+                name=product_data.get("product_name") or product_data.get("product_name_fr"),
+                brand=product_data.get("brands"),
+                image_url=product_data.get("image_url") or product_data.get("image_front_url"),
+                categories=product_data.get("categories"),
                 sub_categories_suggestions=suggestions,
-                quantity_info=product.get("quantity"),
+                quantity_info=product_data.get("quantity"),
             )
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="Timeout lors de la requête Open Food Facts")
