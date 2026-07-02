@@ -58,6 +58,19 @@ done
 [ -z "$DB_PASSWORD" ] && DB_PASSWORD="$(openssl rand -hex 24)"
 [ -z "$JWT_SECRET" ] && JWT_SECRET="$(openssl rand -hex 32)"
 
+# Si un .env existe déjà (redéploiement), on réutilise son mot de passe DB et
+# son JWT secret plutôt que d'en générer de nouveaux : sinon chaque relance
+# du script invaliderait les sessions déjà ouvertes et désynchroniserait le
+# mot de passe du rôle PostgreSQL.
+EXISTING_ENV="${BACKEND_DIR}/.env"
+if [ -f "$EXISTING_ENV" ]; then
+    EXISTING_DB_URL="$(grep -m1 '^DATABASE_URL=' "$EXISTING_ENV" | cut -d= -f2-)"
+    EXISTING_JWT="$(grep -m1 '^JWT_SECRET=' "$EXISTING_ENV" | cut -d= -f2-)"
+    [ -n "$EXISTING_DB_URL" ] && DB_PASSWORD="$(echo "$EXISTING_DB_URL" | sed -E 's#.*://[^:]+:([^@]+)@.*#\1#')"
+    [ -n "$EXISTING_JWT" ] && JWT_SECRET="$EXISTING_JWT"
+    echo "    .env existant détecté : réutilisation du mot de passe DB et du JWT secret."
+fi
+
 echo "=== 1/7 : Paquets systèmes (Apache, Certbot, PostgreSQL client, Node si besoin) ==="
 apt-get update -qq
 apt-get install -y -qq apache2 certbot python3-certbot-apache python3-venv python3-pip postgresql-client rsync >/dev/null
@@ -152,9 +165,21 @@ echo "=== 7/7 : Frontend + Apache + Let's Encrypt ==="
 # --- Frontend : build si nécessaire, sinon copie directe (dist déjà présent) ---
 mkdir -p "$FRONTEND_WEBROOT"
 if [ -d "${SRC_FRONTEND}/dist" ]; then
+    # dist déjà présent dans la release : rien à builder, donc VITE_API_URL
+    # ne peut pas être injecté ici (c'est une variable de build, figée dans
+    # les fichiers JS générés). Assurez-vous que la release a été buildée
+    # avec le bon VITE_API_URL en amont.
     rsync -a --delete "${SRC_FRONTEND}/dist/" "${FRONTEND_WEBROOT}/"
 elif [ -f "${SRC_FRONTEND}/package.json" ]; then
     command -v npm >/dev/null 2>&1 || { echo "npm requis pour builder le frontend, mais absent." >&2; exit 1; }
+
+    # Vite lit automatiquement un fichier .env à la racine du projet au
+    # moment du build ; seules les variables préfixées VITE_ sont exposées
+    # au code via import.meta.env.
+    cat > "${SRC_FRONTEND}/.env" <<EOF
+VITE_API_URL=https://${DOMAIN}
+EOF
+
     (cd "$SRC_FRONTEND" && npm ci --silent && npm run build --silent)
     rsync -a --delete "${SRC_FRONTEND}/dist/" "${FRONTEND_WEBROOT}/"
 else

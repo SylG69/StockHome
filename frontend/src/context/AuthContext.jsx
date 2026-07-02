@@ -3,10 +3,10 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-// On s'assure que l'URL ne finit pas par un slash pour éviter les doubles //
-const VITE_API_URL = "https://stockhome.domolinux.eu";
-// const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:8000';
-const API_URL = "https://stockhome.domolinux.eu";
+// URL de l'API injectée au build par Vite via VITE_API_URL (voir .env généré
+// par deploy_stockhome.sh). Fallback sur localhost:8000 pour le dev local
+// sans .env. On retire un éventuel slash final pour éviter les doubles //.
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
