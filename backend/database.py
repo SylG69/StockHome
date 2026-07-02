@@ -4,17 +4,13 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-# Charge le fichier .env s'il existe (recherche dans le répertoire courant
-# et les répertoires parents). Sans appel explicite, python-dotenv ne fait
-# rien tout seul : c'était la cause du DATABASE_URL/JWT_SECRET non pris en
-# compte malgré la présence du fichier .env.
+# Charge le fichier .env s'il existe
 load_dotenv()
 
-# Format attendu : postgresql+psycopg2://user:password@host:5432/dbname
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql+psycopg2://stockhome:changeme@localhost:5432/stockhome",
-)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("Erreur : DATABASE_URL n'est pas définie dans le fichier .env ou le fichier est introuvable.")
 
 engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 
