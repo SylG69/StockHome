@@ -208,8 +208,12 @@ export default function ScannerPage() {
           quantity: 1,
           min_quantity: 1,
           unit: 'unité',
-          category_id: offRes.data.categories || '',
-          location_id: '',
+          // category_id doit être un UUID d'une catégorie existante, jamais le
+          // texte brut renvoyé par OFF (ex: "Shampoings") : ça cassait l'insertion
+          // en base (violation de contrainte de clé étrangère). L'utilisateur
+          // choisit sa catégorie manuellement dans le formulaire.
+          category_id: null,
+          location_id: null,
           image_url: offRes.data.image_url || '',
           // On peut pré-remplir avec la suggestion la plus précise par défaut
           sub_category_id: matchedSubCategoryId,
@@ -217,13 +221,30 @@ export default function ScannerPage() {
           description: offRes.data.categories || '',
         });
       } catch (error) {
-        logger.error('Open Food Facts error:', error);
+        const isNotFound = error.response?.status === 404;
+        if (isNotFound) {
+          // Cas normal : le produit n'est simplement pas référencé sur les
+          // bases partenaires. Le dialogue affichera "Produit non trouvé..."
+          // (openFoodFactsData reste null) — pas besoin de toast alarmant.
+          logger.info(`Code-barres ${barcode} non trouvé sur les bases partenaires`);
+        } else {
+          // Vraie erreur (réseau, timeout, 5xx) : on informe l'utilisateur
+          // que la recherche a échoué, distinctement du cas "non trouvé".
+          logger.error('Erreur de connexion aux bases partenaires:', error);
+          toast.error("Impossible de contacter les bases de données produits, réessayez plus tard.");
+        }
         setFormData({
-          ...formData,
-          barcode: barcode,
           name: '',
           brand: '',
+          barcode: barcode,
+          quantity: 1,
+          min_quantity: 1,
+          unit: 'unité',
+          category_id: null,
+          location_id: null,
           image_url: '',
+          sub_category_id: null,
+          sub_category_name: '',
           description: '',
         });
       }
@@ -333,11 +354,27 @@ export default function ScannerPage() {
 
   // Et la fonction de sauvegarde associée :
   const handleSaveNewProduct = async () => {
+    const missing = [];
+    if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) {
+      missing.push('Quantité');
+    }
+    if (formData.min_quantity === '' || formData.min_quantity === null || formData.min_quantity === undefined) {
+      missing.push('Quantité min.');
+    }
+    if (!formData.category_id) {
+      missing.push('Catégorie');
+    }
+    if (!formData.location_id || formData.location_id === 'none') {
+      missing.push('Emplacement');
+    }
+    if (missing.length > 0) {
+      toast.error(`Champs obligatoires manquants : ${missing.join(', ')}`);
+      return;
+    }
+
     setSaving(true);
     try {
       const dataToSend = { ...formData };
-      if (dataToSend.location_id === "none") delete dataToSend.location_id;
-
       await api.post('/products', dataToSend);
       toast.success("Produit ajouté au stock");
       setResultDialogOpen(false);
@@ -656,7 +693,7 @@ export default function ScannerPage() {
                 />
               </div>
               <div>
-                <Label>Quantité</Label>
+                <Label>Quantité *</Label>
                 <Input
                   type="number"
                   min="0"
@@ -669,7 +706,7 @@ export default function ScannerPage() {
                 />
               </div>
               <div>
-                <Label>Quantité min.</Label>
+                <Label>Quantité min. *</Label>
                 <Input
                   type="number"
                   min="0"
@@ -681,7 +718,7 @@ export default function ScannerPage() {
                 />
               </div>
               <div>
-                <Label>Catégorie</Label>
+                <Label>Catégorie *</Label>
                 <Select
                   value={formData.category_id}
                   onValueChange={(value) => setFormData({ ...formData, category_id: value })}
@@ -770,7 +807,7 @@ export default function ScannerPage() {
                 </p>
               </div>
               <div>
-                <Label>Emplacement</Label>
+                <Label>Emplacement *</Label>
                 <Select
                   value={formData.location_id}
                   onValueChange={(value) => setFormData({ ...formData, location_id: value })}

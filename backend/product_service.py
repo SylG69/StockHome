@@ -80,6 +80,35 @@ def get_product(
     return _enrich_product(product)
 
 
+def _validate_owned_refs(
+    db: Session,
+    user_id: str,
+    category_id: Optional[str] = None,
+    sub_category_id: Optional[str] = None,
+    location_id: Optional[str] = None,
+) -> None:
+    """
+    Vérifie que les identifiants fournis (catégorie, sous-catégorie,
+    emplacement) existent bien et appartiennent à l'utilisateur courant.
+    Évite qu'une valeur invalide (bug frontend, appel API direct, etc.)
+    ne remonte comme une IntegrityError PostgreSQL brute (500) au lieu
+    d'une erreur 400 claire.
+    """
+    checks = [
+        (category_id, models.Category, "category_id"),
+        (sub_category_id, models.SubCategory, "sub_category_id"),
+        (location_id, models.StorageLocation, "location_id"),
+    ]
+    for value, model, field_name in checks:
+        if not value:
+            continue
+        exists = db.execute(
+            select(model.id).where(model.id == value, model.user_id == user_id)
+        ).scalar_one_or_none()
+        if exists is None:
+            raise HTTPException(status_code=400, detail=f"{field_name} invalide ou introuvable : {value}")
+
+
 @router.post("/products", response_model=schemas.ProductResponse)
 def create_product(
     data: schemas.ProductCreate,
@@ -87,51 +116,20 @@ def create_product(
     db: Session = Depends(get_db),
 ):
     payload = data.model_dump()
-
-    # 1. Nettoyage et sécurisation de location_id (évite l'erreur sur la chaîne vide "")
-    if payload.get("location_id") == "":
-        payload["location_id"] = None
-
-    # 2. Résolution automatique/manuelle de la catégorie principale par nom ou ID
-    category_id = payload.get("category_id")
-    if category_id:
-        # On vérifie d'abord si la catégorie existe par son ID directement
-        category_exists = db.execute(
-            select(models.Category).where(
-                models.Category.id == category_id,
-                models.Category.user_id == current_user.id
-            )
-        ).scalar_one_or_none()
-
-        # Si l'ID n'existe pas, c'est probablement un nom brut (ex: "Shampoings")
-        if not category_exists:
-            category_name = category_id.strip().capitalize()
-            existing_cat = db.execute(
-                select(models.Category).where(
-                    models.Category.user_id == current_user.id,
-                    func.lower(models.Category.name) == category_name.lower(),
-                )
-            ).scalar_one_or_none()
-
-            if existing_cat:
-                payload["category_id"] = existing_cat.id
-            else:
-                # Création automatique de la catégorie principale si introuvable
-                new_cat = models.Category(
-                    name=category_name,
-                    user_id=current_user.id
-                )
-                db.add(new_cat)
-                db.flush()
-                payload["category_id"] = new_cat.id
-
-    # 3. Traitement de la sous-catégorie (Code d'origine conservé et adapté)
     sub_category_name = payload.pop("sub_category_name", None)
     if sub_category_name:
         sub_category_name = sub_category_name.strip().capitalize()
 
     sub_category_id = payload.get("sub_category_id")
 
+    _validate_owned_refs(
+        db, current_user.id,
+        category_id=payload.get("category_id"),
+        sub_category_id=sub_category_id,
+        location_id=payload.get("location_id"),
+    )
+
+    # Résolution automatique/manuelle de la sous-catégorie par nom
     if sub_category_name and not sub_category_id:
         existing_sub = db.execute(
             select(models.SubCategory).where(
@@ -152,20 +150,14 @@ def create_product(
             sub_category_id = new_sub.id
         payload["sub_category_id"] = sub_category_id
 
-    # 4. Insertion du produit
     product = models.Product(**payload, user_id=current_user.id)
     db.add(product)
     db.commit()
 
-    # 5. Rechargement avec les relations pour la réponse
     product = db.execute(
         select(models.Product)
         .where(models.Product.id == product.id)
-        .options(
-            selectinload(models.Product.category),
-            selectinload(models.Product.location),
-            selectinload(models.Product.sub_category)
-        )
+        .options(selectinload(models.Product.category), selectinload(models.Product.location), selectinload(models.Product.sub_category))
     ).scalar_one()
     return _enrich_product(product)
 
@@ -186,6 +178,14 @@ def update_product(
         raise HTTPException(status_code=404, detail="Produit non trouvé")
 
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+
+    _validate_owned_refs(
+        db, current_user.id,
+        category_id=update_data.get("category_id"),
+        sub_category_id=update_data.get("sub_category_id"),
+        location_id=update_data.get("location_id"),
+    )
+
     for key, value in update_data.items():
         setattr(product, key, value)
     product.updated_at = datetime.now(timezone.utc)
