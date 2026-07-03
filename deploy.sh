@@ -13,7 +13,7 @@ FRONTEND_DIR="${APP_DIR}/frontend"
 VENV="${BACKEND_DIR}/venv"
 APACHE_DIR="/var/www/stockhome"
 SERVICE="stockhome-api"
-BRANCH="feat/postgres"
+BRANCH="main"
 
 # Couleurs
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
