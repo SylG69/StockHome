@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 240 6% 4%;
+        --foreground: 0 0% 98%;
+        --card: 240 6% 9%;
+        --card-foreground: 0 0% 98%;
+        --popover: 240 6% 4%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 217 91% 60%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 240 4% 16%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 240 4% 16%;
+        --muted-foreground: 240 5% 65%;
+        --accent: 240 4% 16%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 4% 16%;
+        --input: 240 4% 16%;
+        --ring: 217 91% 60%;
+        --chart-1: 217 91% 60%;
+        --chart-2: 160 60% 45%;
+        --chart-3: 30 80% 55%;
+        --chart-4: 280 65% 60%;
+        --chart-5: 340 75% 55%;
+        --radius: 0.5rem;
+        --success: 160 84% 39%;
+        --warning: 38 92% 50%;
+    }
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+code, .mono {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+}
+
+/* Glass effect utility */
+.glass {
+    background: hsla(var(--background), 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* Primary glow effect */
+.glow-primary {
+    box-shadow: 0 0 20px -5px hsla(var(--primary), 0.3);
+}
+
+/* Animate fade in */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Stagger animation delays */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* Button hover glow */
+.btn-glow:hover {
+    box-shadow: 0 0 15px hsla(var(--primary), 0.5);
+}
+
+/* Input focus state */
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 2px hsla(var(--primary), 0.2);
+}
+
+/* Card hover effect */
+.card-hover {
+    transition: border-color 0.3s ease, transform 0.2s ease;
+}
+
+.card-hover:hover {
+    border-color: hsla(var(--primary), 0.5);
+}
+
+/* Low stock indicator */
+.low-stock {
+    color: hsl(var(--destructive));
+}
+
+.in-stock {
+    color: hsl(var(--success));
+}
+
+/* Scanner video container */
+.scanner-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius);
+}
+
+.scanner-container video {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.scanner-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70%;
+    height: 40%;
+    border: 2px solid hsl(var(--primary));
+    border-radius: var(--radius);
+    box-shadow: 0 0 0 9999px hsla(var(--background), 0.7);
+}
+
+/* Table row hover */
+.table-row-hover:hover {
+    background-color: hsla(var(--muted), 0.5);
+}
