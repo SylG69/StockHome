@@ -25,7 +25,7 @@ set -euo pipefail
 DOMAIN="stockhome.domolinux.eu"
 CERTBOT_EMAIL="votre-email@example.com"          # À ADAPTER (requis par Let's Encrypt)
 
-GITHUB_REPO="votre-user/stockhome"                # À ADAPTER : "owner/repo"
+GITHUB_REPO="SylG69/stockhome"                      # À ADAPTER : "owner/repo"
 RELEASE_TAG="latest"                              # "latest" ou un tag précis, ex: "v1.2.0"
 REPO_BACKEND_SUBDIR="backend"                     # dossier du repo contenant main.py etc.
 REPO_FRONTEND_SUBDIR="frontend"                   # dossier du repo contenant le projet React
