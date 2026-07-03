@@ -80,6 +80,35 @@ def get_product(
     return _enrich_product(product)
 
 
+def _validate_owned_refs(
+    db: Session,
+    user_id: str,
+    category_id: Optional[str] = None,
+    sub_category_id: Optional[str] = None,
+    location_id: Optional[str] = None,
+) -> None:
+    """
+    Vérifie que les identifiants fournis (catégorie, sous-catégorie,
+    emplacement) existent bien et appartiennent à l'utilisateur courant.
+    Évite qu'une valeur invalide (bug frontend, appel API direct, etc.)
+    ne remonte comme une IntegrityError PostgreSQL brute (500) au lieu
+    d'une erreur 400 claire.
+    """
+    checks = [
+        (category_id, models.Category, "category_id"),
+        (sub_category_id, models.SubCategory, "sub_category_id"),
+        (location_id, models.StorageLocation, "location_id"),
+    ]
+    for value, model, field_name in checks:
+        if not value:
+            continue
+        exists = db.execute(
+            select(model.id).where(model.id == value, model.user_id == user_id)
+        ).scalar_one_or_none()
+        if exists is None:
+            raise HTTPException(status_code=400, detail=f"{field_name} invalide ou introuvable : {value}")
+
+
 @router.post("/products", response_model=schemas.ProductResponse)
 def create_product(
     data: schemas.ProductCreate,
@@ -92,6 +121,13 @@ def create_product(
         sub_category_name = sub_category_name.strip().capitalize()
 
     sub_category_id = payload.get("sub_category_id")
+
+    _validate_owned_refs(
+        db, current_user.id,
+        category_id=payload.get("category_id"),
+        sub_category_id=sub_category_id,
+        location_id=payload.get("location_id"),
+    )
 
     # Résolution automatique/manuelle de la sous-catégorie par nom
     if sub_category_name and not sub_category_id:
@@ -142,6 +178,14 @@ def update_product(
         raise HTTPException(status_code=404, detail="Produit non trouvé")
 
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+
+    _validate_owned_refs(
+        db, current_user.id,
+        category_id=update_data.get("category_id"),
+        sub_category_id=update_data.get("sub_category_id"),
+        location_id=update_data.get("location_id"),
+    )
+
     for key, value in update_data.items():
         setattr(product, key, value)
     product.updated_at = datetime.now(timezone.utc)
