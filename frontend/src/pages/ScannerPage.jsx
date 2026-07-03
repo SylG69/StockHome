@@ -372,19 +372,18 @@ export default function ScannerPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="scanner-container bg-black rounded-lg overflow-hidden mb-4">
-              {cameraActive ? (
-                <div className="relative">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-64 object-cover"
-                  />
-                  <div className="scanner-overlay" />
-                </div>
-              ) : (
+            <div className="scanner-container bg-black rounded-lg overflow-hidden mb-4 relative">
+              <div className={cameraActive ? 'relative' : 'hidden'}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-64 object-cover"
+                />
+                <div className="scanner-overlay" />
+              </div>
+              {!cameraActive && (
                 <div className="w-full h-64 flex flex-col items-center justify-center bg-secondary/20">
                   {cameraError ? (
                     <>
