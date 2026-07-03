@@ -96,7 +96,7 @@ class ProductBase(BaseModel):
     brand: Optional[str] = None
 
 class ProductCreate(ProductBase):
-    sub_category_name: Optional[str] = None  # création à la volée d'une sous-catégorie
+    sub_category_name: Optional[str] = None
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -107,6 +107,7 @@ class ProductUpdate(BaseModel):
     unit: Optional[str] = None
     category_id: Optional[str] = None
     sub_category_id: Optional[str] = None
+    sub_category_name: Optional[str] = None
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
