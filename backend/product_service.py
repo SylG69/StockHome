@@ -187,67 +187,61 @@ def delete_product(
 
 @router.get("/barcode/{barcode}", response_model=schemas.OpenFoodFactsProduct)
 async def lookup_barcode(barcode: str):
-    """Recherche d'informations produit sur Open Food Facts (appel HTTP externe, reste async)."""
+    """
+    Recherche d'informations produit sur les bases Open*Facts (appel HTTP
+    externe, reste async). Interroge Open Food Facts, Open Beauty Facts puis
+    Open Pet Food Facts dans l'ordre, s'arrête à la première réponse trouvée.
+    """
+    sources = [
+        ("Open Food Facts", f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"),
+        ("Open Beauty Facts", f"https://world.openbeautyfacts.org/api/v0/product/{barcode}.json"),
+        ("Open Pet Food Facts", f"https://world.openpetfoodfacts.org/api/v0/product/{barcode}.json"),
+    ]
+
+    product = None
+    matched_source = None
+
     async with httpx.AsyncClient() as client:
-            # Liste des APIs à interroger dans l'ordre de priorité
-        api_urls = [
-            f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json",
-            f"https://world.openbeautyfacts.org/api/v0/product/{barcode}.json",
-            f"https://world.openpetfoodfacts.org/api/v0/product/{barcode}.json"
-        ]
+        for source_name, url in sources:
+            try:
+                response = await client.get(url, timeout=4.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == 1:
+                        product = data.get("product", {})
+                        matched_source = source_name
+                        break  # produit trouvé, on arrête là
+            except (httpx.TimeoutException, httpx.RequestError):
+                # cette base est en timeout/injoignable : on tente la suivante
+                continue
 
-        product_data = None
+    if product is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)",
+        )
 
-        async with httpx.AsyncClient() as client:
-            for url in api_urls:
-                try:
+    categories_str = product.get("categories_old", "")
 
-                    response = await client.get(url, timeout=4.0)
+    def clean_categories(raw: str) -> list[str]:
+        if not raw or not isinstance(raw, str):
+            return []
+        cleaned = []
+        for tag in raw.split(","):
+            value = tag.strip().split(":")[-1].replace("-", " ").capitalize()
+            if value:
+                cleaned.append(value)
+        return cleaned
 
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data.get("status") == 1:
-                            product_data = data.get("product", {})
-                            break  # Produit trouvé ! On sort de la boucle for
+    suggestions = clean_categories(categories_str)
 
-                except (httpx.TimeoutException, httpx.RequestError):
-                    # Si l'API actuelle est en timeout ou inaccessible,
-                    # on passe silencieusement à la suivante dans la boucle
-                    continue
-
-            # Si après avoir parcouru toutes les URLs, aucun produit n'a été trouvé
-            if product_data is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)"
-                )
-        try:
-            categories_str = product_data.get("categories_old", "")
-
-            def clean_categories(raw: str) -> list[str]:
-                if not raw or not isinstance(raw, str):
-                    return []
-                cleaned = []
-                for tag in raw.split(","):
-                    value = tag.strip().split(":")[-1].replace("-", " ").capitalize()
-                    if value:
-                        cleaned.append(value)
-                return cleaned
-
-            suggestions = clean_categories(categories_str)
-
-            return schemas.OpenFoodFactsProduct(
-                barcode=barcode,
-                name=product_data.get("product_name") or product_data.get("product_name_fr"),
-                brand=product_data.get("brands"),
-                image_url=product_data.get("image_url") or product_data.get("image_front_url"),
-                categories=product_data.get("categories"),
-                sub_categories_suggestions=suggestions,
-                quantity_info=product_data.get("quantity"),
-            )
-        except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail="Timeout lors de la requête Open Food Facts")
-        except HTTPException:
-            raise
-        except Exception:
-            raise HTTPException(status_code=500, detail="Erreur lors de la recherche du produit")
+    return schemas.OpenFoodFactsProduct(
+        barcode=barcode,
+        name=product.get("product_name") or product.get("product_name_fr"),
+        brand=product.get("brands"),
+        image_url=product.get("image_url") or product.get("image_front_url"),
+        categories=product.get("categories"),
+        sub_categories_suggestions=suggestions,
+        quantity_info=product.get("quantity"),
+        source=matched_source,
+    )

@@ -149,3 +149,4 @@ class OpenFoodFactsProduct(BaseModel):
     categories: Optional[str] = None
     sub_categories_suggestions: List[str] = []
     quantity_info: Optional[str] = None
+    source: Optional[str] = None

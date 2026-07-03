@@ -623,7 +623,7 @@ export default function ScannerPage() {
                   </div>
                 )}
                 <div className="flex-1">
-                  <Badge className="mb-2">Open Food Facts</Badge>
+                  <Badge className="mb-2">{openFoodFactsData.source || 'Base partenaire'}</Badge>
                   <h3 className="font-semibold">{openFoodFactsData.name || 'Produit inconnu'}</h3>
                   <p className="text-sm text-muted-foreground">
                     {openFoodFactsData.brand || 'Sans marque'}
@@ -633,7 +633,7 @@ export default function ScannerPage() {
             ) : (
               <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <p className="text-sm text-amber-500">
-                  Produit non trouvé dans Open Food Facts. Vous pouvez le créer manuellement.
+                  Produit non trouvé sur les bases partenaires (Alimentaire, Cosmétique, Animaux). Vous pouvez le créer manuellement.
                 </p>
               </div>
             )}
