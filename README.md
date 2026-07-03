@@ -58,7 +58,7 @@ VirtualHost Apache et certificat Let's Encrypt.
 
 2. Ouvrez le script et adaptez la section `CONFIGURATION` en haut du fichier :
    ```bash
-   DOMAIN="stockhome.domolinux.eu"
+   DOMAIN="stockhome.domaine.eu"
    CERTBOT_EMAIL="votre-email@example.com"
    GITHUB_REPO="votre-user/stockhome"
    RELEASE_TAG="latest"        # ou un tag précis, ex: "v1.2.0"
@@ -105,6 +105,7 @@ Si vous préférez ne pas utiliser le script tout-en-un :
 3. **Frontend**
    ```bash
    cd frontend
+   echo "VITE_API_URL=https://stockhome.domaine.eu" > .env
    npm install
    npm run build
    # copiez le contenu de dist/ vers /var/www/stockhome
@@ -119,13 +120,48 @@ Si vous préférez ne pas utiliser le script tout-en-un :
    `[Unit]/[Service]/[Install]` généré par `deploy_stockhome.sh` pour un
    exemple prêt à copier dans `/etc/systemd/system/stockhome-api.service`.
 
-## Variables d'environnement (`backend/.env`)
+## Variables d'environnement
+
+Le projet utilise deux fichiers `.env` distincts, un par côté (backend et
+frontend), car ils ne sont pas lus au même moment ni par le même outil.
+
+### `backend/.env`
+
+Lu au démarrage de l'application via `load_dotenv()` (`database.py`). Un
+`.env.example` est fourni comme modèle à copier.
 
 | Variable        | Description                                              | Exemple |
 |-----------------|------------------------------------------------------------|---------|
 | `DATABASE_URL`  | Connexion PostgreSQL (psycopg2)                            | `postgresql+psycopg2://stockhome:motdepasse@localhost:5432/stockhome` |
 | `JWT_SECRET`    | Secret de signature des tokens JWT                          | chaîne aléatoire longue |
-| `CORS_ORIGINS`  | Origines autorisées, séparées par des virgules              | `https://stockhome.domolinux.eu` |
+| `CORS_ORIGINS`  | Origines autorisées, séparées par des virgules              | `https://stockhome.domaine.eu` |
+
+Modifier ce fichier nécessite un redémarrage du service pour être pris en
+compte : `sudo systemctl restart stockhome-api`.
+
+### `frontend/.env`
+
+Lu par Vite **au moment du `npm run build`** (pas au runtime dans le
+navigateur) : seules les variables préfixées `VITE_` sont exposées au code
+via `import.meta.env`. Une fois le build fait, la valeur est figée dans les
+fichiers JS générés — un changement de domaine nécessite un nouveau build.
+
+| Variable         | Description                          | Exemple |
+|------------------|----------------------------------------|---------|
+| `VITE_API_URL`   | URL de base de l'API, sans `/api` final (ajouté par `AuthContext.jsx`) | `https://stockhome.domaine.eu` |
+
+### Gestion automatique par `deploy_stockhome.sh`
+
+Le script génère les deux fichiers à chaque exécution :
+
+- `backend/.env` : `DATABASE_URL`, `JWT_SECRET` et `CORS_ORIGINS` construits à
+  partir des variables `DB_NAME`/`DB_USER`/`DB_PASSWORD`/`JWT_SECRET`/`DOMAIN`
+  définies en haut du script. Si un `backend/.env` existe déjà (redéploiement),
+  le mot de passe DB et le JWT secret existants sont **réutilisés** plutôt que
+  régénérés, pour ne pas invalider les sessions en cours ni désynchroniser le
+  mot de passe du rôle PostgreSQL.
+- `frontend/.env` : `VITE_API_URL=https://${DOMAIN}`, généré juste avant
+  `npm run build`.
 
 ## API
 
@@ -148,6 +184,10 @@ et `/redoc`.
   (le fichier est chargé via `load_dotenv()` dans `database.py`, au démarrage
   de l'app uniquement — un fichier `.env` modifié à chaud nécessite un
   redémarrage du service : `sudo systemctl restart stockhome-api`)
+- **Le frontend appelle toujours l'ancienne URL d'API après changement de
+  domaine** : `VITE_API_URL` est figée dans les fichiers JS au moment du
+  build, pas lue au runtime — il faut régénérer `frontend/.env` puis relancer
+  `npm run build` (ou simplement rejouer `deploy_stockhome.sh`)
 - **Erreur Apache après modification du VirtualHost** :
   `sudo apache2ctl configtest` avant `systemctl reload apache2`
 - **Renouvellement du certificat Let's Encrypt** : normalement automatique via

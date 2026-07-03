@@ -35,7 +35,7 @@ BACKEND_DIR="${APP_DIR}/backend"
 FRONTEND_WEBROOT="/var/www/stockhome"
 BACKEND_PORT=8001
 SERVICE_NAME="stockhome-api"
-SERVICE_USER="www-data"                           # utilisateur système exécutant le service
+SERVICE_USER="${SERVICE_USER:-}"                  # laissez vide : déterminé automatiquement selon l'OS
 
 DB_NAME="stockhome"
 DB_USER="stockhome"
@@ -47,13 +47,99 @@ CORS_ORIGINS="https://${DOMAIN}"
 # ==============================================================================
 
 if [ "$EUID" -ne 0 ]; then
-    echo "Ce script doit être exécuté avec sudo (accès Apache, systemd, apt)." >&2
+    echo "Ce script doit être exécuté avec sudo (accès Apache, systemd, gestionnaire de paquets)." >&2
     exit 1
 fi
 
-for bin in curl tar python3 systemctl apache2ctl; do
-    command -v "$bin" >/dev/null 2>&1 || { echo "Commande manquante : $bin" >&2; exit 1; }
+# ---------- Détection de la distribution ----------
+if command -v apt-get >/dev/null 2>&1; then
+    OS_FAMILY="debian"
+    APACHE_SERVICE="apache2"
+    APACHE_CTL="apache2ctl"
+    APACHE_CONF_DIR="/etc/apache2/sites-available"
+    PG_SERVICE="postgresql"
+elif command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1; then
+    OS_FAMILY="rhel"
+    PKG_MGR="$(command -v dnf >/dev/null 2>&1 && echo dnf || echo yum)"
+    APACHE_SERVICE="httpd"
+    APACHE_CTL="apachectl"
+    APACHE_CONF_DIR="/etc/httpd/conf.d"
+    PG_SERVICE="postgresql"
+else
+    echo "Distribution non supportée (ni apt-get, ni dnf/yum détecté)." >&2
+    exit 1
+fi
+APACHE_CONF="${APACHE_CONF_DIR}/stockhome.conf"
+APACHE_LOG_DIR="$([ "$OS_FAMILY" = "debian" ] && echo /var/log/apache2 || echo /var/log/httpd)"
+[ -z "$SERVICE_USER" ] && SERVICE_USER="$([ "$OS_FAMILY" = "debian" ] && echo www-data || echo apache)"
+
+# ---------- Installation des dépendances système ----------
+echo "=== 1/7 : Dépendances système (${OS_FAMILY}) ==="
+
+if [ "$OS_FAMILY" = "debian" ]; then
+    apt-get update -qq
+    apt-get install -y -qq \
+        curl tar rsync openssl \
+        apache2 certbot python3-certbot-apache \
+        python3 python3-venv python3-pip \
+        postgresql postgresql-contrib \
+        >/dev/null
+    a2enmod proxy proxy_http rewrite ssl headers >/dev/null
+else
+    "$PKG_MGR" install -y -q epel-release >/dev/null 2>&1 || true  # certbot vient souvent d'EPEL sur RHEL/CentOS
+    "$PKG_MGR" install -y -q \
+        curl tar rsync openssl \
+        httpd mod_ssl certbot python3-certbot-apache \
+        python3 python3-pip \
+        postgresql-server postgresql-contrib \
+        >/dev/null
+
+    # Modules proxy nécessaires au reverse-proxy /api/ (souvent présents mais
+    # commentés dans la config par défaut d'httpd)
+    for mod in proxy_module proxy_http_module rewrite_module headers_module; do
+        conf_file="/etc/httpd/conf.modules.d/00-proxy.conf"
+        [ -f "$conf_file" ] && sed -i "s/^#\(LoadModule ${mod} \)/\1/" "$conf_file" 2>/dev/null || true
+    done
+
+    # Initialisation de la base PostgreSQL si c'est la première installation
+    # (nécessaire sur RHEL/CentOS, contrairement à Debian où c'est automatique)
+    if [ ! -d "/var/lib/pgsql/data" ] || [ -z "$(ls -A /var/lib/pgsql/data 2>/dev/null)" ]; then
+        postgresql-setup --initdb >/dev/null 2>&1 || true
+    fi
+fi
+
+# ---------- Vérification / démarrage de PostgreSQL ----------
+echo "=== Vérification de PostgreSQL ==="
+if ! command -v psql >/dev/null 2>&1; then
+    echo "psql toujours introuvable après installation, arrêt." >&2
+    exit 1
+fi
+systemctl enable "$PG_SERVICE" >/dev/null 2>&1 || true
+systemctl start "$PG_SERVICE"
+systemctl is-active --quiet "$PG_SERVICE" || { echo "Le service ${PG_SERVICE} ne démarre pas." >&2; exit 1; }
+echo "    PostgreSQL actif (${PG_SERVICE})."
+
+# ---------- Vérification finale des binaires requis ----------
+for bin in curl tar python3 systemctl "$APACHE_CTL"; do
+    command -v "$bin" >/dev/null 2>&1 || { echo "Commande toujours manquante après installation : $bin" >&2; exit 1; }
 done
+
+# ---------- Ouverture des ports 80/443 dans le pare-feu, si actif ----------
+echo "=== Vérification du pare-feu (ports 80/443) ==="
+if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
+    ufw allow 80/tcp >/dev/null
+    ufw allow 443/tcp >/dev/null
+    echo "    ufw actif : ports 80/443 autorisés."
+elif command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld; then
+    firewall-cmd --permanent --add-service=http >/dev/null
+    firewall-cmd --permanent --add-service=https >/dev/null
+    firewall-cmd --reload >/dev/null
+    echo "    firewalld actif : ports 80/443 autorisés."
+else
+    echo "    Aucun pare-feu actif détecté (ufw/firewalld) : rien à ouvrir ici."
+    echo "    Si votre hébergeur filtre le trafic en amont (pare-feu réseau/cloud),"
+    echo "    pensez à ouvrir 80/443 de ce côté-là également."
+fi
 
 [ -z "$DB_PASSWORD" ] && DB_PASSWORD="$(openssl rand -hex 24)"
 [ -z "$JWT_SECRET" ] && JWT_SECRET="$(openssl rand -hex 32)"
@@ -70,12 +156,6 @@ if [ -f "$EXISTING_ENV" ]; then
     [ -n "$EXISTING_JWT" ] && JWT_SECRET="$EXISTING_JWT"
     echo "    .env existant détecté : réutilisation du mot de passe DB et du JWT secret."
 fi
-
-echo "=== 1/7 : Paquets systèmes (Apache, Certbot, PostgreSQL client, Node si besoin) ==="
-apt-get update -qq
-apt-get install -y -qq apache2 certbot python3-certbot-apache python3-venv python3-pip postgresql-client rsync >/dev/null
-
-a2enmod proxy proxy_http rewrite ssl headers >/dev/null
 
 echo "=== 2/7 : Récupération de la release GitHub (${GITHUB_REPO} @ ${RELEASE_TAG}) ==="
 WORK_DIR="$(mktemp -d)"
@@ -185,18 +265,17 @@ EOF
 else
     echo "Aucun dossier frontend/dist ni package.json trouvé, frontend non déployé." >&2
 fi
-chown -R www-data:www-data "$FRONTEND_WEBROOT"
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "$FRONTEND_WEBROOT"
 
 # --- Étape 1 : vhost HTTP minimal, nécessaire pour le challenge ACME ---
-APACHE_CONF="/etc/apache2/sites-available/stockhome.conf"
 cat > "$APACHE_CONF" <<EOF
 <VirtualHost *:80>
     ServerName ${DOMAIN}
     DocumentRoot ${FRONTEND_WEBROOT}
 </VirtualHost>
 EOF
-a2ensite stockhome.conf >/dev/null
-apache2ctl configtest && systemctl reload apache2
+[ "$OS_FAMILY" = "debian" ] && a2ensite stockhome.conf >/dev/null
+"$APACHE_CTL" configtest && systemctl reload "$APACHE_SERVICE"
 
 # --- Étape 2 : obtention du certificat Let's Encrypt ---
 if [ ! -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
@@ -237,8 +316,8 @@ cat > "$APACHE_CONF" <<EOF
     # Headers CORS gérés par FastAPI, pas Apache
     # Ne pas doubler ici
 
-    ErrorLog  \${APACHE_LOG_DIR}/stockhome_error.log
-    CustomLog \${APACHE_LOG_DIR}/stockhome_access.log combined
+    ErrorLog  ${APACHE_LOG_DIR}/stockhome_error.log
+    CustomLog ${APACHE_LOG_DIR}/stockhome_access.log combined
 
     SSLEngine on
     SSLCertificateFile /etc/letsencrypt/live/${DOMAIN}/fullchain.pem
@@ -247,7 +326,7 @@ cat > "$APACHE_CONF" <<EOF
 </VirtualHost>
 EOF
 
-apache2ctl configtest && systemctl reload apache2
+"$APACHE_CTL" configtest && systemctl reload "$APACHE_SERVICE"
 
 echo ""
 echo "=== Déploiement terminé ==="
