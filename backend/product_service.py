@@ -286,7 +286,11 @@ async def lookup_barcode(barcode: str):
             detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)",
         )
 
-    categories_str = product.get("categories_old", "")
+    # NB : "categories_old" est un champ déprécié par Open Food Facts, absent
+    # des réponses actuelles -- on utilise "categories" (texte lisible,
+    # ex: "Beurres de cacahuètes, Beurres de fruits à coques"), qui est bien
+    # présent. Le premier élément est en pratique le plus spécifique.
+    categories_str = product.get("categories", "")
 
     def clean_categories(raw: str) -> list[str]:
         if not raw or not isinstance(raw, str):
@@ -300,6 +304,26 @@ async def lookup_barcode(barcode: str):
 
     suggestions = clean_categories(categories_str)
 
+    # Présélection de la catégorie StockHome selon la base qui a répondu :
+    # une correspondance directe et fiable, indépendante du contenu produit.
+    SOURCE_TO_CATEGORY = {
+        "Open Food Facts": "Alimentaire",
+        "Open Beauty Facts": "Hygiène",
+        "Open Pet Food Facts": "Animaux",
+    }
+    suggested_category = SOURCE_TO_CATEGORY.get(matched_source)
+
+    # Heuristique "à conserver au frais" : recherche de mots-clés dans les
+    # tags de catégorie anglais (stables, indépendants de la langue), qui
+    # couvrent les familles de produits typiquement réfrigérés.
+    REFRIGERATION_KEYWORDS = [
+        "dairy", "dairies", "cheese", "yogurt", "yoghurt", "butter", "cream",
+        "fresh", "meat", "fish", "seafood", "deli", "cold-cuts", "sausage",
+        "ham", "milk", "charcuterie",
+    ]
+    categories_tags = " ".join(product.get("categories_tags", []) or []).lower()
+    needs_refrigeration = any(keyword in categories_tags for keyword in REFRIGERATION_KEYWORDS)
+
     return schemas.OpenFoodFactsProduct(
         barcode=barcode,
         name=product.get("product_name") or product.get("product_name_fr"),
@@ -309,4 +333,6 @@ async def lookup_barcode(barcode: str):
         sub_categories_suggestions=suggestions,
         quantity_info=product.get("quantity"),
         source=matched_source,
+        suggested_category=suggested_category,
+        needs_refrigeration=needs_refrigeration,
     )
