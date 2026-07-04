@@ -358,9 +358,6 @@ export default function ScannerPage() {
     if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) {
       missing.push('Quantité');
     }
-    if (formData.min_quantity === '' || formData.min_quantity === null || formData.min_quantity === undefined) {
-      missing.push('Quantité min.');
-    }
     if (!formData.category_id) {
       missing.push('Catégorie');
     }
@@ -703,18 +700,6 @@ export default function ScannerPage() {
                   }
                   className="bg-input border-border"
                   data-testid="scanner-product-quantity"
-                />
-              </div>
-              <div>
-                <Label>Quantité min. *</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={formData.min_quantity}
-                  onChange={(e) =>
-                    setFormData({ ...formData, min_quantity: parseInt(e.target.value) || 0 })
-                  }
-                  className="bg-input border-border"
                 />
               </div>
               <div>

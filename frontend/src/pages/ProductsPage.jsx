@@ -409,42 +409,38 @@ export default function ProductsPage() {
 
       {/* Dialog Add/Edit */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader><DialogTitle>{editingProduct ? 'Modifier' : 'Ajouter'}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4 max-h-[60vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Nom *</Label>
-              <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+              <Input
+                value={formData.name}
+                onChange={e => setFormData({...formData, name: e.target.value})}
+                className="bg-input border-border"
+              />
             </div>
 
             <div className="col-span-2">
               <Label>Marque</Label>
-              <Input value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
+              <Input
+                value={formData.brand}
+                onChange={e => setFormData({...formData, brand: e.target.value})}
+                className="bg-input border-border"
+              />
             </div>
 
             <div>
               <Label>Quantité</Label>
               <Input
                 type="number"
-                step="1"
+                min="0"
                 value={formData.quantity}
                 onChange={e => setFormData({
                   ...formData,
                   quantity: parseInt(e.target.value, 10) || 0
                 })}
-              />
-            </div>
-
-            <div>
-              <Label>Quantité min.</Label>
-              <Input
-                type="number"
-                step="1"
-                value={formData.min_quantity}
-                onChange={e => setFormData({
-                  ...formData,
-                  min_quantity: parseInt(e.target.value, 10) || 0
-                })}
+                className="bg-input border-border"
               />
             </div>
 
@@ -454,7 +450,7 @@ export default function ProductsPage() {
                 value={formData.category_id || "none"}
                 onValueChange={v => setFormData({...formData, category_id: v === "none" ? null : v})}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-input border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Aucune</SelectItem>
                   {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -481,9 +477,6 @@ export default function ProductsPage() {
                       placeholder="Rechercher une sous-catégorie..."
                       onValueChange={(searchTerm) => {
                         const formattedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
-                        // On tape un nom qui ne correspond à aucune sous-catégorie
-                        // existante : elle sera créée automatiquement à
-                        // l'enregistrement (sub_category_id repart à null).
                         setFormData({ ...formData, sub_category_name: formattedTerm, sub_category_id: null });
                       }}
                     />
@@ -538,27 +531,12 @@ export default function ProductsPage() {
                 value={formData.location_id || "none"}
                 onValueChange={v => setFormData({...formData, location_id: v === "none" ? null : v})}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-input border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Aucun</SelectItem>
                   {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div>
-              <Label>Unité</Label>
-              <Input value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
-            </div>
-
-            <div>
-              <Label>Code-barres</Label>
-              <Input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} />
-            </div>
-
-            <div className="col-span-2">
-              <Label>Description</Label>
-              <Input value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
             </div>
           </div>
           <DialogFooter>
