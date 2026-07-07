@@ -13,6 +13,8 @@ from database import get_db
 
 router = APIRouter(prefix="/api", tags=["products"])
 
+PRODUCT_NOT_FOUND = "Produit non trouvé"
+
 
 def _enrich_product(product: models.Product) -> schemas.ProductResponse:
     data = schemas.ProductResponse.model_validate(product)
@@ -31,6 +33,7 @@ def get_products(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Return a filtered list of products for the authenticated user."""
     query = select(models.Product).where(models.Product.user_id == current_user.id).options(
         selectinload(models.Product.category),
         selectinload(models.Product.location),
@@ -56,13 +59,18 @@ def get_products(
 def get_product_by_barcode(
     barcode: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    """Return a product by barcode for the authenticated user."""
     product = db.execute(
         select(models.Product)
         .where(models.Product.barcode == barcode, models.Product.user_id == current_user.id)
-        .options(selectinload(models.Product.category), selectinload(models.Product.location), selectinload(models.Product.sub_category))
+        .options(
+            selectinload(models.Product.category),
+            selectinload(models.Product.location),
+            selectinload(models.Product.sub_category),
+        )
     ).scalar_one_or_none()
     if not product:
-        raise HTTPException(status_code=404, detail="Produit non trouvé")
+        raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
     return _enrich_product(product)
 
 
@@ -70,13 +78,18 @@ def get_product_by_barcode(
 def get_product(
     product_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    """Return a product by ID for the authenticated user."""
     product = db.execute(
         select(models.Product)
         .where(models.Product.id == product_id, models.Product.user_id == current_user.id)
-        .options(selectinload(models.Product.category), selectinload(models.Product.location), selectinload(models.Product.sub_category))
+        .options(
+            selectinload(models.Product.category),
+            selectinload(models.Product.location),
+            selectinload(models.Product.sub_category),
+        )
     ).scalar_one_or_none()
     if not product:
-        raise HTTPException(status_code=404, detail="Produit non trouvé")
+        raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
     return _enrich_product(product)
 
 
@@ -86,6 +99,7 @@ def create_product(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a new product for the authenticated user."""
     payload = data.model_dump()
     sub_category_name = payload.pop("sub_category_name", None)
     if sub_category_name:
@@ -121,7 +135,11 @@ def create_product(
     product = db.execute(
         select(models.Product)
         .where(models.Product.id == product.id)
-        .options(selectinload(models.Product.category), selectinload(models.Product.location), selectinload(models.Product.sub_category))
+        .options(
+            selectinload(models.Product.category),
+            selectinload(models.Product.location),
+            selectinload(models.Product.sub_category),
+        )
     ).scalar_one()
     return _enrich_product(product)
 
@@ -133,13 +151,18 @@ def update_product(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update an existing product for the authenticated user."""
     product = db.execute(
         select(models.Product)
         .where(models.Product.id == product_id, models.Product.user_id == current_user.id)
-        .options(selectinload(models.Product.category), selectinload(models.Product.location), selectinload(models.Product.sub_category))
+        .options(
+            selectinload(models.Product.category),
+            selectinload(models.Product.location),
+            selectinload(models.Product.sub_category),
+        )
     ).scalar_one_or_none()
     if not product:
-        raise HTTPException(status_code=404, detail="Produit non trouvé")
+        raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
 
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     for key, value in update_data.items():
@@ -163,7 +186,7 @@ def update_product_quantity(
         select(models.Product).where(models.Product.id == product_id, models.Product.user_id == current_user.id)
     ).scalar_one_or_none()
     if not product:
-        raise HTTPException(status_code=404, detail="Produit non trouvé")
+        raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
 
     product.quantity = max(0, product.quantity + delta)
     product.updated_at = datetime.now(timezone.utc)
@@ -179,7 +202,7 @@ def delete_product(
         select(models.Product).where(models.Product.id == product_id, models.Product.user_id == current_user.id)
     ).scalar_one_or_none()
     if not product:
-        raise HTTPException(status_code=404, detail="Produit non trouvé")
+        raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
     db.delete(product)
     db.commit()
     return {"message": "Produit supprimé"}

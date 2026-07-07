@@ -1,3 +1,5 @@
+"""Authentication endpoints for registering, logging in, and retrieving the authenticated user."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -28,6 +30,7 @@ DEFAULT_LOCATIONS = [
 
 @router.post("/register", response_model=schemas.TokenResponse)
 def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
+    """Register a new user and create default categories and storage locations."""
     existing = db.execute(select(models.User).where(models.User.email == data.email)).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
@@ -55,6 +58,7 @@ def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=schemas.TokenResponse)
 def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    """Authenticate a user and return a JWT access token."""
     user = db.execute(select(models.User).where(models.User.email == credentials.email)).scalar_one_or_none()
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
@@ -65,4 +69,5 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=schemas.UserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):
+    """Return the current authenticated user."""
     return schemas.UserResponse.model_validate(current_user)

@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+"""Dashboard endpoints for aggregated statistics used by the StockHome UI."""
+
 import models
 import schemas
 from auth import get_current_user
@@ -12,28 +14,29 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 @router.get("/stats")
 def get_dashboard_stats(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Return summary statistics for the current user dashboard."""
     user_id = current_user.id
 
     total_products = db.execute(
-        select(func.count()).select_from(models.Product).where(models.Product.user_id == user_id)
+        select(func.count(models.Product.id)).where(models.Product.user_id == user_id)
     ).scalar_one()
 
     low_stock_count = db.execute(
-        select(func.count()).select_from(models.Product).where(
+        select(func.count(models.Product.id)).select_from(models.Product).where(
             models.Product.user_id == user_id, models.Product.quantity < models.Product.min_quantity
         )
     ).scalar_one()
 
     total_categories = db.execute(
-        select(func.count()).select_from(models.Category).where(models.Category.user_id == user_id)
+        select(func.count(models.Category.id)).where(models.Category.user_id == user_id)
     ).scalar_one()
 
     total_locations = db.execute(
-        select(func.count()).select_from(models.StorageLocation).where(models.StorageLocation.user_id == user_id)
+        select(func.count(models.StorageLocation.id)).where(models.StorageLocation.user_id == user_id)
     ).scalar_one()
 
     shopping_list_count = db.execute(
-        select(func.count()).select_from(models.ShoppingListItem).where(
+        select(func.count(models.ShoppingListItem.id)).where(
             models.ShoppingListItem.user_id == user_id, models.ShoppingListItem.is_checked.is_(False)
         )
     ).scalar_one()

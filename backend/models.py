@@ -1,3 +1,7 @@
+"""SQLAlchemy model definitions for StockHome."""
+
+# pylint: disable=too-few-public-methods, missing-class-docstring
+
 import uuid
 from datetime import datetime, timezone
 
@@ -91,9 +95,15 @@ class Product(Base):
     brand: Mapped[str | None] = mapped_column(String(150), nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    category_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
-    sub_category_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("sub_categories.id", ondelete="SET NULL"), nullable=True)
-    location_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("storage_locations.id", ondelete="SET NULL"), nullable=True)
+    category_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
+    )
+    sub_category_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("sub_categories.id", ondelete="SET NULL"), nullable=True
+    )
+    location_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("storage_locations.id", ondelete="SET NULL"), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
