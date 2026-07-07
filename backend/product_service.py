@@ -109,6 +109,41 @@ def _validate_owned_refs(
             raise HTTPException(status_code=400, detail=f"{field_name} invalide ou introuvable : {value}")
 
 
+def _resolve_sub_category_id(
+    db: Session,
+    user_id: str,
+    sub_category_name: Optional[str],
+    sub_category_id: Optional[str],
+    category_id: Optional[str],
+) -> Optional[str]:
+    """
+    Si un sub_category_id explicite est fourni, on le garde tel quel (déjà
+    validé par _validate_owned_refs). Sinon, si un nom est fourni, on
+    réutilise la sous-catégorie existante du même nom (insensible à la
+    casse) ou on la crée à la volée, rattachée à category_id si fourni.
+    """
+    if sub_category_id or not sub_category_name:
+        return sub_category_id
+
+    sub_category_name = sub_category_name.strip().capitalize()
+    if not sub_category_name:
+        return sub_category_id
+
+    existing_sub = db.execute(
+        select(models.SubCategory).where(
+            models.SubCategory.user_id == user_id,
+            func.lower(models.SubCategory.name) == sub_category_name.lower(),
+        )
+    ).scalar_one_or_none()
+    if existing_sub:
+        return existing_sub.id
+
+    new_sub = models.SubCategory(name=sub_category_name, user_id=user_id, category_id=category_id)
+    db.add(new_sub)
+    db.flush()
+    return new_sub.id
+
+
 @router.post("/products", response_model=schemas.ProductResponse)
 def create_product(
     data: schemas.ProductCreate,
@@ -117,38 +152,17 @@ def create_product(
 ):
     payload = data.model_dump()
     sub_category_name = payload.pop("sub_category_name", None)
-    if sub_category_name:
-        sub_category_name = sub_category_name.strip().capitalize()
-
-    sub_category_id = payload.get("sub_category_id")
 
     _validate_owned_refs(
         db, current_user.id,
         category_id=payload.get("category_id"),
-        sub_category_id=sub_category_id,
+        sub_category_id=payload.get("sub_category_id"),
         location_id=payload.get("location_id"),
     )
 
-    # Résolution automatique/manuelle de la sous-catégorie par nom
-    if sub_category_name and not sub_category_id:
-        existing_sub = db.execute(
-            select(models.SubCategory).where(
-                models.SubCategory.user_id == current_user.id,
-                func.lower(models.SubCategory.name) == sub_category_name.lower(),
-            )
-        ).scalar_one_or_none()
-        if existing_sub:
-            sub_category_id = existing_sub.id
-        else:
-            new_sub = models.SubCategory(
-                name=sub_category_name,
-                user_id=current_user.id,
-                category_id=payload.get("category_id"),
-            )
-            db.add(new_sub)
-            db.flush()
-            sub_category_id = new_sub.id
-        payload["sub_category_id"] = sub_category_id
+    payload["sub_category_id"] = _resolve_sub_category_id(
+        db, current_user.id, sub_category_name, payload.get("sub_category_id"), payload.get("category_id"),
+    )
 
     product = models.Product(**payload, user_id=current_user.id)
     db.add(product)
@@ -178,6 +192,7 @@ def update_product(
         raise HTTPException(status_code=404, detail="Produit non trouvé")
 
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    sub_category_name = update_data.pop("sub_category_name", None)
 
     _validate_owned_refs(
         db, current_user.id,
@@ -185,6 +200,12 @@ def update_product(
         sub_category_id=update_data.get("sub_category_id"),
         location_id=update_data.get("location_id"),
     )
+
+    if sub_category_name and not update_data.get("sub_category_id"):
+        update_data["sub_category_id"] = _resolve_sub_category_id(
+            db, current_user.id, sub_category_name, None,
+            update_data.get("category_id", product.category_id),
+        )
 
     for key, value in update_data.items():
         setattr(product, key, value)
@@ -265,7 +286,11 @@ async def lookup_barcode(barcode: str):
             detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)",
         )
 
-    categories_str = product.get("categories_old", "")
+    # NB : "categories_old" est un champ déprécié par Open Food Facts, absent
+    # des réponses actuelles -- on utilise "categories" (texte lisible,
+    # ex: "Beurres de cacahuètes, Beurres de fruits à coques"), qui est bien
+    # présent. Le premier élément est en pratique le plus spécifique.
+    categories_str = product.get("categories", "")
 
     def clean_categories(raw: str) -> list[str]:
         if not raw or not isinstance(raw, str):
@@ -279,6 +304,26 @@ async def lookup_barcode(barcode: str):
 
     suggestions = clean_categories(categories_str)
 
+    # Présélection de la catégorie StockHome selon la base qui a répondu :
+    # une correspondance directe et fiable, indépendante du contenu produit.
+    SOURCE_TO_CATEGORY = {
+        "Open Food Facts": "Alimentaire",
+        "Open Beauty Facts": "Hygiène",
+        "Open Pet Food Facts": "Animaux",
+    }
+    suggested_category = SOURCE_TO_CATEGORY.get(matched_source)
+
+    # Heuristique "à conserver au frais" : recherche de mots-clés dans les
+    # tags de catégorie anglais (stables, indépendants de la langue), qui
+    # couvrent les familles de produits typiquement réfrigérés.
+    REFRIGERATION_KEYWORDS = [
+        "dairy", "dairies", "cheese", "yogurt", "yoghurt", "butter", "cream",
+        "fresh", "meat", "fish", "seafood", "deli", "cold-cuts", "sausage",
+        "ham", "milk", "charcuterie",
+    ]
+    categories_tags = " ".join(product.get("categories_tags", []) or []).lower()
+    needs_refrigeration = any(keyword in categories_tags for keyword in REFRIGERATION_KEYWORDS)
+
     return schemas.OpenFoodFactsProduct(
         barcode=barcode,
         name=product.get("product_name") or product.get("product_name_fr"),
@@ -288,4 +333,6 @@ async def lookup_barcode(barcode: str):
         sub_categories_suggestions=suggestions,
         quantity_info=product.get("quantity"),
         source=matched_source,
+        suggested_category=suggested_category,
+        needs_refrigeration=needs_refrigeration,
     )

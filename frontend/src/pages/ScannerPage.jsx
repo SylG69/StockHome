@@ -186,20 +186,33 @@ export default function ScannerPage() {
         // On récupère les suggestions envoyées par le backend
         const offSuggestions = offRes.data.sub_categories_suggestions || [];
         setSuggestions(offSuggestions);
-        // On cherche si un nom de suggestion correspond à une de nos sous-catégories
+        // On cherche si un nom de suggestion correspond à une de nos sous-catégories.
+        // Le premier élément de la liste est le plus spécifique en pratique
+        // (ex: "Beurres de cacahuètes" avant "Beurres de fruits à coques"),
+        // donc on essaie dans cet ordre, du plus précis au plus général.
         let matchedSubCategoryId = null;
-        if (offSuggestions.length > 0) {
-          // "subcategories" doit être votre état contenant la liste des sous-cats chargées depuis l'API
-          for (let i = offSuggestions.length - 1; i >= 0; i--) {
-            const found = subcategories.find(s =>
-              s.name.toLowerCase() === offSuggestions[i].toLowerCase()
-            );
-            if (found) {
-              matchedSubCategoryId = found.id;
-              break;
-            }
+        for (const suggestion of offSuggestions) {
+          const found = subcategories.find(s =>
+            s.name.toLowerCase() === suggestion.toLowerCase()
+          );
+          if (found) {
+            matchedSubCategoryId = found.id;
+            break;
           }
         }
+
+        // Présélection de la catégorie à partir de la base qui a répondu
+        // (Alimentaire / Hygiène / Animaux), si elle existe chez l'utilisateur.
+        const matchedCategory = offRes.data.suggested_category
+          ? categories.find(c => c.name.toLowerCase() === offRes.data.suggested_category.toLowerCase())
+          : null;
+
+        // Présélection de l'emplacement "Réfrigérateur" si le produit semble
+        // devoir être conservé au frais (heuristique côté backend) et qu'un
+        // tel emplacement existe chez l'utilisateur.
+        const fridgeLocation = offRes.data.needs_refrigeration
+          ? locations.find(l => /r[ée]frig[ée]rateur|frigo/i.test(l.name))
+          : null;
 
         setFormData({
           name: offRes.data.name || '',
@@ -208,16 +221,11 @@ export default function ScannerPage() {
           quantity: 1,
           min_quantity: 1,
           unit: 'unité',
-          // category_id doit être un UUID d'une catégorie existante, jamais le
-          // texte brut renvoyé par OFF (ex: "Shampoings") : ça cassait l'insertion
-          // en base (violation de contrainte de clé étrangère). L'utilisateur
-          // choisit sa catégorie manuellement dans le formulaire.
-          category_id: null,
-          location_id: null,
+          category_id: matchedCategory ? matchedCategory.id : null,
+          location_id: fridgeLocation ? fridgeLocation.id : null,
           image_url: offRes.data.image_url || '',
-          // On peut pré-remplir avec la suggestion la plus précise par défaut
           sub_category_id: matchedSubCategoryId,
-          sub_category_name: offSuggestions.length > 0 ? offSuggestions[offSuggestions.length - 1] : '',
+          sub_category_name: offSuggestions.length > 0 ? offSuggestions[0] : '',
           description: offRes.data.categories || '',
         });
       } catch (error) {
@@ -357,9 +365,6 @@ export default function ScannerPage() {
     const missing = [];
     if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) {
       missing.push('Quantité');
-    }
-    if (formData.min_quantity === '' || formData.min_quantity === null || formData.min_quantity === undefined) {
-      missing.push('Quantité min.');
     }
     if (!formData.category_id) {
       missing.push('Catégorie');
@@ -703,18 +708,6 @@ export default function ScannerPage() {
                   }
                   className="bg-input border-border"
                   data-testid="scanner-product-quantity"
-                />
-              </div>
-              <div>
-                <Label>Quantité min. *</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={formData.min_quantity}
-                  onChange={(e) =>
-                    setFormData({ ...formData, min_quantity: parseInt(e.target.value) || 0 })
-                  }
-                  className="bg-input border-border"
                 />
               </div>
               <div>
