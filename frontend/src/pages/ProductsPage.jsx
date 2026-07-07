@@ -123,7 +123,7 @@ export default function ProductsPage() {
       // On appelle l'API pour mettre à jour le seuil de la sous-catégorie
       const encodedId = encodeURIComponent(subId);
       await api.patch(`/subcategories/${encodedId}/threshold`, {
-        min_stock: min_stock
+        min_quantity: min_stock
       });
 
       toast.success("Seuil mis à jour");
@@ -246,16 +246,18 @@ export default function ProductsPage() {
                   <Badge variant="outline" className="bg-background">{group.products.length} produits</Badge>
                 </div>
                 <div className="flex items-center gap-4 sm:gap-8">
-                  <div className="flex items-center gap-2 bg-background/80 px-2 py-1 rounded-md border border-border shadow-sm" onClick={(e) => e.stopPropagation()}>
-                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Min :</Label>
-                    <Input
-                      type="number"
-                      className="h-6 w-12 text-center text-xs bg-transparent border-none focus-visible:ring-0 p-0 font-bold"
-                      defaultValue={group.threshold}
-                      onBlur={(e) => handleUpdateThreshold(subCatId, e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && (handleUpdateThreshold(subCatId, e.target.value), e.target.blur())}
-                    />
-                  </div>
+                  {subCatId !== 'no-sub' && (
+                    <div className="flex items-center gap-2 bg-background/80 px-2 py-1 rounded-md border border-border shadow-sm" onClick={(e) => e.stopPropagation()}>
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground">Min :</Label>
+                      <Input
+                        type="number"
+                        className="h-6 w-12 text-center text-xs bg-transparent border-none focus-visible:ring-0 p-0 font-bold"
+                        defaultValue={group.threshold}
+                        onBlur={(e) => handleUpdateThreshold(subCatId, e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (handleUpdateThreshold(subCatId, e.target.value), e.target.blur())}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <span className="hidden sm:inline text-[10px] text-muted-foreground uppercase font-bold">Total :</span>
                     <Badge className={`h-7 px-3 flex items-center font-bold ${isGroupLowStock ? "bg-destructive" : "bg-emerald-500"}`}>
@@ -339,7 +341,7 @@ export default function ProductsPage() {
       await api.delete(`/products/${encodedId}`);
       toast.success('Produit supprimé');
       setDeleteDialogOpen(false);
-      fetchProducts();
+      fetchData();
     } catch (e) {
       toast.error("Erreur lors de la suppression");
     }
