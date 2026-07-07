@@ -19,7 +19,7 @@ jobs:
         if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
     - name: Analysing the code with pylint
       run: |
-        pylint --fail-under=9.0 --rcfile=backend/.pylintrc $(git ls-files '*.py')
+        pylint --fail-under=9.0 --rcfile=.pylintrc $(git ls-files '*.py')
 
   #deploy:
   #  name: Execute remote deploy script via SSH
