@@ -1,3 +1,5 @@
+"""FastAPI application setup for the StockHome backend."""
+
 import os
 from contextlib import asynccontextmanager
 
@@ -13,7 +15,7 @@ from database import Base, engine
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     # Crée les tables si elles n'existent pas encore (pratique en dev ;
     # en prod, utilisez plutôt Alembic pour les migrations de schéma).
     Base.metadata.create_all(bind=engine)
@@ -40,4 +42,5 @@ app.include_router(dashboard_service.router)
 
 @app.get("/api")
 def root():
+    """Return a small API metadata payload."""
     return {"message": "StockHome API v2.0.0 - PostgreSQL (psycopg2)"}

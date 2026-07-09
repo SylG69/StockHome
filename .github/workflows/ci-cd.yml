@@ -1,0 +1,41 @@
+name: CI/CD Pipeline
+
+on: [push] # Se lance à chaque push, sur n'importe quelle branche
+
+jobs:
+  verification:
+    name: Run Pylint Code Quality
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pylint
+        if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+    - name: Analysing the code with pylint
+      run: |
+        pylint --fail-under=9.0 --rcfile=.pylintrc $(git ls-files '*.py')
+
+  #deploy:
+  #  name: Execute remote deploy script via SSH
+  #  needs: verification # S'assure que le job 'verification' a réussi
+  #  runs-on: ubuntu-latest
+  #  # Optionnel : décommente la ligne ci-dessous si tu veux que le déploiement
+  #  # ne se fasse QUE sur la branche main (pour éviter de déployer tes branches de test)
+  #  # if: github.ref == 'refs/heads/main'
+  #  steps:
+  #  - name: Connect and deploy
+  #    uses: appleboy/ssh-action@v1.0.3
+  #    with:
+  #      host: ${{ secrets.SSH_HOST }}
+  #      username: ${{ secrets.SSH_USER }}
+  #      key: ${{ secrets.SSH_KEY }}
+  #      port: 22
+  #      script: |
+  #        echo "Connexion SSH réussie. Déclenchement du script de déploiement..."
+  #        sudo /appli/stockhome/deploy.sh

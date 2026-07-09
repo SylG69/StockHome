@@ -1,3 +1,5 @@
+"""Database setup and session helpers for StockHome."""
+
 import os
 
 from dotenv import load_dotenv
@@ -14,15 +16,16 @@ if not DATABASE_URL:
 
 engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+session_local = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 class Base(DeclarativeBase):
-    pass
+    """Base class for SQLAlchemy models."""
 
 
 def get_db():
-    db: Session = SessionLocal()
+    """Yield a database session and close it after use."""
+    db: Session = session_local()
     try:
         yield db
     finally:

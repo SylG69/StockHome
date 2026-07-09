@@ -1,3 +1,5 @@
+"""Shopping list endpoints for StockHome."""
+
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -12,6 +14,7 @@ router = APIRouter(prefix="/api/shopping-list", tags=["shopping-list"])
 
 @router.get("", response_model=list[schemas.ShoppingListItemResponse])
 def get_shopping_list(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Return the current user's shopping list items."""
     result = db.execute(select(models.ShoppingListItem).where(models.ShoppingListItem.user_id == current_user.id))
     return result.scalars().all()
 
@@ -61,6 +64,7 @@ def add_shopping_list_item(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Add a single item to the user's shopping list."""
     item = models.ShoppingListItem(**data.model_dump(), user_id=current_user.id)
     db.add(item)
     db.commit()
@@ -74,6 +78,7 @@ def add_shopping_list_items_bulk(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Add multiple items to the user's shopping list in a single request."""
     if not items_data:
         return []
     items = [models.ShoppingListItem(**data.model_dump(), user_id=current_user.id) for data in items_data]
@@ -88,6 +93,7 @@ def add_shopping_list_items_bulk(
 def toggle_shopping_list_item(
     item_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    """Toggle the checked state of a shopping list item."""
     item = db.execute(
         select(models.ShoppingListItem).where(
             models.ShoppingListItem.id == item_id, models.ShoppingListItem.user_id == current_user.id
@@ -104,6 +110,7 @@ def toggle_shopping_list_item(
 def delete_shopping_list_item(
     item_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    """Delete a shopping list item."""
     item = db.execute(
         select(models.ShoppingListItem).where(
             models.ShoppingListItem.id == item_id, models.ShoppingListItem.user_id == current_user.id
