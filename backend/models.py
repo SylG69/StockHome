@@ -1,4 +1,4 @@
-"""SQLAlchemy model definitions for StockHome."""
+"""Définitions des modèles SQLAlchemy pour StockHome."""
 
 # pylint: disable=too-few-public-methods, missing-class-docstring
 

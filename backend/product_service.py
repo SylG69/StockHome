@@ -33,7 +33,7 @@ def get_products(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return a filtered list of products for the authenticated user."""
+    """Renvoie une liste filtrée de produits pour l'utilisateur authentifié."""
     query = select(models.Product).where(models.Product.user_id == current_user.id).options(
         selectinload(models.Product.category),
         selectinload(models.Product.location),
@@ -59,7 +59,7 @@ def get_products(
 def get_product_by_barcode(
     barcode: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Return a product by barcode for the authenticated user."""
+    """Renvoie un produit par code-barres pour l'utilisateur authentifié."""
     product = db.execute(
         select(models.Product)
         .where(models.Product.barcode == barcode, models.Product.user_id == current_user.id)
@@ -78,7 +78,7 @@ def get_product_by_barcode(
 def get_product(
     product_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Return a product by ID for the authenticated user."""
+    """Renvoie un produit par identifiant pour l'utilisateur authentifié."""
     product = db.execute(
         select(models.Product)
         .where(models.Product.id == product_id, models.Product.user_id == current_user.id)
@@ -163,7 +163,7 @@ def create_product(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new product for the authenticated user."""
+    """Crée un nouveau produit pour l'utilisateur authentifié."""
     payload = data.model_dump()
     sub_category_name = payload.pop("sub_category_name", None)
 
@@ -201,7 +201,7 @@ def update_product(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update an existing product for the authenticated user."""
+    """Met à jour un produit existant pour l'utilisateur authentifié."""
     product = db.execute(
         select(models.Product)
         .where(models.Product.id == product_id, models.Product.user_id == current_user.id)

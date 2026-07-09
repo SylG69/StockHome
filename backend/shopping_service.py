@@ -1,4 +1,4 @@
-"""Shopping list endpoints for StockHome."""
+"""Points de terminaison de la liste de courses pour StockHome."""
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import delete, select
@@ -14,17 +14,15 @@ router = APIRouter(prefix="/api/shopping-list", tags=["shopping-list"])
 
 @router.get("", response_model=list[schemas.ShoppingListItemResponse])
 def get_shopping_list(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Return the current user's shopping list items."""
+    """Renvoie les articles de la liste de courses de l'utilisateur courant."""
     result = db.execute(select(models.ShoppingListItem).where(models.ShoppingListItem.user_id == current_user.id))
     return result.scalars().all()
 
 
 @router.get("/generate", response_model=list[schemas.ShoppingListItemResponse])
 def generate_shopping_list(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """
-    Recalcule la liste de courses à partir des produits en stock bas
-    (quantity < min_quantity), calculé à la volée à chaque appel.
-    """
+    """Recalcule la liste de courses à partir des produits en stock bas
+    (quantity < min_quantity), calculée à la volée à chaque appel."""
     low_stock_products = db.execute(
         select(models.Product).where(
             models.Product.user_id == current_user.id,
@@ -64,7 +62,7 @@ def add_shopping_list_item(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Add a single item to the user's shopping list."""
+    """Ajoute un article unique à la liste de courses de l'utilisateur."""
     item = models.ShoppingListItem(**data.model_dump(), user_id=current_user.id)
     db.add(item)
     db.commit()
@@ -78,7 +76,7 @@ def add_shopping_list_items_bulk(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Add multiple items to the user's shopping list in a single request."""
+    """Ajoute plusieurs articles à la liste de courses de l'utilisateur en une seule requête."""
     if not items_data:
         return []
     items = [models.ShoppingListItem(**data.model_dump(), user_id=current_user.id) for data in items_data]
@@ -93,7 +91,7 @@ def add_shopping_list_items_bulk(
 def toggle_shopping_list_item(
     item_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Toggle the checked state of a shopping list item."""
+    """Bascule l'état coché d'un article de la liste de courses."""
     item = db.execute(
         select(models.ShoppingListItem).where(
             models.ShoppingListItem.id == item_id, models.ShoppingListItem.user_id == current_user.id
@@ -110,7 +108,7 @@ def toggle_shopping_list_item(
 def delete_shopping_list_item(
     item_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Delete a shopping list item."""
+    """Supprime un article de la liste de courses."""
     item = db.execute(
         select(models.ShoppingListItem).where(
             models.ShoppingListItem.id == item_id, models.ShoppingListItem.user_id == current_user.id
@@ -129,6 +127,7 @@ def clear_shopping_list(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Supprime tous les articles de la liste de courses de l'utilisateur."""
     query = delete(models.ShoppingListItem).where(models.ShoppingListItem.user_id == current_user.id)
     if checked_only:
         query = query.where(models.ShoppingListItem.is_checked.is_(True))
