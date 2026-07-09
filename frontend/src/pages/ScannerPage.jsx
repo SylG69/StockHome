@@ -186,20 +186,33 @@ export default function ScannerPage() {
         // On récupère les suggestions envoyées par le backend
         const offSuggestions = offRes.data.sub_categories_suggestions || [];
         setSuggestions(offSuggestions);
-        // On cherche si un nom de suggestion correspond à une de nos sous-catégories
+        // On cherche si un nom de suggestion correspond à une de nos sous-catégories.
+        // Le premier élément de la liste est le plus spécifique en pratique
+        // (ex: "Beurres de cacahuètes" avant "Beurres de fruits à coques"),
+        // donc on essaie dans cet ordre, du plus précis au plus général.
         let matchedSubCategoryId = null;
-        if (offSuggestions.length > 0) {
-          // "subcategories" doit être votre état contenant la liste des sous-cats chargées depuis l'API
-          for (let i = offSuggestions.length - 1; i >= 0; i--) {
-            const found = subcategories.find(s =>
-              s.name.toLowerCase() === offSuggestions[i].toLowerCase()
-            );
-            if (found) {
-              matchedSubCategoryId = found.id;
-              break;
-            }
+        for (const suggestion of offSuggestions) {
+          const found = subcategories.find(s =>
+            s.name.toLowerCase() === suggestion.toLowerCase()
+          );
+          if (found) {
+            matchedSubCategoryId = found.id;
+            break;
           }
         }
+
+        // Présélection de la catégorie à partir de la base qui a répondu
+        // (Alimentaire / Hygiène / Animaux), si elle existe chez l'utilisateur.
+        const matchedCategory = offRes.data.suggested_category
+          ? categories.find(c => c.name.toLowerCase() === offRes.data.suggested_category.toLowerCase())
+          : null;
+
+        // Présélection de l'emplacement "Réfrigérateur" si le produit semble
+        // devoir être conservé au frais (heuristique côté backend) et qu'un
+        // tel emplacement existe chez l'utilisateur.
+        const fridgeLocation = offRes.data.needs_refrigeration
+          ? locations.find(l => /r[ée]frig[ée]rateur|frigo/i.test(l.name))
+          : null;
 
         setFormData({
           name: offRes.data.name || '',
@@ -208,22 +221,38 @@ export default function ScannerPage() {
           quantity: 1,
           min_quantity: 1,
           unit: 'unité',
-          category_id: offRes.data.categories || '',
-          location_id: '',
+          category_id: matchedCategory ? matchedCategory.id : null,
+          location_id: fridgeLocation ? fridgeLocation.id : null,
           image_url: offRes.data.image_url || '',
-          // On peut pré-remplir avec la suggestion la plus précise par défaut
           sub_category_id: matchedSubCategoryId,
-          sub_category_name: offSuggestions.length > 0 ? offSuggestions[offSuggestions.length - 1] : '',
+          sub_category_name: offSuggestions.length > 0 ? offSuggestions[0] : '',
           description: offRes.data.categories || '',
         });
       } catch (error) {
-        logger.error('Open Food Facts error:', error);
+        const isNotFound = error.response?.status === 404;
+        if (isNotFound) {
+          // Cas normal : le produit n'est simplement pas référencé sur les
+          // bases partenaires. Le dialogue affichera "Produit non trouvé..."
+          // (openFoodFactsData reste null) — pas besoin de toast alarmant.
+          logger.info(`Code-barres ${barcode} non trouvé sur les bases partenaires`);
+        } else {
+          // Vraie erreur (réseau, timeout, 5xx) : on informe l'utilisateur
+          // que la recherche a échoué, distinctement du cas "non trouvé".
+          logger.error('Erreur de connexion aux bases partenaires:', error);
+          toast.error("Impossible de contacter les bases de données produits, réessayez plus tard.");
+        }
         setFormData({
-          ...formData,
-          barcode: barcode,
           name: '',
           brand: '',
+          barcode: barcode,
+          quantity: 1,
+          min_quantity: 1,
+          unit: 'unité',
+          category_id: null,
+          location_id: null,
           image_url: '',
+          sub_category_id: null,
+          sub_category_name: '',
           description: '',
         });
       }
@@ -333,11 +362,24 @@ export default function ScannerPage() {
 
   // Et la fonction de sauvegarde associée :
   const handleSaveNewProduct = async () => {
+    const missing = [];
+    if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) {
+      missing.push('Quantité');
+    }
+    if (!formData.category_id) {
+      missing.push('Catégorie');
+    }
+    if (!formData.location_id || formData.location_id === 'none') {
+      missing.push('Emplacement');
+    }
+    if (missing.length > 0) {
+      toast.error(`Champs obligatoires manquants : ${missing.join(', ')}`);
+      return;
+    }
+
     setSaving(true);
     try {
       const dataToSend = { ...formData };
-      if (dataToSend.location_id === "none") delete dataToSend.location_id;
-
       await api.post('/products', dataToSend);
       toast.success("Produit ajouté au stock");
       setResultDialogOpen(false);
@@ -372,19 +414,18 @@ export default function ScannerPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="scanner-container bg-black rounded-lg overflow-hidden mb-4">
-              {cameraActive ? (
-                <div className="relative">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-64 object-cover"
-                  />
-                  <div className="scanner-overlay" />
-                </div>
-              ) : (
+            <div className="scanner-container bg-black rounded-lg overflow-hidden mb-4 relative">
+              <div className={cameraActive ? 'relative' : 'hidden'}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-64 object-cover"
+                />
+                <div className="scanner-overlay" />
+              </div>
+              {!cameraActive && (
                 <div className="w-full h-64 flex flex-col items-center justify-center bg-secondary/20">
                   {cameraError ? (
                     <>
@@ -657,7 +698,7 @@ export default function ScannerPage() {
                 />
               </div>
               <div>
-                <Label>Quantité</Label>
+                <Label>Quantité *</Label>
                 <Input
                   type="number"
                   min="0"
@@ -670,19 +711,7 @@ export default function ScannerPage() {
                 />
               </div>
               <div>
-                <Label>Quantité min.</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={formData.min_quantity}
-                  onChange={(e) =>
-                    setFormData({ ...formData, min_quantity: parseInt(e.target.value) || 0 })
-                  }
-                  className="bg-input border-border"
-                />
-              </div>
-              <div>
-                <Label>Catégorie</Label>
+                <Label>Catégorie *</Label>
                 <Select
                   value={formData.category_id}
                   onValueChange={(value) => setFormData({ ...formData, category_id: value })}
@@ -771,7 +800,7 @@ export default function ScannerPage() {
                 </p>
               </div>
               <div>
-                <Label>Emplacement</Label>
+                <Label>Emplacement *</Label>
                 <Select
                   value={formData.location_id}
                   onValueChange={(value) => setFormData({ ...formData, location_id: value })}

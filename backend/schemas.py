@@ -109,6 +109,7 @@ class ProductUpdate(BaseModel):
     unit: Optional[str] = None
     category_id: Optional[str] = None
     sub_category_id: Optional[str] = None
+    sub_category_name: Optional[str] = None  # création à la volée d'une sous-catégorie
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
@@ -152,3 +153,8 @@ class OpenFoodFactsProduct(BaseModel):
     sub_categories_suggestions: List[str] = []
     quantity_info: Optional[str] = None
     source: Optional[str] = None
+    # Présélections déduites côté serveur, à partir de la base qui a répondu
+    # et des tags de catégorie. Purement indicatif : l'utilisateur reste
+    # libre de tout changer dans le formulaire.
+    suggested_category: Optional[str] = None  # ex: "Alimentaire", "Hygiène", "Animaux"
+    needs_refrigeration: bool = False

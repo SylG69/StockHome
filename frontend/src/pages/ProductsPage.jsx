@@ -39,6 +39,8 @@ import {
   ScanLine,
   Loader2,
   Settings2,
+  Check,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { Switch } from "@/components/ui/switch";
 import {
@@ -47,6 +49,16 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "../components/ui/accordion";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export default function ProductsPage() {
   const { api } = useAuth();
@@ -71,11 +83,12 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [subCategoryComboOpen, setSubCategoryComboOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
     name: '', description: '', barcode: '', quantity: 0, min_quantity: 1,
-    unit: 'unité', category_id: '', sub_category_id: '', location_id: '',
+    unit: 'unité', category_id: '', sub_category_id: '', sub_category_name: '', location_id: '',
     image_url: '', brand: '',
   });
 
@@ -110,7 +123,7 @@ export default function ProductsPage() {
       // On appelle l'API pour mettre à jour le seuil de la sous-catégorie
       const encodedId = encodeURIComponent(subId);
       await api.patch(`/subcategories/${encodedId}/threshold`, {
-        min_stock: min_stock
+        min_quantity: min_stock
       });
 
       toast.success("Seuil mis à jour");
@@ -233,16 +246,18 @@ export default function ProductsPage() {
                   <Badge variant="outline" className="bg-background">{group.products.length} produits</Badge>
                 </div>
                 <div className="flex items-center gap-4 sm:gap-8">
-                  <div className="flex items-center gap-2 bg-background/80 px-2 py-1 rounded-md border border-border shadow-sm" onClick={(e) => e.stopPropagation()}>
-                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Min :</Label>
-                    <Input
-                      type="number"
-                      className="h-6 w-12 text-center text-xs bg-transparent border-none focus-visible:ring-0 p-0 font-bold"
-                      defaultValue={group.threshold}
-                      onBlur={(e) => handleUpdateThreshold(subCatId, e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && (handleUpdateThreshold(subCatId, e.target.value), e.target.blur())}
-                    />
-                  </div>
+                  {subCatId !== 'no-sub' && (
+                    <div className="flex items-center gap-2 bg-background/80 px-2 py-1 rounded-md border border-border shadow-sm" onClick={(e) => e.stopPropagation()}>
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground">Min :</Label>
+                      <Input
+                        type="number"
+                        className="h-6 w-12 text-center text-xs bg-transparent border-none focus-visible:ring-0 p-0 font-bold"
+                        defaultValue={group.threshold}
+                        onBlur={(e) => handleUpdateThreshold(subCatId, e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (handleUpdateThreshold(subCatId, e.target.value), e.target.blur())}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <span className="hidden sm:inline text-[10px] text-muted-foreground uppercase font-bold">Total :</span>
                     <Badge className={`h-7 px-3 flex items-center font-bold ${isGroupLowStock ? "bg-destructive" : "bg-emerald-500"}`}>
@@ -275,10 +290,20 @@ export default function ProductsPage() {
   const handleOpenDialog = (product = null) => {
     if (product) {
       setEditingProduct(product);
-      setFormData({ ...product, description: product.description || '', barcode: product.barcode || '', brand: product.brand || '' });
+      setFormData({
+        ...product,
+        description: product.description || '',
+        barcode: product.barcode || '',
+        brand: product.brand || '',
+        sub_category_name: product.sub_category_name || '',
+      });
     } else {
       setEditingProduct(null);
-      setFormData({ name: '', description: '', barcode: '', quantity: 0, min_quantity: 1, unit: 'unité', category_id: '', sub_category_id: '', location_id: '', image_url: '', brand: '' });
+      setFormData({
+        name: '', description: '', barcode: '', quantity: 0, min_quantity: 1,
+        unit: 'unité', category_id: '', sub_category_id: '', sub_category_name: '', location_id: '',
+        image_url: '', brand: '',
+      });
     }
     setDialogOpen(true);
   };
@@ -316,7 +341,7 @@ export default function ProductsPage() {
       await api.delete(`/products/${encodedId}`);
       toast.success('Produit supprimé');
       setDeleteDialogOpen(false);
-      fetchProducts();
+      fetchData();
     } catch (e) {
       toast.error("Erreur lors de la suppression");
     }
@@ -386,29 +411,135 @@ export default function ProductsPage() {
 
       {/* Dialog Add/Edit */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader><DialogTitle>{editingProduct ? 'Modifier' : 'Ajouter'}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div className="col-span-2"><Label>Nom *</Label><Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Label>Nom *</Label>
+              <Input
+                value={formData.name}
+                onChange={e => setFormData({...formData, name: e.target.value})}
+                className="bg-input border-border"
+              />
+            </div>
+
+            <div className="col-span-2">
+              <Label>Marque</Label>
+              <Input
+                value={formData.brand}
+                onChange={e => setFormData({...formData, brand: e.target.value})}
+                className="bg-input border-border"
+              />
+            </div>
+
             <div>
               <Label>Quantité</Label>
               <Input
                 type="number"
-                step="1"
+                min="0"
                 value={formData.quantity}
                 onChange={e => setFormData({
                   ...formData,
                   quantity: parseInt(e.target.value, 10) || 0
                 })}
+                className="bg-input border-border"
               />
             </div>
-            <div><Label>Sous-catégorie</Label>
-              <Select value={formData.sub_category_id || "none"} onValueChange={v => setFormData({...formData, sub_category_id: v === "none" ? null : v})}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="none">Aucune</SelectItem>{subCategories.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+
+            <div>
+              <Label>Catégorie</Label>
+              <Select
+                value={formData.category_id || "none"}
+                onValueChange={v => setFormData({...formData, category_id: v === "none" ? null : v})}
+              >
+                <SelectTrigger className="bg-input border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucune</SelectItem>
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
-            {/* Autres champs simplifiés ici... */}
+
+            <div>
+              <Label>Sous-catégorie</Label>
+              <Popover open={subCategoryComboOpen} onOpenChange={setSubCategoryComboOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    role="combobox"
+                    aria-expanded={subCategoryComboOpen}
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
+                  >
+                    {formData.sub_category_name || "Chercher ou choisir..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                  <Command>
+                    <CommandInput
+                      placeholder="Rechercher une sous-catégorie..."
+                      onValueChange={(searchTerm) => {
+                        const formattedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
+                        setFormData({ ...formData, sub_category_name: formattedTerm, sub_category_id: null });
+                      }}
+                    />
+                    <CommandList>
+                      <CommandEmpty className="p-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start text-primary"
+                          onClick={() => setSubCategoryComboOpen(false)}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Créer "{formData.sub_category_name}"
+                        </Button>
+                      </CommandEmpty>
+                      <CommandGroup title="Suggestions">
+                        {subCategories.map((sub) => (
+                          <CommandItem
+                            key={sub.id}
+                            value={sub.name}
+                            onSelect={() => {
+                              setFormData({
+                                ...formData,
+                                sub_category_id: sub.id,
+                                sub_category_name: sub.name,
+                              });
+                              setSubCategoryComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.sub_category_id === sub.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {sub.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Tapez pour chercher/créer ou choisissez une suggestion.
+              </p>
+            </div>
+
+            <div>
+              <Label>Emplacement</Label>
+              <Select
+                value={formData.location_id || "none"}
+                onValueChange={v => setFormData({...formData, location_id: v === "none" ? null : v})}
+              >
+                <SelectTrigger className="bg-input border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun</SelectItem>
+                  {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
