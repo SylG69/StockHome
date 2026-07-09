@@ -80,7 +80,6 @@ jobs:
   ci-testing:
     name: Integration & Tests
     runs-on: ubuntu-latest
-    # CRUCIAL : Ce job attend que les deux linters soient au vert
     needs: [pylint, eslint]
     steps:
       - name: Checkout code
@@ -91,9 +90,9 @@ jobs:
           echo "Exécution des tests unitaires et d'intégration..."
           # Mets tes commandes ici (ex: pytest, npm test, docker build...)
 
-# ----------------------------------------------------
-# STAGE 3 : BUILD & PUSH DOCKER IMAGE
-# ----------------------------------------------------
+  # ----------------------------------------------------
+  # STAGE 3 : BUILD & PUSH DOCKER IMAGE
+  # ----------------------------------------------------
   build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
@@ -127,7 +126,7 @@ jobs:
 
       # Build et Push automatique
       - name: Build and push Docker image
-        uses: docker/build-and-push-action@v5
+        uses: docker/build-and-push-action@v6
         with:
           context: .
           file: ./dockerfile
@@ -137,6 +136,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # ----------------------------------------------------
+  # STAGE 4 : DEPLOY
+  # ----------------------------------------------------
   ## --- STAGE : DEPLOY (Exemple Koyeb ou Render) ---
   #deploy:
   #  name: Deploy to Hosting
