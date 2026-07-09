@@ -76,6 +76,7 @@
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@eslint/js": "9.23.0",
+    "@microsoft/eslint-formatter-sarif": "^4.0.0",
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.20",
     "eslint": "9.23.0",
