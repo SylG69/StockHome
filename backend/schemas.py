@@ -1,4 +1,4 @@
-"""Pydantic schema definitions for StockHome API requests and responses."""
+"""Définitions des schémas Pydantic pour les requêtes et réponses de l'API StockHome."""
 
 from datetime import datetime
 from typing import List, Optional

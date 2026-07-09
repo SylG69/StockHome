@@ -1,4 +1,4 @@
-"""Configuration endpoints for StockHome."""
+"""Points de terminaison de configuration pour StockHome."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api", tags=["config"])
 
 @router.get("/categories", response_model=list[schemas.CategoryResponse])
 def get_categories(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Return all categories owned by the authenticated user."""
+    """Renvoie toutes les catégories appartenant à l'utilisateur authentifié."""
     result = db.execute(select(models.Category).where(models.Category.user_id == current_user.id))
     return result.scalars().all()
 
@@ -27,7 +27,7 @@ def create_category(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new category for the authenticated user."""
+    """Crée une nouvelle catégorie pour l'utilisateur authentifié."""
     category = models.Category(**data.model_dump(), user_id=current_user.id)
     db.add(category)
     db.commit()
@@ -42,7 +42,7 @@ def update_category(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update an existing category owned by the authenticated user."""
+    """Met à jour une catégorie existante appartenant à l'utilisateur authentifié."""
     category = db.execute(
         select(models.Category).where(models.Category.id == category_id, models.Category.user_id == current_user.id)
     ).scalar_one_or_none()
@@ -59,7 +59,7 @@ def update_category(
 def delete_category(
     category_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Delete a category belonging to the authenticated user."""
+    """Supprime une catégorie appartenant à l'utilisateur authentifié."""
     category = db.execute(
         select(models.Category).where(models.Category.id == category_id, models.Category.user_id == current_user.id)
     ).scalar_one_or_none()
@@ -74,7 +74,7 @@ def delete_category(
 
 @router.get("/subcategories", response_model=list[schemas.SubCategoryResponse])
 def get_subcategories(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Return all subcategories for the authenticated user."""
+    """Renvoie toutes les sous-catégories pour l'utilisateur authentifié."""
     result = db.execute(select(models.SubCategory).where(models.SubCategory.user_id == current_user.id))
     return result.scalars().all()
 
@@ -85,7 +85,7 @@ def create_subcategory(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new subcategory for the authenticated user."""
+    """Crée une nouvelle sous-catégorie pour l'utilisateur authentifié."""
     sub_category = models.SubCategory(**data.model_dump(), user_id=current_user.id)
     db.add(sub_category)
     db.commit()
@@ -100,7 +100,7 @@ def update_subcategory(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update an existing subcategory for the authenticated user."""
+    """Met à jour une sous-catégorie existante pour l'utilisateur authentifié."""
     sub_category = db.execute(
         select(models.SubCategory).where(
             models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
@@ -122,7 +122,7 @@ def update_subcategory_threshold(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update only the threshold of a subcategory for the authenticated user."""
+    """Met à jour uniquement le seuil d'une sous-catégorie pour l'utilisateur authentifié."""
     sub_category = db.execute(
         select(models.SubCategory).where(
             models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
@@ -141,7 +141,7 @@ def update_subcategory_threshold(
 def delete_subcategory(
     sub_category_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Delete a subcategory belonging to the authenticated user."""
+    """Supprime une sous-catégorie appartenant à l'utilisateur authentifié."""
     sub_category = db.execute(
         select(models.SubCategory).where(
             models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
@@ -158,7 +158,7 @@ def delete_subcategory(
 
 @router.get("/locations", response_model=list[schemas.StorageLocationResponse])
 def get_locations(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Return all storage locations for the authenticated user."""
+    """Renvoie tous les emplacements de stockage pour l'utilisateur authentifié."""
     result = db.execute(select(models.StorageLocation).where(models.StorageLocation.user_id == current_user.id))
     return result.scalars().all()
 
@@ -169,7 +169,7 @@ def create_location(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new storage location for the authenticated user."""
+    """Crée un nouvel emplacement de stockage pour l'utilisateur authentifié."""
     location = models.StorageLocation(**data.model_dump(), user_id=current_user.id)
     db.add(location)
     db.commit()
@@ -184,7 +184,7 @@ def update_location(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update an existing storage location for the authenticated user."""
+    """Met à jour un emplacement de stockage existant pour l'utilisateur authentifié."""
     location = db.execute(
         select(models.StorageLocation).where(
             models.StorageLocation.id == location_id, models.StorageLocation.user_id == current_user.id
@@ -203,7 +203,7 @@ def update_location(
 def delete_location(
     location_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Delete a storage location belonging to the authenticated user."""
+    """Supprime un emplacement de stockage appartenant à l'utilisateur authentifié."""
     location = db.execute(
         select(models.StorageLocation).where(
             models.StorageLocation.id == location_id, models.StorageLocation.user_id == current_user.id

@@ -1,4 +1,4 @@
-"""FastAPI application setup for the StockHome backend."""
+"""Configuration de l'application FastAPI pour le backend StockHome."""
 
 import os
 from contextlib import asynccontextmanager
@@ -42,5 +42,5 @@ app.include_router(dashboard_service.router)
 
 @app.get("/api")
 def root():
-    """Return a small API metadata payload."""
+    """Retourne un petit payload de métadonnées de l'API."""
     return {"message": "StockHome API v2.0.0 - PostgreSQL (psycopg2)"}

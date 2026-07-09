@@ -1,4 +1,4 @@
-"""Authentication utilities for the StockHome backend."""
+"""Fonctions utilitaires d'authentification pour le backend StockHome."""
 
 import os
 from datetime import datetime, timedelta, timezone
@@ -22,19 +22,19 @@ security = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
-    """Hash a plaintext password using bcrypt."""
+    """Hache un mot de passe en clair avec bcrypt."""
     pwd_bytes = password.encode("utf-8")
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(pwd_bytes, salt).decode("utf-8")
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
-    """Validate a plaintext password against an encoded bcrypt hash."""
+    """Vérifie un mot de passe en clair contre un hash bcrypt."""
     return bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8"))
 
 
 def create_token(user_id: str) -> str:
-    """Create a JWT access token for the given user ID."""
+    """Crée un jeton JWT pour l'utilisateur donné."""
     expire = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
     to_encode = {"sub": str(user_id), "exp": expire}
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -44,7 +44,7 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
-    """Decode the bearer token and return the authenticated user."""
+    """Décode le token Bearer et renvoie l'utilisateur authentifié."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

@@ -13,6 +13,7 @@ import {
   ScanLine,
   ArrowRight,
   TrendingDown,
+  Tag,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -42,6 +43,12 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  // Sous-catégories en stock bas (mêmes IDs que la carte "Sous-catégories en
+  // Stock Bas"), utilisé ci-dessous pour colorer les produits de la section
+  // "Produits Récents" de façon cohérente -- un produit isolé n'a plus de
+  // seuil qui lui est propre, seul le seuil de sa sous-catégorie compte.
+  const lowStockSubCategoryIds = new Set((stats?.low_stock_subcategories || []).map(s => s.id));
 
   const statCards = [
     {
@@ -169,55 +176,38 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Low Stock Products */}
+        {/* Low Stock Sub-categories */}
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <TrendingDown className="w-5 h-5 text-destructive" />
-              Produits en Stock Bas
+              Sous-catégories en Stock Bas
             </CardTitle>
             {stats?.low_stock_count > 0 && (
               <Badge variant="destructive">{stats.low_stock_count}</Badge>
             )}
           </CardHeader>
           <CardContent>
-            {stats?.recent_products?.filter(p => p.quantity < p.min_quantity).length > 0 ? (
+            {stats?.low_stock_subcategories?.length > 0 ? (
               <div className="space-y-3">
-                {stats.recent_products
-                  .filter(p => p.quantity < p.min_quantity)
-                  .slice(0, 5)
-                  .map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/20"
-                    >
-                      <div className="flex items-center gap-3">
-                        {product.image_url ? (
-                          <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="w-10 h-10 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
-                            <Package className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-medium text-sm">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {product.brand || 'Sans marque'}
-                          </p>
-                        </div>
+                {stats.low_stock_subcategories.slice(0, 5).map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/20"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
+                        <Tag className="w-5 h-5 text-muted-foreground" />
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-destructive">
-                          {product.quantity} / {product.min_quantity}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{product.unit}</p>
-                      </div>
+                      <p className="font-medium text-sm">{sub.name}</p>
                     </div>
-                  ))}
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-destructive">
+                        {sub.total_stock} / {sub.threshold}
+                      </p>
+                    </div>
+                  </div>
+                ))}
                 <Link to="/products?low_stock=true">
                   <Button variant="outline" className="w-full mt-2" data-testid="view-all-low-stock">
                     Voir tous les produits en stock bas
@@ -273,7 +263,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between mt-2">
                     <span
                       className={`text-sm font-semibold ${
-                        product.quantity < product.min_quantity
+                        lowStockSubCategoryIds.has(product.sub_category_id)
                           ? 'text-destructive'
                           : 'text-emerald-500'
                       }`}

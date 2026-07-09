@@ -1,4 +1,4 @@
-"""Database setup and session helpers for StockHome."""
+"""Configuration de la base de données et utilitaires de session pour StockHome."""
 
 import os
 
@@ -20,11 +20,11 @@ session_local = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 class Base(DeclarativeBase):
-    """Base class for SQLAlchemy models."""
+    """Classe de base pour les modèles SQLAlchemy."""
 
 
 def get_db():
-    """Yield a database session and close it after use."""
+    """Fournit une session de base de données et la ferme après utilisation."""
     db: Session = session_local()
     try:
         yield db
