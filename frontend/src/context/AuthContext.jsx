@@ -6,7 +6,7 @@ const AuthContext = createContext(null);
 // URL de l'API injectée au build par Vite via VITE_API_URL (voir .env généré
 // par deploy_stockhome.sh). Fallback sur localhost:8000 pour le dev local
 // sans .env. On retire un éventuel slash final pour éviter les doubles //.
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
