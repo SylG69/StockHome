@@ -127,6 +127,7 @@ def clear_shopping_list(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Supprime tous les articles de la liste de courses de l'utilisateur."""
     query = delete(models.ShoppingListItem).where(models.ShoppingListItem.user_id == current_user.id)
     if checked_only:
         query = query.where(models.ShoppingListItem.is_checked.is_(True))

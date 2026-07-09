@@ -8,22 +8,26 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 # ==================== USERS ====================
 
 class UserRegister(BaseModel):
+    """Données pour l'inscription d'un utilisateur."""
     email: EmailStr
     username: str
     password: str
 
 class UserLogin(BaseModel):
+    """Données pour la connexion d'un utilisateur (email + mot de passe)."""
     email: EmailStr
     password: str
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+    """Représentation publique d'un utilisateur renvoyée par l'API."""
     id: str
     email: EmailStr
     username: str
     created_at: datetime
 
 class TokenResponse(BaseModel):
+    """Payload contenant le jeton d'accès et l'utilisateur associé."""
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
@@ -31,15 +35,18 @@ class TokenResponse(BaseModel):
 # ==================== CATEGORIES ====================
 
 class CategoryBase(BaseModel):
+    """Base décrivant une catégorie (nom, icône, couleur)."""
     name: str
     icon: Optional[str] = "Package"
     color: Optional[str] = "#3B82F6"
 
 class CategoryCreate(CategoryBase):
+    """Requête de création d'une catégorie."""
     pass
 
 class CategoryResponse(CategoryBase):
     model_config = ConfigDict(from_attributes=True)
+    """Réponse API pour une catégorie, inclut métadonnées et propriétaire."""
     id: str
     user_id: str
     created_at: datetime
@@ -47,20 +54,24 @@ class CategoryResponse(CategoryBase):
 # ==================== SUB-CATEGORIES ====================
 
 class SubCategoryBase(BaseModel):
+    """Base décrivant une sous-catégorie et son seuil minimal."""
     name: str
     category_id: Optional[str] = None
     min_quantity: int = 0
 
 class SubCategoryCreate(SubCategoryBase):
+    """Requête de création d'une sous-catégorie."""
     pass
 
 class SubCategoryUpdate(BaseModel):
+    """Modèle de mise à jour partielle d'une sous-catégorie."""
     name: Optional[str] = None
     category_id: Optional[str] = None
     min_quantity: Optional[int] = None
 
 class SubCategoryResponse(SubCategoryBase):
     model_config = ConfigDict(from_attributes=True)
+    """Réponse API pour une sous-catégorie, inclut métadonnées et propriétaire."""
     id: str
     user_id: str
     created_at: datetime
@@ -68,16 +79,19 @@ class SubCategoryResponse(SubCategoryBase):
 # ==================== STORAGE LOCATIONS ====================
 
 class StorageLocationBase(BaseModel):
+    """Base décrivant un emplacement de stockage (nom, description, icône)."""
     name: str
     description: Optional[str] = ""
     icon: Optional[str] = "Home"
     color: Optional[str] = "#3B82F6"
 
 class StorageLocationCreate(StorageLocationBase):
+    """Requête de création d'un emplacement de stockage."""
     pass
 
 class StorageLocationResponse(StorageLocationBase):
     model_config = ConfigDict(from_attributes=True)
+    """Réponse API pour un emplacement de stockage avec métadonnées."""
     id: str
     user_id: str
     created_at: datetime
@@ -85,6 +99,7 @@ class StorageLocationResponse(StorageLocationBase):
 # ==================== PRODUCTS ====================
 
 class ProductBase(BaseModel):
+    """Base décrivant les champs communs d'un produit."""
     name: str
     description: Optional[str] = ""
     barcode: Optional[str] = None
@@ -98,9 +113,11 @@ class ProductBase(BaseModel):
     brand: Optional[str] = None
 
 class ProductCreate(ProductBase):
+    """Requête de création d'un produit; peut contenir un nom de sous-catégorie."""
     sub_category_name: Optional[str] = None  # création à la volée d'une sous-catégorie
 
 class ProductUpdate(BaseModel):
+    """Modèle de mise à jour partielle d'un produit (champs optionnels)."""
     name: Optional[str] = None
     description: Optional[str] = None
     barcode: Optional[str] = None
@@ -115,6 +132,7 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     model_config = ConfigDict(from_attributes=True)
+    """Réponse API pour un produit, inclut métadonnées et noms résolus."""
     id: str
     user_id: str
     created_at: datetime
@@ -126,6 +144,7 @@ class ProductResponse(ProductBase):
 # ==================== SHOPPING LIST ====================
 
 class ShoppingListItemBase(BaseModel):
+    """Base décrivant un item de liste de courses."""
     product_id: Optional[str] = None
     name: str
     quantity: int = 1
@@ -133,10 +152,12 @@ class ShoppingListItemBase(BaseModel):
     is_checked: bool = False
 
 class ShoppingListItemCreate(ShoppingListItemBase):
+    """Requête pour ajouter un item à la liste de courses."""
     pass
 
 class ShoppingListItemResponse(ShoppingListItemBase):
     model_config = ConfigDict(from_attributes=True)
+    """Réponse API pour un item de liste de courses, avec métadonnées."""
     id: str
     user_id: str
     created_at: datetime
@@ -144,6 +165,7 @@ class ShoppingListItemResponse(ShoppingListItemBase):
 # ==================== OPEN FOOD FACTS ====================
 
 class OpenFoodFactsProduct(BaseModel):
+    """Modèle de suggestion produit basé sur les réponses Open*Facts."""
     barcode: str
     name: Optional[str] = None
     brand: Optional[str] = None
