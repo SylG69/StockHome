@@ -65,11 +65,9 @@ export default function ScannerPage() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [allSubCategories, setAllSubCategories] = useState([]);
 
   // Mode Retour de courses
-  const [shoppingMode, setShoppingMode] = useState(false);
-
-  // --- NOUVEL ÉTAT POUR LE MODE COURSE ---
   const [shoppingMode, setShoppingMode] = useState(false);
 
   // Scanned product state
@@ -77,10 +75,6 @@ export default function ScannerPage() {
   const [openFoodFactsData, setOpenFoodFactsData] = useState(null);
   const [existingProduct, setExistingProduct] = useState(null);
   const [open, setOpen] = useState(false);
-  const allPossibleSubCats = Array.from(new Set([
-    ...(Array.isArray(suggestions) ? suggestions : []),
-    ...(Array.isArray(subcategories) ? subcategories.map(s => s.name) : [])
-  ]));
 
   // Dialog states
   const [resultDialogOpen, setResultDialogOpen] = useState(false);
@@ -104,20 +98,8 @@ export default function ScannerPage() {
   });
 
   useEffect(() => {
-    // --- OPTIMISATION : RESTREINDRE LES FORMATS RECHERCHÉS ---
-    // Au lieu de tout chercher, on configure ZXing pour se focaliser UNIQUEMENT
-    // sur les formats de produits de grande consommation (EAN et UPC).
-    const hints = new Map();
-    const formats = [
-      BarcodeFormat.EAN_13,
-      BarcodeFormat.EAN_8,
-      BarcodeFormat.UPC_A,
-      BarcodeFormat.UPC_E,
-    ];
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
-
-    // On passe les configurations au lecteur au moment de son instanciation
-    codeReader.current = new BrowserMultiFormatReader(hints);
+    fetchData();
+    codeReader.current = new BrowserMultiFormatReader();
 
     return () => {
       stopCamera();
@@ -175,12 +157,9 @@ export default function ScannerPage() {
     setCameraActive(false);
   };
 
-  // --- BIP AMÉLIORÉ (DOUBLE BIP PLUS FORT POUR MOBILE) ---
   const playScanSound = () => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-      // Premier bip aigu
       const osc1 = audioCtx.createOscillator();
       const gain1 = audioCtx.createGain();
       osc1.type = 'sine';
@@ -191,7 +170,6 @@ export default function ScannerPage() {
       osc1.start();
       osc1.stop(audioCtx.currentTime + 0.08);
 
-      // Second bip un poil plus aigu (effet douchette de magasin)
       setTimeout(() => {
         const osc2 = audioCtx.createOscillator();
         const gain2 = audioCtx.createGain();
@@ -203,16 +181,14 @@ export default function ScannerPage() {
         osc2.start();
         osc2.stop(audioCtx.currentTime + 0.08);
       }, 70);
-
     } catch (e) {
-      console.error("Échec de lecture audio :", e);
+      console.error("Échec audio :", e);
     }
   };
 
   const handleBarcodeDetected = useCallback(async (barcode) => {
     if (searching) return;
 
-    // Sauvegarde de l'état de la caméra avant l'arrêt
     const wasCameraActive = cameraActive;
     stopCamera();
     setSearching(true);
@@ -283,7 +259,6 @@ export default function ScannerPage() {
         toast.error("Erreur lors de l'ajout automatique");
       } finally {
         setSearching(false);
-        // Rallume la caméra si elle était active
         if (wasCameraActive) {
           setTimeout(() => startCamera(), 300);
         }
@@ -364,7 +339,7 @@ export default function ScannerPage() {
     handleBarcodeDetected(manualBarcode.trim());
   };
 
-  // Lecteur de code-barres USB physique
+  // Lecteur physique USB
   useEffect(() => {
     let buffer = '';
     let timeout = null;
@@ -443,53 +418,33 @@ export default function ScannerPage() {
 
   return (
     <div className="space-y-6" data-testid="scanner-page">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
-          <p className="text-muted-foreground mt-1">
-            Scannez un code-barres pour ajouter ou mettre à jour un produit
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
+        <p className="text-muted-foreground mt-1">Scannez un code-barres pour ajouter ou mettre à jour un produit</p>
       </div>
 
       {/* Mode Retour de courses */}
-      <Card className={cn(
-        "bg-card border transition-all duration-300",
-        shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border"
-      )}>
+      <Card className={cn("bg-card border transition-all duration-300", shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border")}>
         <CardContent className="p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className={cn(
-              "p-2.5 rounded-lg transition-colors",
-              shoppingMode ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground"
-            )}>
+            <div className={cn("p-2.5 rounded-lg", shoppingMode ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground")}>
               <ShoppingCart className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-bold text-sm">Mode "Retour de courses"</h2>
-                {shoppingMode && <Badge className="text-[9px] h-4 uppercase tracking-widest bg-primary">Actif</Badge>}
+                {shoppingMode && <Badge className="text-[9px] h-4 uppercase bg-primary">Actif</Badge>}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Bip sonore, incrémentation automatique de +1 et enregistrement instantané en arrière-plan sans bloquer l'écran.
-              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Bip sonore, incrémentation automatique et enregistrement instantané en arrière-plan.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Label htmlFor="shopping-mode" className="text-xs font-black uppercase text-muted-foreground tracking-tighter">
-              {shoppingMode ? "Activé" : "Désactivé"}
-            </Label>
-            <Switch
-              id="shopping-mode"
-              checked={shoppingMode}
-              onCheckedChange={setShoppingMode}
-            />
+            <Label htmlFor="shopping-mode" className="text-xs font-black uppercase text-muted-foreground">{shoppingMode ? "Activé" : "Désactivé"}</Label>
+            <Switch id="shopping-mode" checked={shoppingMode} onCheckedChange={setShoppingMode} />
           </div>
         </CardContent>
       </Card>
 
-      {/* Scanner Options */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Caméra */}
         <Card className="bg-card border-border">
@@ -573,9 +528,7 @@ export default function ScannerPage() {
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">2</span></div>
               <div>
                 <p className="font-medium text-sm">Vérifiez ou stockez en chaîne</p>
-                <p className="text-xs text-muted-foreground">
-                  Le mode classique affiche la fiche, le mode course automatise l'action.
-                </p>
+                <p className="text-xs text-muted-foreground">Le mode classique affiche la fiche, le mode course automatise l'action.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -589,7 +542,7 @@ export default function ScannerPage() {
         </CardContent>
       </Card>
 
-      {/* Result Dialog - Existing Product */}
+      {/* Dialog Produit Existant */}
       <Dialog open={resultDialogOpen && existingProduct} onOpenChange={handleCloseDialog}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
@@ -620,17 +573,13 @@ export default function ScannerPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Fermer
-            </Button>
-            <Button onClick={() => navigate('/products')} data-testid="go-to-products-btn">
-              Voir les produits
-            </Button>
+            <Button variant="outline" onClick={handleCloseDialog}>Fermer</Button>
+            <Button onClick={() => navigate('/products')}>Voir les produits</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Result Dialog - New Product / Open Food Facts */}
+      {/* Dialog Nouveau Produit */}
       <Dialog open={resultDialogOpen && !existingProduct} onOpenChange={handleCloseDialog}>
         <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader>
@@ -680,50 +629,22 @@ export default function ScannerPage() {
                 <Label>Sous-catégorie</Label>
                 <Popover open={open} onOpenChange={setOpen}>
                   <PopoverTrigger asChild>
-                    <button
-                      role="combobox"
-                      aria-expanded={open}
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
-                    >
-                      {formData.sub_category_name || "Chercher ou choisir..."}
+                    <button role="combobox" aria-expanded={open} className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm">
+                      {formData.sub_category_name || "Chercher..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                     <Command>
-                      <CommandInput
-                        placeholder="Rechercher une sous-catégorie..."
-                        onValueChange={(searchTerm) => {
-                          const formattedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
-                          setFormData({ ...formData, sub_category_name: formattedTerm });
-                        }}
-                      />
+                      <CommandInput placeholder="Rechercher..." onValueChange={(t) => setFormData({ ...formData, sub_category_name: t.charAt(0).toUpperCase() + t.slice(1) })} />
                       <CommandList>
                         <CommandEmpty className="p-2">
                           <Button variant="ghost" size="sm" className="w-full justify-start text-primary" onClick={() => setOpen(false)}><Plus className="mr-2 h-4 w-4" />Créer "{formData.sub_category_name}"</Button>
                         </CommandEmpty>
-
-                        <CommandGroup title="Suggestions">
+                        <CommandGroup>
                           {subcategories.map((sub) => (
-                            <CommandItem
-                              key={sub.id}
-                              value={sub.name}
-                              onSelect={() => {
-                                setFormData({
-                                  ...formData,
-                                  sub_category_id: sub.id,
-                                  sub_category_name: sub.name
-                                });
-                                setOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.sub_category_id === sub.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {sub.name}
+                            <CommandItem key={sub.id} value={sub.name} onSelect={() => { setFormData({ ...formData, sub_category_id: sub.id, sub_category_name: sub.name }); setOpen(false); }}>
+                              <Check className={cn("mr-2 h-4 w-4", formData.sub_category_id === sub.id ? "opacity-100" : "opacity-0")} />{sub.name}
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -742,22 +663,8 @@ export default function ScannerPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Annuler
-            </Button>
-            <Button onClick={handleSaveNewProduct} disabled={saving} data-testid="save-scanned-product-btn">
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Enregistrement...
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ajouter au stock
-                </>
-              )}
-            </Button>
+            <Button variant="outline" onClick={handleCloseDialog}>Annuler</Button>
+            <Button onClick={handleSaveNewProduct} disabled={saving}>{saving ? 'Enregistrement...' : 'Ajouter au stock'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
