@@ -105,7 +105,6 @@ export default function ScannerPage() {
       BarcodeFormat.EAN_8,
       BarcodeFormat.UPC_A,
       BarcodeFormat.UPC_E,
-      BarcodeFormat.CODE_128 // Optionnel : utilisé parfois sur certains produits/colis
     ];
     hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
 
@@ -115,6 +114,10 @@ export default function ScannerPage() {
     return () => {
       stopCamera();
     };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
   const fetchData = async () => {
