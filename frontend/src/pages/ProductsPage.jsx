@@ -69,13 +69,13 @@ export default function ProductsPage() {
   const [subCategories, setSubCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- ÉTATS PAR DÉFAUT SELON TES CAPTURES ---
+  // --- ÉTATS PAR DÉFAUT ---
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterLowStock, setFilterLowStock] = useState(searchParams.get('low_stock') === 'true');
-  const [hideOutOfStock, setHideOutOfStock] = useState(true); // "En stock uniquement" coché par défaut
-  const [isGrouped, setIsGrouped] = useState(true);           // "Grouper l'affichage" coché par défaut
+  const [hideOutOfStock, setHideOutOfStock] = useState(true);
+  const [isGrouped, setIsGrouped] = useState(true);
 
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -116,18 +116,17 @@ export default function ProductsPage() {
   };
 
   const handleUpdateThreshold = async (subId, value) => {
-    const min_stock = parseInt(value, 10);
+    const min_stock = Math.max(0, parseInt(value, 10));
     if (isNaN(min_stock)) return;
 
     try {
-      // On appelle l'API pour mettre à jour le seuil de la sous-catégorie
       const encodedId = encodeURIComponent(subId);
       await api.patch(`/subcategories/${encodedId}/threshold`, {
         min_quantity: min_stock
       });
 
       toast.success("Seuil mis à jour");
-      fetchData(); // On rafraîchit les données pour mettre à jour les badges de couleur
+      fetchData();
     } catch (error) {
       console.error("Erreur lors de la mise à jour du seuil:", error);
       toast.error("Erreur de sauvegarde du seuil");
@@ -210,15 +209,27 @@ export default function ProductsPage() {
           <p className="text-xs text-muted-foreground truncate mb-4">{product.brand || 'Sans marque'}</p>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleQuantityChange(product, -1)} disabled={product.quantity <= 0}>
-                <Minus className="w-3 h-3" />
+            {/* Version mobile amicalisée avec boutons plus gros */}
+            <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-md hover:bg-background"
+                onClick={() => handleQuantityChange(product, -1)}
+                disabled={product.quantity <= 0}
+              >
+                <Minus className="w-4 h-4" />
               </Button>
-              <span className={`text-lg font-bold min-w-[30px] text-center ${isLowStock ? 'text-destructive' : 'text-emerald-500'}`}>
+              <span className={`text-base font-bold min-w-[32px] text-center ${isLowStock ? 'text-destructive' : 'text-emerald-500'}`}>
                 {product.quantity}
               </span>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleQuantityChange(product, 1)}>
-                <Plus className="w-3 h-3" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-md hover:bg-background"
+                onClick={() => handleQuantityChange(product, 1)}
+              >
+                <Plus className="w-4 h-4" />
               </Button>
             </div>
             {isLowStock && (
@@ -245,17 +256,40 @@ export default function ProductsPage() {
                   <span className="font-bold text-lg">{group.name}</span>
                   <Badge variant="outline" className="bg-background">{group.products.length} produits</Badge>
                 </div>
-                <div className="flex items-center gap-4 sm:gap-8">
+                <div className="flex items-center gap-4 sm:gap-6">
                   {subCatId !== 'no-sub' && (
-                    <div className="flex items-center gap-2 bg-background/80 px-2 py-1 rounded-md border border-border shadow-sm" onClick={(e) => e.stopPropagation()}>
-                      <Label className="text-[10px] uppercase font-black text-muted-foreground">Min :</Label>
-                      <Input
-                        type="number"
-                        className="h-6 w-12 text-center text-xs bg-transparent border-none focus-visible:ring-0 p-0 font-bold"
-                        defaultValue={group.threshold}
-                        onBlur={(e) => handleUpdateThreshold(subCatId, e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && (handleUpdateThreshold(subCatId, e.target.value), e.target.blur())}
-                      />
+                    <div
+                      className="flex items-center gap-1.5 bg-background/80 px-2 py-1 rounded-md border border-border shadow-sm touch-none"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground mr-1">Min :</Label>
+
+                      {/* Masquage du bouton "-" si le seuil est à 0 */}
+                      {group.threshold > 0 ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleUpdateThreshold(subCatId, group.threshold - 1)}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </Button>
+                      ) : (
+                        <div className="w-5 h-5" /> /* Espacement pour garder l'alignement */
+                      )}
+
+                      <Badge variant="secondary" className="h-5 min-w-[24px] justify-center px-1 font-bold text-xs bg-muted">
+                        {group.threshold}
+                      </Badge>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleUpdateThreshold(subCatId, group.threshold + 1)}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
                     </div>
                   )}
                   <div className="flex items-center gap-2">
@@ -325,7 +359,7 @@ export default function ProductsPage() {
         toast.success("Produit ajouté");
       }
       setDialogOpen(false);
-      fetchData(); // Utilise fetchData au lieu de fetchProducts pour tout recharger
+      fetchData();
     } catch (error) {
       console.error(error);
       toast.error("Erreur lors de l'enregistrement");
