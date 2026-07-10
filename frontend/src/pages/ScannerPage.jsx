@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { Switch } from "@/components/ui/switch"; // Ajout de l'import du Switch
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ import {
   Check,
   X,
   ChevronsUpDown,
+  ShoppingCart, // Ajout de l'icône de caddie
 } from 'lucide-react';
 import { BrowserMultiFormatReader } from '@zxing/library';
 import {
@@ -65,14 +67,17 @@ export default function ScannerPage() {
   const [suggestions, setSuggestions] = useState([]);
   const [allSubCategories, setAllSubCategories] = useState([]);
 
+  // --- NOUVEL ÉTAT POUR LE MODE COURSE ---
+  const [shoppingMode, setShoppingMode] = useState(false);
+
   // Scanned product state
   const [scannedProduct, setScannedProduct] = useState(null);
   const [openFoodFactsData, setOpenFoodFactsData] = useState(null);
   const [existingProduct, setExistingProduct] = useState(null);
   const [open, setOpen] = useState(false);
   const allPossibleSubCats = Array.from(new Set([
-  ...(Array.isArray(suggestions) ? suggestions : []),
-  ...(Array.isArray(subcategories) ? subcategories.map(s => s.name) : [])
+    ...(Array.isArray(suggestions) ? suggestions : []),
+    ...(Array.isArray(subcategories) ? subcategories.map(s => s.name) : [])
   ]));
 
   // Dialog states
@@ -122,10 +127,7 @@ export default function ScannerPage() {
   const startCamera = async () => {
     setCameraError(null);
     try {
-      setCameraActive(true); // On active l'interface d'abord
-
-      // On utilise null pour le premier argument pour laisser ZXing choisir la caméra par défaut (arrière)
-      // On passe la vidéoRef.current pour que ZXing sache où afficher le flux
+      setCameraActive(true);
       await codeReader.current.decodeFromVideoDevice(
         undefined,
         videoRef.current,
@@ -133,8 +135,6 @@ export default function ScannerPage() {
           if (result) {
             handleBarcodeDetected(result.getText());
           }
-          // L'erreur ici est normale tant qu'aucun code n'est détecté,
-          // on ne logge rien pour éviter de spammer la console
         }
       );
     } catch (error) {
@@ -156,40 +156,135 @@ export default function ScannerPage() {
     setCameraActive(false);
   };
 
+  // --- FONCTION POUR EMETTRE LE BIP DE SCAN ---
+  const playScanSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Fréquence aiguë type douchette
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volume modéré
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.08); // Bip court de 80ms
+    } catch (e) {
+      console.error("Échec de lecture du son", e);
+    }
+  };
+
   const handleBarcodeDetected = useCallback(async (barcode) => {
     if (searching) return;
 
-    // Stop camera when barcode detected
+    const wasCameraActive = cameraActive;
     stopCamera();
-
     setSearching(true);
+
+    // --- BRANCHE LOGIQUE : MODE COURSE ---
+    if (shoppingMode) {
+      playScanSound();
+      try {
+        let isExisting = false;
+        let productName = '';
+
+        // 1. Essai de récupération dans le stock existant
+        try {
+          const existingRes = await api.get(`/products/barcode/${barcode}`);
+          const prod = existingRes.data;
+          await api.patch(`/products/${prod.id}/quantity?delta=1`);
+          productName = prod.name;
+          isExisting = true;
+        } catch (error) {
+          // Absent du stock local
+        }
+
+        // 2. Si absent, récupération Open Food Facts & création immédiate
+        if (!isExisting) {
+          let offData = null;
+          try {
+            const offRes = await api.get(`/barcode/${barcode}`);
+            offData = offRes.data;
+          } catch (e) {
+            console.log(`Code-barres ${barcode} inconnu sur les bases partenaires.`);
+          }
+
+          const matchedCategory = offData?.suggested_category
+            ? categories.find(c => c.name.toLowerCase() === offData.suggested_category.toLowerCase())
+            : null;
+
+          const fridgeLocation = offData?.needs_refrigeration
+            ? locations.find(l => /r[ée]frig[ée]rateur|frigo/i.test(l.name))
+            : null;
+
+          const offSuggestions = offData?.sub_categories_suggestions || [];
+          let matchedSubCategoryId = null;
+          for (const suggestion of offSuggestions) {
+            const found = subcategories.find(s => s.name.toLowerCase() === suggestion.toLowerCase());
+            if (found) {
+              matchedSubCategoryId = found.id;
+              break;
+            }
+          }
+
+          // Formatage d'un payload complet pour satisfaire le backend
+          const newProductData = {
+            name: offData?.name || `Produit inconnu (${barcode})`,
+            brand: offData?.brand || '',
+            barcode: barcode,
+            quantity: 1,
+            min_quantity: 1,
+            unit: 'unité',
+            category_id: matchedCategory?.id || categories[0]?.id || null,
+            sub_category_id: matchedSubCategoryId,
+            sub_category_name: offSuggestions.length > 0 ? offSuggestions[0] : '',
+            location_id: fridgeLocation?.id || locations[0]?.id || 'none',
+            image_url: offData?.image_url || '',
+            description: offData?.categories || '',
+          };
+
+          await api.post('/products', newProductData);
+          productName = newProductData.name;
+        }
+
+        toast.success(`+1 ajouté : ${productName}`);
+        setManualBarcode(''); // Vide le champ manuel si utilisé
+      } catch (err) {
+        console.error(err);
+        toast.error("Erreur lors de l'ajout automatique en mode course");
+      } finally {
+        setSearching(false);
+        // On relance immédiatement la caméra pour scanner le produit suivant
+        if (wasCameraActive) {
+          startCamera();
+        }
+      }
+      return;
+    }
+
+    // --- BRANCHE LOGIQUE PAR DÉFAUT (CLASSIQUE) ---
     setScannedProduct({ barcode });
     setOpenFoodFactsData(null);
     setExistingProduct(null);
 
     try {
-      // Check if product already exists in inventory
       try {
         const existingRes = await api.get(`/products/barcode/${barcode}`);
         setExistingProduct(existingRes.data);
         setResultDialogOpen(true);
         setSearching(false);
         return;
-      } catch (error) {
-        // Product not found in inventory, continue to Open Food Facts
-      }
+      } catch (error) {}
 
-      // Look up in Open Food Facts
       try {
         const offRes = await api.get(`/barcode/${barcode}`);
         setOpenFoodFactsData(offRes.data);
-        // On récupère les suggestions envoyées par le backend
         const offSuggestions = offRes.data.sub_categories_suggestions || [];
         setSuggestions(offSuggestions);
-        // On cherche si un nom de suggestion correspond à une de nos sous-catégories.
-        // Le premier élément de la liste est le plus spécifique en pratique
-        // (ex: "Beurres de cacahuètes" avant "Beurres de fruits à coques"),
-        // donc on essaie dans cet ordre, du plus précis au plus général.
+
         let matchedSubCategoryId = null;
         for (const suggestion of offSuggestions) {
           const found = subcategories.find(s =>
@@ -201,15 +296,10 @@ export default function ScannerPage() {
           }
         }
 
-        // Présélection de la catégorie à partir de la base qui a répondu
-        // (Alimentaire / Hygiène / Animaux), si elle existe chez l'utilisateur.
         const matchedCategory = offRes.data.suggested_category
           ? categories.find(c => c.name.toLowerCase() === offRes.data.suggested_category.toLowerCase())
           : null;
 
-        // Présélection de l'emplacement "Réfrigérateur" si le produit semble
-        // devoir être conservé au frais (heuristique côté backend) et qu'un
-        // tel emplacement existe chez l'utilisateur.
         const fridgeLocation = offRes.data.needs_refrigeration
           ? locations.find(l => /r[ée]frig[ée]rateur|frigo/i.test(l.name))
           : null;
@@ -229,31 +319,9 @@ export default function ScannerPage() {
           description: offRes.data.categories || '',
         });
       } catch (error) {
-        const isNotFound = error.response?.status === 404;
-        if (isNotFound) {
-          // Cas normal : le produit n'est simplement pas référencé sur les
-          // bases partenaires. Le dialogue affichera "Produit non trouvé..."
-          // (openFoodFactsData reste null) — pas besoin de toast alarmant.
-          logger.info(`Code-barres ${barcode} non trouvé sur les bases partenaires`);
-        } else {
-          // Vraie erreur (réseau, timeout, 5xx) : on informe l'utilisateur
-          // que la recherche a échoué, distinctement du cas "non trouvé".
-          logger.error('Erreur de connexion aux bases partenaires:', error);
-          toast.error("Impossible de contacter les bases de données produits, réessayez plus tard.");
-        }
         setFormData({
-          name: '',
-          brand: '',
-          barcode: barcode,
-          quantity: 1,
-          min_quantity: 1,
-          unit: 'unité',
-          category_id: null,
-          location_id: null,
-          image_url: '',
-          sub_category_id: null,
-          sub_category_name: '',
-          description: '',
+          name: '', brand: '', barcode: barcode, quantity: 1, min_quantity: 1, unit: 'unité',
+          category_id: null, location_id: null, image_url: '', sub_category_id: null, sub_category_name: '', description: '',
         });
       }
 
@@ -263,7 +331,7 @@ export default function ScannerPage() {
     } finally {
       setSearching(false);
     }
-  }, [searching, api, formData, subcategories]);
+  }, [searching, cameraActive, shoppingMode, categories, subcategories, locations, api]);
 
   const handleManualSearch = () => {
     if (!manualBarcode.trim()) {
@@ -273,31 +341,27 @@ export default function ScannerPage() {
     handleBarcodeDetected(manualBarcode.trim());
   };
 
-  // Handle USB barcode scanner input
+  // Lecteur de code-barres USB
   useEffect(() => {
     let buffer = '';
     let timeout = null;
 
     const handleKeyDown = (e) => {
-      // Ignore if typing in an input field
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
         return;
       }
 
-      // Clear buffer after 100ms of inactivity
       if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => {
         buffer = '';
       }, 100);
 
-      // Enter key signals end of barcode
       if (e.key === 'Enter' && buffer.length > 5) {
         handleBarcodeDetected(buffer);
         buffer = '';
         return;
       }
 
-      // Add to buffer if it's a valid barcode character
       if (/^[0-9]$/.test(e.key)) {
         buffer += e.key;
       }
@@ -327,40 +391,6 @@ export default function ScannerPage() {
     }
   };
 
-  const handleScan = async (barcode) => {
-    if (isScanning) return;
-    setIsScanning(true);
-
-    try {
-      const response = await api.get(`/barcode/${barcode}`);
-      const productData = response.data;
-
-      // On pré-remplit TOUT le formulaire
-      setFormData({
-        name: productData.name || '',
-        brand: productData.brand || '',
-        image_url: productData.image_url || '',
-        barcode: barcode,
-        quantity: 1,
-        min_quantity: 1,
-        unit: "unité",
-        location_id: "none",
-        category_id: null,
-        sub_category_id: null
-      });
-
-      setResultDialogOpen(true); // Ouvre le dialogue de confirmation
-    } catch (error) {
-      toast.error("Produit non trouvé");
-      // Optionnel : ouvrir le dialogue vide pour saisie manuelle
-      setFormData({ ...initialForm, barcode: barcode });
-      setResultDialogOpen(true);
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  // Et la fonction de sauvegarde associée :
   const handleSaveNewProduct = async () => {
     const missing = [];
     if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) {
@@ -379,8 +409,7 @@ export default function ScannerPage() {
 
     setSaving(true);
     try {
-      const dataToSend = { ...formData };
-      await api.post('/products', dataToSend);
+      await api.post('/products', formData);
       toast.success("Produit ajouté au stock");
       setResultDialogOpen(false);
       navigate('/products');
@@ -391,17 +420,53 @@ export default function ScannerPage() {
     }
   };
 
-
-
   return (
     <div className="space-y-6" data-testid="scanner-page">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
-        <p className="text-muted-foreground mt-1">
-          Scannez un code-barres pour ajouter ou mettre à jour un produit
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
+          <p className="text-muted-foreground mt-1">
+            Scannez un code-barres pour ajouter ou mettre à jour un produit
+          </p>
+        </div>
       </div>
+
+      {/* --- BANDEAU ACTION : MODE COURSE --- */}
+      <Card className={cn(
+        "bg-card border transition-all duration-300",
+        shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border"
+      )}>
+        <CardContent className="p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "p-2.5 rounded-lg transition-colors",
+              shoppingMode ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground"
+            )}>
+              <ShoppingCart className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-sm">Mode "Retour de courses"</h2>
+                {shoppingMode && <Badge className="text-[9px] h-4 uppercase tracking-widest bg-primary">Actif</Badge>}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Bip sonore, incrémentation automatique de +1 et enregistrement instantané en arrière-plan sans bloquer l'écran.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Label htmlFor="shopping-mode" className="text-xs font-black uppercase text-muted-foreground tracking-tighter">
+              {shoppingMode ? "Activé" : "Désactivé"}
+            </Label>
+            <Switch
+              id="shopping-mode"
+              checked={shoppingMode}
+              onCheckedChange={setShoppingMode}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Scanner Options */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -539,9 +604,9 @@ export default function ScannerPage() {
                 <span className="text-sm font-bold text-primary">2</span>
               </div>
               <div>
-                <p className="font-medium text-sm">Vérifiez les informations</p>
+                <p className="font-medium text-sm">Vérifiez ou stockez en chaîne</p>
                 <p className="text-xs text-muted-foreground">
-                  Les données sont récupérées automatiquement via Open Food Facts
+                  Le mode classique affiche la fiche, le mode course automatise l'action.
                 </p>
               </div>
             </div>
@@ -737,7 +802,6 @@ export default function ScannerPage() {
                       aria-expanded={open}
                       className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
                     >
-                      {/* Affiche le nom sélectionné ou le texte par défaut */}
                       {formData.sub_category_name || "Chercher ou choisir..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </button>
@@ -748,7 +812,6 @@ export default function ScannerPage() {
                       <CommandInput
                         placeholder="Rechercher une sous-catégorie..."
                         onValueChange={(searchTerm) => {
-                          // Mise à jour pour permettre la saisie manuelle en direct
                           const formattedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
                           setFormData({ ...formData, sub_category_name: formattedTerm });
                         }}
@@ -767,15 +830,15 @@ export default function ScannerPage() {
                         </CommandEmpty>
 
                         <CommandGroup title="Suggestions">
-                          {subcategories.map((sub) => ( // On boucle sur les vraies sous-catégories
+                          {subcategories.map((sub) => (
                             <CommandItem
                               key={sub.id}
                               value={sub.name}
                               onSelect={() => {
                                 setFormData({
                                   ...formData,
-                                  sub_category_id: sub.id,   // On enregistre l'ID pour la base de données
-                                  sub_category_name: sub.name // On garde le nom pour l'affichage UI
+                                  sub_category_id: sub.id,
+                                  sub_category_name: sub.name
                                 });
                                 setOpen(false);
                               }}
