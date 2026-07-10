@@ -69,11 +69,18 @@ export default function ScannerPage() {
   // Mode Retour de courses
   const [shoppingMode, setShoppingMode] = useState(false);
 
+  // --- NOUVEL ÉTAT POUR LE MODE COURSE ---
+  const [shoppingMode, setShoppingMode] = useState(false);
+
   // Scanned product state
   const [scannedProduct, setScannedProduct] = useState(null);
   const [openFoodFactsData, setOpenFoodFactsData] = useState(null);
   const [existingProduct, setExistingProduct] = useState(null);
   const [open, setOpen] = useState(false);
+  const allPossibleSubCats = Array.from(new Set([
+    ...(Array.isArray(suggestions) ? suggestions : []),
+    ...(Array.isArray(subcategories) ? subcategories.map(s => s.name) : [])
+  ]));
 
   // Dialog states
   const [resultDialogOpen, setResultDialogOpen] = useState(false);
@@ -168,32 +175,24 @@ export default function ScannerPage() {
     setCameraActive(false);
   };
 
+  // --- FONCTION POUR EMETTRE LE BIP DE SCAN ---
   const playScanSound = () => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc1 = audioCtx.createOscillator();
-      const gain1 = audioCtx.createGain();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(950, audioCtx.currentTime);
-      gain1.gain.setValueAtTime(0.4, audioCtx.currentTime);
-      osc1.connect(gain1);
-      gain1.connect(audioCtx.destination);
-      osc1.start();
-      osc1.stop(audioCtx.currentTime + 0.08);
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
 
-      setTimeout(() => {
-        const osc2 = audioCtx.createOscillator();
-        const gain2 = audioCtx.createGain();
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(1200, audioCtx.currentTime);
-        gain2.gain.setValueAtTime(0.4, audioCtx.currentTime);
-        osc2.connect(gain2);
-        gain2.connect(audioCtx.destination);
-        osc2.start();
-        osc2.stop(audioCtx.currentTime + 0.08);
-      }, 70);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Fréquence aiguë type douchette
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volume modéré
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.08); // Bip court de 80ms
     } catch (e) {
-      console.error("Échec audio :", e);
+      console.error("Échec de lecture du son", e);
     }
   };
 
@@ -203,28 +202,34 @@ export default function ScannerPage() {
     const wasCameraActive = cameraActive;
     stopCamera();
     setSearching(true);
-    playScanSound();
 
-    // --- LOGIQUE MODE COURSE ---
+    // --- BRANCHE LOGIQUE : MODE COURSE ---
     if (shoppingMode) {
+      playScanSound();
       try {
         let isExisting = false;
         let productName = '';
 
+        // 1. Essai de récupération dans le stock existant
         try {
           const existingRes = await api.get(`/products/barcode/${barcode}`);
           const prod = existingRes.data;
           await api.patch(`/products/${prod.id}/quantity?delta=1`);
           productName = prod.name;
           isExisting = true;
-        } catch (error) {}
+        } catch (error) {
+          // Absent du stock local
+        }
 
+        // 2. Si absent, récupération Open Food Facts & création immédiate
         if (!isExisting) {
           let offData = null;
           try {
             const offRes = await api.get(`/barcode/${barcode}`);
             offData = offRes.data;
-          } catch (e) {}
+          } catch (e) {
+            console.log(`Code-barres ${barcode} inconnu sur les bases partenaires.`);
+          }
 
           const matchedCategory = offData?.suggested_category
             ? categories.find(c => c.name.toLowerCase() === offData.suggested_category.toLowerCase())
@@ -244,6 +249,7 @@ export default function ScannerPage() {
             }
           }
 
+          // Formatage d'un payload complet pour satisfaire le backend
           const newProductData = {
             name: offData?.name || `Produit inconnu (${barcode})`,
             brand: offData?.brand || '',
@@ -265,19 +271,21 @@ export default function ScannerPage() {
         }
 
         toast.success(`+1 ajouté : ${productName}`);
-        setManualBarcode('');
+        setManualBarcode(''); // Vide le champ manuel si utilisé
       } catch (err) {
-        toast.error("Erreur lors de l'ajout automatique");
+        console.error(err);
+        toast.error("Erreur lors de l'ajout automatique en mode course");
       } finally {
         setSearching(false);
+        // On relance immédiatement la caméra pour scanner le produit suivant
         if (wasCameraActive) {
-          setTimeout(() => startCamera(), 300);
+          startCamera();
         }
       }
       return;
     }
 
-    // --- LOGIQUE MODE CLASSIQUE ---
+    // --- BRANCHE LOGIQUE PAR DÉFAUT (CLASSIQUE) ---
     setScannedProduct({ barcode });
     setOpenFoodFactsData(null);
     setExistingProduct(null);
@@ -350,7 +358,7 @@ export default function ScannerPage() {
     handleBarcodeDetected(manualBarcode.trim());
   };
 
-  // Lecteur physique USB
+  // Lecteur de code-barres USB
   useEffect(() => {
     let buffer = '';
     let timeout = null;
@@ -429,33 +437,53 @@ export default function ScannerPage() {
 
   return (
     <div className="space-y-6" data-testid="scanner-page">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
-        <p className="text-muted-foreground mt-1">Scannez un code-barres pour ajouter ou mettre à jour un produit</p>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
+          <p className="text-muted-foreground mt-1">
+            Scannez un code-barres pour ajouter ou mettre à jour un produit
+          </p>
+        </div>
       </div>
 
-      {/* Mode Retour de courses */}
-      <Card className={cn("bg-card border transition-all duration-300", shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border")}>
+      {/* --- BANDEAU ACTION : MODE COURSE --- */}
+      <Card className={cn(
+        "bg-card border transition-all duration-300",
+        shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border"
+      )}>
         <CardContent className="p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className={cn("p-2.5 rounded-lg", shoppingMode ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground")}>
+            <div className={cn(
+              "p-2.5 rounded-lg transition-colors",
+              shoppingMode ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground"
+            )}>
               <ShoppingCart className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-bold text-sm">Mode "Retour de courses"</h2>
-                {shoppingMode && <Badge className="text-[9px] h-4 uppercase bg-primary">Actif</Badge>}
+                {shoppingMode && <Badge className="text-[9px] h-4 uppercase tracking-widest bg-primary">Actif</Badge>}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">Bip sonore, incrémentation automatique et enregistrement instantané en arrière-plan.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Bip sonore, incrémentation automatique de +1 et enregistrement instantané en arrière-plan sans bloquer l'écran.
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Label htmlFor="shopping-mode" className="text-xs font-black uppercase text-muted-foreground">{shoppingMode ? "Activé" : "Désactivé"}</Label>
-            <Switch id="shopping-mode" checked={shoppingMode} onCheckedChange={setShoppingMode} />
+            <Label htmlFor="shopping-mode" className="text-xs font-black uppercase text-muted-foreground tracking-tighter">
+              {shoppingMode ? "Activé" : "Désactivé"}
+            </Label>
+            <Switch
+              id="shopping-mode"
+              checked={shoppingMode}
+              onCheckedChange={setShoppingMode}
+            />
           </div>
         </CardContent>
       </Card>
 
+      {/* Scanner Options */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Caméra */}
         <Card className="bg-card border-border">
@@ -539,7 +567,9 @@ export default function ScannerPage() {
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">2</span></div>
               <div>
                 <p className="font-medium text-sm">Vérifiez ou stockez en chaîne</p>
-                <p className="text-xs text-muted-foreground">Le mode classique affiche la fiche, le mode course automatise l'action.</p>
+                <p className="text-xs text-muted-foreground">
+                  Le mode classique affiche la fiche, le mode course automatise l'action.
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -640,22 +670,50 @@ export default function ScannerPage() {
                 <Label>Sous-catégorie</Label>
                 <Popover open={open} onOpenChange={setOpen}>
                   <PopoverTrigger asChild>
-                    <button role="combobox" aria-expanded={open} className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm">
-                      {formData.sub_category_name || "Chercher..."}
+                    <button
+                      role="combobox"
+                      aria-expanded={open}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
+                    >
+                      {formData.sub_category_name || "Chercher ou choisir..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                     <Command>
-                      <CommandInput placeholder="Rechercher..." onValueChange={(t) => setFormData({ ...formData, sub_category_name: t.charAt(0).toUpperCase() + t.slice(1) })} />
+                      <CommandInput
+                        placeholder="Rechercher une sous-catégorie..."
+                        onValueChange={(searchTerm) => {
+                          const formattedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
+                          setFormData({ ...formData, sub_category_name: formattedTerm });
+                        }}
+                      />
                       <CommandList>
                         <CommandEmpty className="p-2">
                           <Button variant="ghost" size="sm" className="w-full justify-start text-primary" onClick={() => setOpen(false)}><Plus className="mr-2 h-4 w-4" />Créer "{formData.sub_category_name}"</Button>
                         </CommandEmpty>
-                        <CommandGroup>
+
+                        <CommandGroup title="Suggestions">
                           {subcategories.map((sub) => (
-                            <CommandItem key={sub.id} value={sub.name} onSelect={() => { setFormData({ ...formData, sub_category_id: sub.id, sub_category_name: sub.name }); setOpen(false); }}>
-                              <Check className={cn("mr-2 h-4 w-4", formData.sub_category_id === sub.id ? "opacity-100" : "opacity-0")} />{sub.name}
+                            <CommandItem
+                              key={sub.id}
+                              value={sub.name}
+                              onSelect={() => {
+                                setFormData({
+                                  ...formData,
+                                  sub_category_id: sub.id,
+                                  sub_category_name: sub.name
+                                });
+                                setOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.sub_category_id === sub.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {sub.name}
                             </CommandItem>
                           ))}
                         </CommandGroup>
