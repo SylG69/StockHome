@@ -258,8 +258,9 @@ export default function ProductsPage() {
                 </div>
                 <div className="flex items-center gap-4 sm:gap-6">
                   {subCatId !== 'no-sub' && (
+                    /* Suppression de bg-background/80, border, border-border et shadow-sm ici */
                     <div
-                      className="flex items-center gap-1.5 bg-background/80 px-2 py-1 rounded-md border border-border shadow-sm touch-none"
+                      className="flex items-center gap-1.5 px-1 py-1 touch-none"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Label className="text-[10px] uppercase font-black text-muted-foreground mr-1">Min :</Label>
@@ -275,7 +276,7 @@ export default function ProductsPage() {
                           <Minus className="w-3 h-3" />
                         </Button>
                       ) : (
-                        <div className="w-5 h-5" /> /* Espacement pour garder l'alignement */
+                        <div className="w-5 h-5" />
                       )}
 
                       <Badge variant="secondary" className="h-5 min-w-[24px] justify-center px-1 font-bold text-xs bg-muted">
@@ -313,6 +314,7 @@ export default function ProductsPage() {
       })}
     </Accordion>
   ) : (
+  // ... reste du code inchangé
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {filteredProducts.map(p => {
         const sub = subCategories.find(s => s.id === p.sub_category_id);
