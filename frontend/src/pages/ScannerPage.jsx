@@ -34,11 +34,11 @@ import {
   Loader2,
   AlertCircle,
   Check,
-  X,
   ChevronsUpDown,
   ShoppingCart,
 } from 'lucide-react';
-import { BrowserMultiFormatReader } from '@zxing/library';
+// IMPORT DES HINTS ET DES FORMATS POUR LES OPTIMISATIONS DE VITESSE
+import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
 import {
   Command,
   CommandEmpty,
@@ -65,9 +65,8 @@ export default function ScannerPage() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
-  const [allSubCategories, setAllSubCategories] = useState([]);
 
-  // --- NOUVEL ÉTAT POUR LE MODE COURSE ---
+  // Mode Retour de courses
   const [shoppingMode, setShoppingMode] = useState(false);
 
   // Scanned product state
@@ -75,14 +74,9 @@ export default function ScannerPage() {
   const [openFoodFactsData, setOpenFoodFactsData] = useState(null);
   const [existingProduct, setExistingProduct] = useState(null);
   const [open, setOpen] = useState(false);
-  const allPossibleSubCats = Array.from(new Set([
-    ...(Array.isArray(suggestions) ? suggestions : []),
-    ...(Array.isArray(subcategories) ? subcategories.map(s => s.name) : [])
-  ]));
 
   // Dialog states
   const [resultDialogOpen, setResultDialogOpen] = useState(false);
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // New product form
@@ -93,6 +87,7 @@ export default function ScannerPage() {
     quantity: 1,
     min_quantity: 1,
     unit: 'unité',
+    category_id: null,
     sub_category_id: null,
     sub_category_name: '',
     location_id: '',
@@ -101,8 +96,21 @@ export default function ScannerPage() {
   });
 
   useEffect(() => {
-    fetchData();
-    codeReader.current = new BrowserMultiFormatReader();
+    // --- OPTIMISATION : RESTREINDRE LES FORMATS RECHERCHÉS ---
+    // Au lieu de tout chercher, on configure ZXing pour se focaliser UNIQUEMENT
+    // sur les formats de produits de grande consommation (EAN et UPC).
+    const hints = new Map();
+    const formats = [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.CODE_128 // Optionnel : utilisé parfois sur certains produits/colis
+    ];
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+
+    // On passe les configurations au lecteur au moment de son instanciation
+    codeReader.current = new BrowserMultiFormatReader(hints);
 
     return () => {
       stopCamera();
@@ -156,12 +164,9 @@ export default function ScannerPage() {
     setCameraActive(false);
   };
 
-  // --- BIP AMÉLIORÉ (DOUBLE BIP PLUS FORT POUR MOBILE) ---
   const playScanSound = () => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-      // Premier bip aigu
       const osc1 = audioCtx.createOscillator();
       const gain1 = audioCtx.createGain();
       osc1.type = 'sine';
@@ -172,7 +177,6 @@ export default function ScannerPage() {
       osc1.start();
       osc1.stop(audioCtx.currentTime + 0.08);
 
-      // Second bip un poil plus aigu (effet douchette de magasin)
       setTimeout(() => {
         const osc2 = audioCtx.createOscillator();
         const gain2 = audioCtx.createGain();
@@ -184,16 +188,14 @@ export default function ScannerPage() {
         osc2.start();
         osc2.stop(audioCtx.currentTime + 0.08);
       }, 70);
-
     } catch (e) {
-      console.error("Échec de lecture audio :", e);
+      console.error("Échec audio :", e);
     }
   };
 
   const handleBarcodeDetected = useCallback(async (barcode) => {
     if (searching) return;
 
-    // Sauvegarde de l'état de la caméra avant l'arrêt
     const wasCameraActive = cameraActive;
     stopCamera();
     setSearching(true);
@@ -263,7 +265,6 @@ export default function ScannerPage() {
         toast.error("Erreur lors de l'ajout automatique");
       } finally {
         setSearching(false);
-        // Rallume la caméra si elle était active
         if (wasCameraActive) {
           setTimeout(() => startCamera(), 300);
         }
@@ -342,7 +343,7 @@ export default function ScannerPage() {
     handleBarcodeDetected(manualBarcode.trim());
   };
 
-  // Lecteur de code-barres USB physique
+  // Lecteur physique USB
   useEffect(() => {
     let buffer = '';
     let timeout = null;
@@ -353,9 +354,7 @@ export default function ScannerPage() {
       }
 
       if (timeout) clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        buffer = '';
-      }, 100);
+      timeout = setTimeout(() => { buffer = ''; }, 100);
 
       if (e.key === 'Enter' && buffer.length > 5) {
         handleBarcodeDetected(buffer);
@@ -382,16 +381,10 @@ export default function ScannerPage() {
 
   const handleUpdateQuantity = async (delta) => {
     if (!existingProduct) return;
-
     try {
-      const response = await api.patch(
-        `/products/${existingProduct.id}/quantity?delta=${delta}`
-      );
-      setExistingProduct({
-        ...existingProduct,
-        quantity: response.data.quantity,
-      });
-      toast.success(`Quantité mise à jour: ${response.data.quantity}`);
+      const response = await api.patch(`/products/${existingProduct.id}/quantity?delta=${delta}`);
+      setExistingProduct({ ...existingProduct, quantity: response.data.quantity });
+      toast.success(`Quantité mise à jour : ${response.data.quantity}`);
     } catch (error) {
       toast.error('Erreur lors de la mise à jour');
     }
@@ -399,15 +392,10 @@ export default function ScannerPage() {
 
   const handleSaveNewProduct = async () => {
     const missing = [];
-    if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) {
-      missing.push('Quantité');
-    }
-    if (!formData.category_id) {
-      missing.push('Catégorie');
-    }
-    if (!formData.location_id || formData.location_id === 'none') {
-      missing.push('Emplacement');
-    }
+    if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) missing.push('Quantité');
+    if (!formData.category_id) missing.push('Catégorie');
+    if (!formData.location_id || formData.location_id === 'none') missing.push('Emplacement');
+
     if (missing.length > 0) {
       toast.error(`Champs obligatoires manquants : ${missing.join(', ')}`);
       return;
@@ -428,72 +416,45 @@ export default function ScannerPage() {
 
   return (
     <div className="space-y-6" data-testid="scanner-page">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
-          <p className="text-muted-foreground mt-1">
-            Scannez un code-barres pour ajouter ou mettre à jour un produit
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
+        <p className="text-muted-foreground mt-1">Scannez un code-barres pour ajouter ou mettre à jour un produit</p>
       </div>
 
       {/* Mode Retour de courses */}
-      <Card className={cn(
-        "bg-card border transition-all duration-300",
-        shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border"
-      )}>
+      <Card className={cn("bg-card border transition-all duration-300", shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border")}>
         <CardContent className="p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className={cn(
-              "p-2.5 rounded-lg transition-colors",
-              shoppingMode ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground"
-            )}>
+            <div className={cn("p-2.5 rounded-lg", shoppingMode ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground")}>
               <ShoppingCart className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-bold text-sm">Mode "Retour de courses"</h2>
-                {shoppingMode && <Badge className="text-[9px] h-4 uppercase tracking-widest bg-primary">Actif</Badge>}
+                {shoppingMode && <Badge className="text-[9px] h-4 uppercase bg-primary">Actif</Badge>}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Bip sonore, incrémentation automatique de +1 et enregistrement instantané en arrière-plan sans bloquer l'écran.
-              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Bip sonore, incrémentation automatique et enregistrement instantané en arrière-plan.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Label htmlFor="shopping-mode" className="text-xs font-black uppercase text-muted-foreground tracking-tighter">
-              {shoppingMode ? "Activé" : "Désactivé"}
-            </Label>
-            <Switch
-              id="shopping-mode"
-              checked={shoppingMode}
-              onCheckedChange={setShoppingMode}
-            />
+            <Label htmlFor="shopping-mode" className="text-xs font-black uppercase text-muted-foreground">{shoppingMode ? "Activé" : "Désactivé"}</Label>
+            <Switch id="shopping-mode" checked={shoppingMode} onCheckedChange={setShoppingMode} />
           </div>
         </CardContent>
       </Card>
 
-      {/* Scanner Options */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Camera Scanner */}
+        {/* Caméra */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Camera className="w-5 h-5" />
-              Scanner avec la caméra
+              <Camera className="w-5 h-5" /> Scanner avec la caméra
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="scanner-container bg-black rounded-lg overflow-hidden mb-4 relative">
               <div className={cameraActive ? 'relative' : 'hidden'}>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-64 object-cover"
-                />
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-64 object-cover" />
                 <div className="scanner-overlay" />
               </div>
               {!cameraActive && (
@@ -501,48 +462,28 @@ export default function ScannerPage() {
                   {cameraError ? (
                     <>
                       <AlertCircle className="w-12 h-12 text-destructive mb-3" />
-                      <p className="text-sm text-muted-foreground text-center px-4">
-                        {cameraError}
-                      </p>
+                      <p className="text-sm text-muted-foreground text-center px-4">{cameraError}</p>
                     </>
                   ) : (
                     <>
                       <CameraOff className="w-12 h-12 text-muted-foreground mb-3" />
-                      <p className="text-sm text-muted-foreground">
-                        Caméra désactivée
-                      </p>
+                      <p className="text-sm text-muted-foreground">Caméra désactivée</p>
                     </>
                   )}
                 </div>
               )}
             </div>
-            <Button
-              className={`w-full ${cameraActive ? '' : 'btn-glow'}`}
-              variant={cameraActive ? 'destructive' : 'default'}
-              onClick={cameraActive ? stopCamera : startCamera}
-              data-testid="toggle-camera-btn"
-            >
-              {cameraActive ? (
-                <>
-                  <CameraOff className="w-4 h-4 mr-2" />
-                  Arrêter la caméra
-                </>
-              ) : (
-                <>
-                  <Camera className="w-4 h-4 mr-2" />
-                  Démarrer la caméra
-                </>
-              )}
+            <Button className="w-full" variant={cameraActive ? 'destructive' : 'default'} onClick={cameraActive ? stopCamera : startCamera} data-testid="toggle-camera-btn">
+              {cameraActive ? <><CameraOff className="w-4 h-4 mr-2" /> Arrêter la caméra</> : <><Camera className="w-4 h-4 mr-2" /> Démarrer la caméra</>}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Manual Input / USB Scanner */}
+        {/* Manuel / USB */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Keyboard className="w-5 h-5" />
-              Saisie manuelle / Lecteur USB
+              <Keyboard className="w-5 h-5" /> Saisie manuelle / Lecteur USB
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -552,35 +493,15 @@ export default function ScannerPage() {
                   <ScanLine className="w-5 h-5 text-primary" />
                   <span className="font-medium">Lecteur USB</span>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Si vous utilisez un lecteur de code-barres USB, scannez simplement
-                  le produit. Le code sera automatiquement détecté.
-                </p>
+                <p className="text-sm text-muted-foreground">Si vous utilisez un lecteur USB, scannez directement le produit.</p>
               </div>
 
-              <div className="relative">
+              <div>
                 <Label htmlFor="manual-barcode">Ou saisissez le code manuellement</Label>
                 <div className="flex gap-2 mt-2">
-                  <Input
-                    ref={manualInputRef}
-                    id="manual-barcode"
-                    value={manualBarcode}
-                    onChange={(e) => setManualBarcode(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()}
-                    placeholder="Ex: 3017620422003"
-                    className="bg-input border-border font-mono"
-                    data-testid="manual-barcode-input"
-                  />
-                  <Button
-                    onClick={handleManualSearch}
-                    disabled={searching}
-                    data-testid="search-barcode-btn"
-                  >
-                    {searching ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Search className="w-4 h-4" />
-                    )}
+                  <Input ref={manualInputRef} id="manual-barcode" value={manualBarcode} onChange={(e) => setManualBarcode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()} placeholder="Ex: 3017620422003" className="font-mono" data-testid="manual-barcode-input" />
+                  <Button onClick={handleManualSearch} disabled={searching} data-testid="search-barcode-btn">
+                    {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   </Button>
                 </div>
               </div>
@@ -589,273 +510,139 @@ export default function ScannerPage() {
         </Card>
       </div>
 
-      {/* Instructions */}
+      {/* Notice */}
       <Card className="bg-card border-border">
         <CardContent className="p-6">
           <h3 className="font-semibold mb-3">Comment ça marche ?</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-bold text-primary">1</span>
-              </div>
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">1</span></div>
               <div>
                 <p className="font-medium text-sm">Scannez le code-barres</p>
-                <p className="text-xs text-muted-foreground">
-                  Utilisez la caméra, un lecteur USB ou saisissez le code
-                </p>
+                <p className="text-xs text-muted-foreground">Caméra optimisée, lecteur USB ou saisie manuelle.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-bold text-primary">2</span>
-              </div>
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">2</span></div>
               <div>
                 <p className="font-medium text-sm">Vérifiez ou stockez en chaîne</p>
-                <p className="text-xs text-muted-foreground">
-                  Le mode classique affiche la fiche, le mode course automatise l'action.
-                </p>
+                <p className="text-xs text-muted-foreground">Le mode classique affiche la fiche, le mode course automatise l'action.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-bold text-primary">3</span>
-              </div>
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">3</span></div>
               <div>
                 <p className="font-medium text-sm">Ajoutez à votre stock</p>
-                <p className="text-xs text-muted-foreground">
-                  Définissez la quantité et l'emplacement de stockage
-                </p>
+                <p className="text-xs text-muted-foreground">Définissez la quantité globale et l'emplacement.</p>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Result Dialog - Existing Product */}
+      {/* Dialog Produit Existant */}
       <Dialog open={resultDialogOpen && existingProduct} onOpenChange={handleCloseDialog}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Check className="w-5 h-5 text-emerald-500" />
-              Produit trouvé dans votre stock
-            </DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><Check className="w-5 h-5 text-emerald-500" /> Produit trouvé dans votre stock</DialogTitle>
           </DialogHeader>
           {existingProduct && (
             <div className="space-y-4">
               <div className="flex items-start gap-4">
                 {existingProduct.image_url ? (
-                  <img
-                    src={existingProduct.image_url}
-                    alt={existingProduct.name}
-                    className="w-20 h-20 rounded-lg object-cover"
-                  />
+                  <img src={existingProduct.image_url} alt={existingProduct.name} className="w-20 h-20 rounded-lg object-cover" />
                 ) : (
-                  <div className="w-20 h-20 rounded-lg bg-secondary flex items-center justify-center">
-                    <Package className="w-10 h-10 text-muted-foreground" />
-                  </div>
+                  <div className="w-20 h-20 rounded-lg bg-secondary flex items-center justify-center"><Package className="w-10 h-10 text-muted-foreground" /></div>
                 )}
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">{existingProduct.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {existingProduct.brand || 'Sans marque'}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-mono mt-1">
-                    {existingProduct.barcode}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{existingProduct.brand || 'Sans marque'}</p>
+                  <p className="text-xs text-muted-foreground font-mono mt-1">{existingProduct.barcode}</p>
                 </div>
               </div>
-
               <div className="p-4 rounded-lg bg-secondary/30">
-                <p className="text-sm text-muted-foreground mb-2">Quantité en stock</p>
+                <p className="text-sm text-muted-foreground mb-2 text-center">Quantité en stock</p>
                 <div className="flex items-center justify-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleUpdateQuantity(-1)}
-                    disabled={existingProduct.quantity <= 0}
-                    data-testid="decrease-existing-qty"
-                  >
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                  <span
-                    className={`text-3xl font-bold ${
-                      existingProduct.quantity < existingProduct.min_quantity
-                        ? 'text-destructive'
-                        : 'text-emerald-500'
-                    }`}
-                  >
-                    {existingProduct.quantity}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleUpdateQuantity(1)}
-                    data-testid="increase-existing-qty"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => handleUpdateQuantity(-1)} disabled={existingProduct.quantity <= 0}><Minus className="w-4 h-4" /></Button>
+                  <span className={`text-3xl font-bold ${existingProduct.quantity < existingProduct.min_quantity ? 'text-destructive' : 'text-emerald-500'}`}>{existingProduct.quantity}</span>
+                  <Button variant="outline" size="icon" onClick={() => handleUpdateQuantity(1)}><Plus className="w-4 h-4" /></Button>
                 </div>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Minimum: {existingProduct.min_quantity} {existingProduct.unit}
-                </p>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Fermer
-            </Button>
-            <Button onClick={() => navigate('/products')} data-testid="go-to-products-btn">
-              Voir les produits
-            </Button>
+            <Button variant="outline" onClick={handleCloseDialog}>Fermer</Button>
+            <Button onClick={() => navigate('/products')}>Voir les produits</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Result Dialog - New Product / Open Food Facts */}
+      {/* Dialog Nouveau Produit */}
       <Dialog open={resultDialogOpen && !existingProduct} onOpenChange={handleCloseDialog}>
         <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {openFoodFactsData ? 'Produit trouvé' : 'Nouveau produit'}
-            </DialogTitle>
+            <DialogTitle>{openFoodFactsData ? 'Produit trouvé' : 'Nouveau produit'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
             {openFoodFactsData ? (
               <div className="flex items-start gap-4 p-4 rounded-lg bg-secondary/30">
                 {openFoodFactsData.image_url ? (
-                  <img
-                    src={openFoodFactsData.image_url}
-                    alt={openFoodFactsData.name}
-                    className="w-20 h-20 rounded-lg object-cover"
-                  />
+                  <img src={openFoodFactsData.image_url} alt={openFoodFactsData.name} className="w-20 h-20 rounded-lg object-cover" />
                 ) : (
-                  <div className="w-20 h-20 rounded-lg bg-secondary flex items-center justify-center">
-                    <Package className="w-10 h-10 text-muted-foreground" />
-                  </div>
+                  <div className="w-20 h-20 rounded-lg bg-secondary flex items-center justify-center"><Package className="w-10 h-10 text-muted-foreground" /></div>
                 )}
                 <div className="flex-1">
                   <Badge className="mb-2">{openFoodFactsData.source || 'Base partenaire'}</Badge>
                   <h3 className="font-semibold">{openFoodFactsData.name || 'Produit inconnu'}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {openFoodFactsData.brand || 'Sans marque'}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{openFoodFactsData.brand || 'Sans marque'}</p>
                 </div>
               </div>
             ) : (
               <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <p className="text-sm text-amber-500">
-                  Produit non trouvé sur les bases partenaires (Alimentaire, Cosmétique, Animaux). Vous pouvez le créer manuellement.
-                </p>
+                <p className="text-sm text-amber-500">Produit non répertorié. Saisie manuelle possible.</p>
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label>Nom *</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="bg-input border-border"
-                  data-testid="scanner-product-name"
-                />
+                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
               </div>
               <div className="col-span-2">
                 <Label>Marque</Label>
-                <Input
-                  value={formData.brand}
-                  onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                  className="bg-input border-border"
-                />
+                <Input value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
               </div>
               <div>
                 <Label>Quantité *</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={formData.quantity}
-                  onChange={(e) =>
-                    setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })
-                  }
-                  className="bg-input border-border"
-                  data-testid="scanner-product-quantity"
-                />
+                <Input type="number" min="0" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })} />
               </div>
               <div>
                 <Label>Catégorie *</Label>
-                <Select
-                  value={formData.category_id}
-                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-                >
-                  <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Sélectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                  <SelectContent>{categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Sous-catégorie</Label>
                 <Popover open={open} onOpenChange={setOpen}>
                   <PopoverTrigger asChild>
-                    <button
-                      role="combobox"
-                      aria-expanded={open}
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
-                    >
-                      {formData.sub_category_name || "Chercher ou choisir..."}
+                    <button role="combobox" aria-expanded={open} className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm">
+                      {formData.sub_category_name || "Chercher..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </button>
                   </PopoverTrigger>
-
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                     <Command>
-                      <CommandInput
-                        placeholder="Rechercher une sous-catégorie..."
-                        onValueChange={(searchTerm) => {
-                          const formattedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
-                          setFormData({ ...formData, sub_category_name: formattedTerm });
-                        }}
-                      />
+                      <CommandInput placeholder="Rechercher..." onValueChange={(t) => setFormData({ ...formData, sub_category_name: t.charAt(0).toUpperCase() + t.slice(1) })} />
                       <CommandList>
                         <CommandEmpty className="p-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start text-primary"
-                            onClick={() => setOpen(false)}
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Créer "{formData.sub_category_name}"
-                          </Button>
+                          <Button variant="ghost" size="sm" className="w-full justify-start text-primary" onClick={() => setOpen(false)}><Plus className="mr-2 h-4 w-4" />Créer "{formData.sub_category_name}"</Button>
                         </CommandEmpty>
-
-                        <CommandGroup title="Suggestions">
+                        <CommandGroup>
                           {subcategories.map((sub) => (
-                            <CommandItem
-                              key={sub.id}
-                              value={sub.name}
-                              onSelect={() => {
-                                setFormData({
-                                  ...formData,
-                                  sub_category_id: sub.id,
-                                  sub_category_name: sub.name
-                                });
-                                setOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.sub_category_id === sub.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {sub.name}
+                            <CommandItem key={sub.id} value={sub.name} onSelect={() => { setFormData({ ...formData, sub_category_id: sub.id, sub_category_name: sub.name }); setOpen(false); }}>
+                              <Check className={cn("mr-2 h-4 w-4", formData.sub_category_id === sub.id ? "opacity-100" : "opacity-0")} />{sub.name}
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -863,48 +650,19 @@ export default function ScannerPage() {
                     </Command>
                   </PopoverContent>
                 </Popover>
-
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Tapez pour chercher/créer ou choisissez une suggestion.
-                </p>
               </div>
               <div>
                 <Label>Emplacement *</Label>
-                <Select
-                  value={formData.location_id}
-                  onValueChange={(value) => setFormData({ ...formData, location_id: value })}
-                >
-                  <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Sélectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((loc) => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <Select value={formData.location_id} onValueChange={(value) => setFormData({ ...formData, location_id: value })}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                  <SelectContent>{locations.map((loc) => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Annuler
-            </Button>
-            <Button onClick={handleSaveNewProduct} disabled={saving} data-testid="save-scanned-product-btn">
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Enregistrement...
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ajouter au stock
-                </>
-              )}
-            </Button>
+            <Button variant="outline" onClick={handleCloseDialog}>Annuler</Button>
+            <Button onClick={handleSaveNewProduct} disabled={saving}>{saving ? 'Enregistrement...' : 'Ajouter au stock'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
