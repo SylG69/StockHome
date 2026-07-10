@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 import auth_service
 import config_service
@@ -44,3 +46,16 @@ app.include_router(dashboard_service.router)
 def root():
     """Retourne un petit payload de métadonnées de l'API."""
     return {"message": "StockHome API v2.0.0 - PostgreSQL (psycopg2)"}
+
+
+# --- Sert le frontend buildé (React/Vite) ---
+# IMPORTANT : ces routes doivent rester APRÈS toutes les routes API ci-dessus,
+# sinon le catch-all interceptera les appels /api/...
+
+app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+
+
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    """Catch-all : renvoie index.html pour le routing côté client (SPA)."""
+    return FileResponse("static/index.html")

@@ -1,17 +1,31 @@
 name: CI/CD Pipeline
 
-on: [push] # Se lance à chaque push, sur n'importe quelle branche
+on:
+  push:
+    branches: [ "main", "develop", "feature/*" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+# Autorise la pipeline à écrire dans le Container Registry de GitHub
+permissions:
+  packages: write
+  contents: read
 
 jobs:
-  verification:
+  # ----------------------------------------------------
+  # STAGE 1 : Code Quality (Linters en parallèle)
+  # ----------------------------------------------------
+  pylint:
     name: Run Pylint Code Quality
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -20,6 +34,135 @@ jobs:
     - name: Analysing the code with pylint
       run: |
         pylint --fail-under=9.0 --rcfile=.pylintrc $(git ls-files '*.py')
+
+  eslint:
+    name: Run eslint Code Quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ./frontend/package-lock.json
+
+      - name: Install dependencies (Frontend)
+        working-directory: ./frontend
+        run: |
+          npm install --legacy-peer-deps
+
+      - name: Run ESLint
+        env:
+          SARIF_ESLINT_IGNORE_SUPPRESSED: "true"
+        working-directory: ./frontend
+        run: |
+          npx eslint . \
+            --format @microsoft/eslint-formatter-sarif \
+            --output-file ./eslint-results.sarif
+        continue-on-error: true
+
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ./frontend/eslint-results.sarif
+          wait-for-processing: true
+
+  # ----------------------------------------------------
+  # STAGE 2 : Validation (Tests / Build)
+  # ----------------------------------------------------
+  ci-testing:
+    name: Integration & Tests
+    runs-on: ubuntu-latest
+    needs: [pylint, eslint]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Tests
+        run: |
+          echo "Exécution des tests unitaires et d'intégration..."
+          # Mets tes commandes ici (ex: pytest, npm test, docker build...)
+
+  # ----------------------------------------------------
+  # STAGE 3 : BUILD & PUSH DOCKER IMAGE
+  # ----------------------------------------------------
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [pylint, eslint]
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Connexion au registre d'images GitHub (GHCR)
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Configuration du builder Docker (gère le cache pour accélérer les builds)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Extraction des métadonnées (tags, labels)
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=sha,format=short
+
+      # Build et Push automatique
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ----------------------------------------------------
+  # STAGE 4 : DEPLOY
+  # ----------------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging (develop)
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+
+    steps:
+      - name: Trigger Deploy Webhook (staging)
+        run: |
+          curl -f -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}"
+
+  #deploy-production:
+  #  name: Deploy to Production (main)
+  #  runs-on: ubuntu-latest
+  #  needs: build-and-push
+  #  if: github.ref == 'refs/heads/main'
+  #  environment: production
+#
+  #  steps:
+  #    - name: Trigger Deploy Webhook (production)
+  #      run: |
+  #        curl -f -X POST "${{ secrets.DEPLOY_WEBHOOK_URL_PROD }}"
 
   #deploy:
   #  name: Execute remote deploy script via SSH
