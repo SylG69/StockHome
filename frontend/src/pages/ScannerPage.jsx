@@ -175,61 +175,69 @@ export default function ScannerPage() {
     setCameraActive(false);
   };
 
-  // --- FONCTION POUR EMETTRE LE BIP DE SCAN ---
+  // --- BIP AMÉLIORÉ (DOUBLE BIP PLUS FORT POUR MOBILE) ---
   const playScanSound = () => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
 
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Fréquence aiguë type douchette
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volume modéré
+      // Premier bip aigu
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(950, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start();
+      osc1.stop(audioCtx.currentTime + 0.08);
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
+      // Second bip un poil plus aigu (effet douchette de magasin)
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1200, audioCtx.currentTime);
+        gain2.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.08);
+      }, 70);
 
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.08); // Bip court de 80ms
     } catch (e) {
-      console.error("Échec de lecture du son", e);
+      console.error("Échec de lecture audio :", e);
     }
   };
 
   const handleBarcodeDetected = useCallback(async (barcode) => {
     if (searching) return;
 
+    // Sauvegarde de l'état de la caméra avant l'arrêt
     const wasCameraActive = cameraActive;
     stopCamera();
     setSearching(true);
+    playScanSound();
 
-    // --- BRANCHE LOGIQUE : MODE COURSE ---
+    // --- LOGIQUE MODE COURSE ---
     if (shoppingMode) {
-      playScanSound();
       try {
         let isExisting = false;
         let productName = '';
 
-        // 1. Essai de récupération dans le stock existant
         try {
           const existingRes = await api.get(`/products/barcode/${barcode}`);
           const prod = existingRes.data;
           await api.patch(`/products/${prod.id}/quantity?delta=1`);
           productName = prod.name;
           isExisting = true;
-        } catch (error) {
-          // Absent du stock local
-        }
+        } catch (error) {}
 
-        // 2. Si absent, récupération Open Food Facts & création immédiate
         if (!isExisting) {
           let offData = null;
           try {
             const offRes = await api.get(`/barcode/${barcode}`);
             offData = offRes.data;
-          } catch (e) {
-            console.log(`Code-barres ${barcode} inconnu sur les bases partenaires.`);
-          }
+          } catch (e) {}
 
           const matchedCategory = offData?.suggested_category
             ? categories.find(c => c.name.toLowerCase() === offData.suggested_category.toLowerCase())
@@ -249,7 +257,6 @@ export default function ScannerPage() {
             }
           }
 
-          // Formatage d'un payload complet pour satisfaire le backend
           const newProductData = {
             name: offData?.name || `Produit inconnu (${barcode})`,
             brand: offData?.brand || '',
@@ -271,21 +278,20 @@ export default function ScannerPage() {
         }
 
         toast.success(`+1 ajouté : ${productName}`);
-        setManualBarcode(''); // Vide le champ manuel si utilisé
+        setManualBarcode('');
       } catch (err) {
-        console.error(err);
-        toast.error("Erreur lors de l'ajout automatique en mode course");
+        toast.error("Erreur lors de l'ajout automatique");
       } finally {
         setSearching(false);
-        // On relance immédiatement la caméra pour scanner le produit suivant
+        // Rallume la caméra si elle était active
         if (wasCameraActive) {
-          startCamera();
+          setTimeout(() => startCamera(), 300);
         }
       }
       return;
     }
 
-    // --- BRANCHE LOGIQUE PAR DÉFAUT (CLASSIQUE) ---
+    // --- LOGIQUE MODE CLASSIQUE ---
     setScannedProduct({ barcode });
     setOpenFoodFactsData(null);
     setExistingProduct(null);
@@ -358,7 +364,7 @@ export default function ScannerPage() {
     handleBarcodeDetected(manualBarcode.trim());
   };
 
-  // Lecteur de code-barres USB
+  // Lecteur de code-barres USB physique
   useEffect(() => {
     let buffer = '';
     let timeout = null;
@@ -447,7 +453,7 @@ export default function ScannerPage() {
         </div>
       </div>
 
-      {/* --- BANDEAU ACTION : MODE COURSE --- */}
+      {/* Mode Retour de courses */}
       <Card className={cn(
         "bg-card border transition-all duration-300",
         shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border"
@@ -583,7 +589,7 @@ export default function ScannerPage() {
         </CardContent>
       </Card>
 
-      {/* Dialog Produit Existant */}
+      {/* Result Dialog - Existing Product */}
       <Dialog open={resultDialogOpen && existingProduct} onOpenChange={handleCloseDialog}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
@@ -614,13 +620,17 @@ export default function ScannerPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>Fermer</Button>
-            <Button onClick={() => navigate('/products')}>Voir les produits</Button>
+            <Button variant="outline" onClick={handleCloseDialog}>
+              Fermer
+            </Button>
+            <Button onClick={() => navigate('/products')} data-testid="go-to-products-btn">
+              Voir les produits
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Nouveau Produit */}
+      {/* Result Dialog - New Product / Open Food Facts */}
       <Dialog open={resultDialogOpen && !existingProduct} onOpenChange={handleCloseDialog}>
         <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader>
@@ -732,8 +742,22 @@ export default function ScannerPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>Annuler</Button>
-            <Button onClick={handleSaveNewProduct} disabled={saving}>{saving ? 'Enregistrement...' : 'Ajouter au stock'}</Button>
+            <Button variant="outline" onClick={handleCloseDialog}>
+              Annuler
+            </Button>
+            <Button onClick={handleSaveNewProduct} disabled={saving} data-testid="save-scanned-product-btn">
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ajouter au stock
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
