@@ -98,8 +98,20 @@ export default function ScannerPage() {
   });
 
   useEffect(() => {
-    fetchData();
-    codeReader.current = new BrowserMultiFormatReader();
+    // --- OPTIMISATION : RESTREINDRE LES FORMATS RECHERCHÉS ---
+    // Au lieu de tout chercher, on configure ZXing pour se focaliser UNIQUEMENT
+    // sur les formats de produits de grande consommation (EAN et UPC).
+    const hints = new Map();
+    const formats = [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+    ];
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+
+    // On passe les configurations au lecteur au moment de son instanciation
+    codeReader.current = new BrowserMultiFormatReader(hints);
 
     return () => {
       stopCamera();
