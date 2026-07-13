@@ -10,7 +10,6 @@ import LocationsPage from './pages/LocationsPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import ScannerPage from './pages/ScannerPage';
 import Layout from './components/Layout';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -97,11 +96,5 @@ function App() {
     </BrowserRouter>
   );
 }
-
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <GoogleOAuthProvider clientId="168521676002-u4gd6ltbs8kknb8noim1q7dhtkcpusk6.apps.googleusercontent.com">
-    <App />
-  </GoogleOAuthProvider>
-);
 
 export default App;
