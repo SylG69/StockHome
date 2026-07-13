@@ -52,6 +52,36 @@ DEMO_PRODUCTS = [
 
 GOOGLE_CLIENT_ID = "168521676002-u4gd6ltbs8kknb8noim1q7dhtkcpusk6.apps.googleusercontent.com"
 
+def add_demo_products(db: Session, user_id: str):
+    """Ajoute des produits de démonstration pour un nouvel utilisateur."""
+
+    categories = {cat.name: cat for cat in db.execute(select(models.Category).where(models.Category.user_id == user_id)).scalars().all()}
+    locations = {loc.name: loc for loc in db.execute(select(models.StorageLocation).where(models.StorageLocation.user_id == user_id)).scalars().all()}
+    if IS_STAGING:
+        print(f"Ajout des produits de démonstration pour l'utilisateur {user_id} : {len(DEMO_PRODUCTS)} produits")
+        for prod in DEMO_PRODUCTS:
+            category = categories.get(prod["category_name"])
+            location = locations.get(prod["location_name"])
+            if category and location:
+                new_product = models.Product(
+                    name=prod["name"],
+                    category_id=category.id,
+                    location_id=location.id,
+                    quantity=prod["quantity"],
+                    unit=prod["unit"],
+                    user_id=user_id
+                )
+                db.add(new_product)
+        db.commit()
+
+def add_default_categories_and_locations(db: Session, user_id: str):
+    """Ajoute des catégories et emplacements par défaut pour un nouvel utilisateur."""
+    for cat in DEFAULT_CATEGORIES:
+        db.add(models.Category(**cat, user_id=user_id))
+    for loc in DEFAULT_LOCATIONS:
+        db.add(models.StorageLocation(**loc, user_id=user_id))
+    db.commit()
+
 @router.post("/register", response_model=schemas.TokenResponse)
 def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
     """Enregistre un nouvel utilisateur et crée des catégories et emplacements par défaut."""
@@ -68,10 +98,9 @@ def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
     db.flush()
 
     # Catégories et emplacements par défaut, créés à chaque inscription
-    for cat in DEFAULT_CATEGORIES:
-        db.add(models.Category(**cat, user_id=user.id))
-    for loc in DEFAULT_LOCATIONS:
-        db.add(models.StorageLocation(**loc, user_id=user.id))
+    add_default_categories_and_locations(db, user.id)
+
+    add_demo_products(db, user.id)  # Ajout des produits de démonstration pour le nouvel utilisateur
 
     db.commit()
     db.refresh(user)
@@ -133,36 +162,8 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
             db.add(user)
             db.flush()
 
-            # Injection des catégories et emplacements par défaut obligatoires pour l'application
-            if IS_STAGING:
-                for cat in DEFAULT_CATEGORIES:
-                    db.add(models.Category(**cat, user_id=user.id))
-                for loc in DEFAULT_LOCATIONS:
-                    db.add(models.StorageLocation(**loc, user_id=user.id))
-
-                for product in DEMO_PRODUCTS:
-                    category = db.execute(
-                        select(models.Category).where(
-                            models.Category.name == product["category_name"],
-                            models.Category.user_id == user.id
-                        )
-                    ).scalar_one_or_none()
-                    location = db.execute(
-                        select(models.StorageLocation).where(
-                            models.StorageLocation.name == product["location_name"],
-                            models.StorageLocation.user_id == user.id
-                        )
-                    ).scalar_one_or_none()
-
-                    if category and location:
-                        product_data = schemas.ProductBase(
-                            name=product["name"],
-                            quantity=product["quantity"],
-                            unit=product["unit"],
-                            category_id=str(category.id),
-                            location_id=str(location.id),
-                        )
-                        db.add(models.Product(**product_data.model_dump(), user_id=user.id))
+            add_default_categories_and_locations(db, user.id)
+            add_demo_products(db, user.id)  # Ajout des produits de démonstration pour le nouvel utilisateur
 
             db.commit()
             db.refresh(user)
