@@ -82,7 +82,7 @@ def get_me(current_user: models.User = Depends(get_current_user)):
     return schemas.UserResponse.model_validate(current_user)
 
 @router.post("/google", response_model=schemas.TokenResponse)
-async def auth_google(body: GoogleTokenBody, db: Session = Depends(get_db)):
+async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_db)):
     """Authentifie un utilisateur via Google OAuth2 et renvoie un jeton d'accès pour l'application."""
     try:
         # Le serveur valide le jeton JWT directement auprès de Google
