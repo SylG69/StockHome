@@ -32,6 +32,10 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserResponse
 
+class GoogleTokenBody(BaseModel):
+    """Modèle pour la réception d'un jeton JWT côté serveur (ex: Google OAuth)."""
+    token: str
+
 # ==================== CATEGORIES ====================
 
 class CategoryBase(BaseModel):
