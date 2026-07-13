@@ -1,6 +1,7 @@
 """Points de terminaison d'authentification pour l'inscription, la connexion,
 la connexion via Google et la récupération de l'utilisateur authentifié."""
 
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -16,6 +17,9 @@ from database import get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+APP_ENV = os.getenv("APP_ENV", "production")
+IS_STAGING = APP_ENV == "staging"
+
 DEFAULT_CATEGORIES = [
     {"name": "Alimentaire", "icon": "Apple", "color": "#10B981"},
     {"name": "Boissons", "icon": "Wine", "color": "#3B82F6"},
@@ -30,6 +34,20 @@ DEFAULT_LOCATIONS = [
     {"name": "Réfrigérateur", "description": "Produits frais", "icon": "Snowflake", "color": "#10B981"},
     {"name": "Salle de bain", "description": "Produits d'hygiène", "icon": "Bath", "color": "#8B5CF6"},
     {"name": "Garage", "description": "Stockage garage", "icon": "Warehouse", "color": "#EF4444"},
+]
+
+DEMO_PRODUCTS = [
+    {"name": "Lait",                    "category_name": "Alimentaire", "location_name": "Réfrigérateur",   "quantity": 2,  "unit": "L"},
+    {"name": "Pain",                    "category_name": "Alimentaire", "location_name": "Cuisine",         "quantity": 1,  "unit": "pièce"},
+    {"name": "Shampoing",               "category_name": "Hygiène",     "location_name": "Salle de bain",   "quantity": 1,  "unit": "bouteille"},
+    {"name": "Lessive",                 "category_name": "Entretien",   "location_name": "Garage",          "quantity": 1,  "unit": "bidon"},
+    {"name": "Croquettes pour chien",   "category_name": "Animaux",     "location_name": "Garage",          "quantity": 5,  "unit": "kg"},
+    {"name": "Coca-Cola",               "category_name": "Boissons",    "location_name": "Réfrigérateur",   "quantity": 6,  "unit": "canettes"},
+    {"name": "Eau minérale",            "category_name": "Boissons",    "location_name": "Réfrigérateur",   "quantity": 12, "unit": "bouteilles"},
+    {"name": "Savon",                   "category_name": "Hygiène",     "location_name": "Salle de bain",   "quantity": 3,  "unit": "barres"},
+    {"name": "Éponge",                  "category_name": "Entretien",   "location_name": "Cuisine",         "quantity": 2,  "unit": "pièces"},
+    {"name": "Croquettes pour chat",    "category_name": "Animaux",     "location_name": "Garage",          "quantity": 3,  "unit": "kg"},
+    {"name": "Jus d'orange",            "category_name": "Boissons",    "location_name": "Réfrigérateur",   "quantity": 2,  "unit": "bouteilles"},
 ]
 
 GOOGLE_CLIENT_ID = "168521676002-u4gd6ltbs8kknb8noim1q7dhtkcpusk6.apps.googleusercontent.com"
@@ -116,10 +134,35 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
             db.flush()
 
             # Injection des catégories et emplacements par défaut obligatoires pour l'application
-            for cat in DEFAULT_CATEGORIES:
-                db.add(models.Category(**cat, user_id=user.id))
-            for loc in DEFAULT_LOCATIONS:
-                db.add(models.StorageLocation(**loc, user_id=user.id))
+            if IS_STAGING:
+                for cat in DEFAULT_CATEGORIES:
+                    db.add(models.Category(**cat, user_id=user.id))
+                for loc in DEFAULT_LOCATIONS:
+                    db.add(models.StorageLocation(**loc, user_id=user.id))
+
+                for product in DEMO_PRODUCTS:
+                    category = db.execute(
+                        select(models.Category).where(
+                            models.Category.name == product["category_name"],
+                            models.Category.user_id == user.id
+                        )
+                    ).scalar_one_or_none()
+                    location = db.execute(
+                        select(models.StorageLocation).where(
+                            models.StorageLocation.name == product["location_name"],
+                            models.StorageLocation.user_id == user.id
+                        )
+                    ).scalar_one_or_none()
+
+                    if category and location:
+                        product_data = schemas.ProductBase(
+                            name=product["name"],
+                            quantity=product["quantity"],
+                            unit=product["unit"],
+                            category_id=str(category.id),
+                            location_id=str(location.id),
+                        )
+                        db.add(models.Product(**product_data.model_dump(), user_id=user.id))
 
             db.commit()
             db.refresh(user)
