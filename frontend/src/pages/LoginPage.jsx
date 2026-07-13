@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { Home, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithToken } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,12 +35,11 @@ export default function LoginPage() {
 
         const data = await res.json();
 
-        localStorage.setItem('token', data.access_token);
+        loginWithToken(data.access_token, data.user);
 
         // Connexion réussie !
         toast.success('Connexion Google réussie');
-        // navigate('/');
-        window.location.href = '/';
+        navigate('/dashboard'); // Redirection vers le tableau de bord après la connexion
       } catch (error) {
         toast.error(error.message || 'Erreur lors de la connexion Google');
       } finally {
