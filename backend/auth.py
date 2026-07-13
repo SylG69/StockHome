@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 
+
+
 JWT_SECRET = os.environ.get("JWT_SECRET", "stockhome-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
