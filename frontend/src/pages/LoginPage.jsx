@@ -35,9 +35,12 @@ export default function LoginPage() {
 
         const data = await res.json();
 
+        localStorage.setItem('token', data.access_token);
+
         // Connexion réussie !
         toast.success('Connexion Google réussie');
-        navigate('/');
+        // navigate('/');
+        window.location.href = '/';
       } catch (error) {
         toast.error(error.message || 'Erreur lors de la connexion Google');
       } finally {
@@ -84,7 +87,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('Connexion réussie');
-      navigate('/');
+      navigate('/dashboard');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erreur de connexion');
     } finally {
