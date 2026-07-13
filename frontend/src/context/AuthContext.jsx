@@ -67,6 +67,15 @@ export const AuthProvider = ({ children }) => {
     fetchUser();
   }, [fetchUser]);
 
+  // Utilisé après un login externe (Google) qui a déjà renvoyé
+  // access_token + user depuis le backend : on met à jour le contexte
+  // directement, sans reload ni appel /auth/me supplémentaire.
+  const loginWithToken = (accessToken, userData) => {
+    localStorage.setItem('token', accessToken);
+    setToken(accessToken);
+    setUser(userData);
+  };
+
   const login = async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
     const { access_token, user: userData } = response.data;
@@ -101,6 +110,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    loginWithToken,
     api,
     isAuthenticated: !!user,
   };
