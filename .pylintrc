@@ -1,5 +1,5 @@
 [MAIN]
-
+ignore-paths=^backend/alembic/.*$
 # Analyse import fallback blocks. This can be used to support both Python 2 and
 # 3 compatible code, which means that the block might have code that exists
 # only in one or another interpreter, leading to false positives when analysed.
@@ -417,6 +417,7 @@ logging-modules=logging
 
 
 [MESSAGES CONTROL]
+disable=missing-module-docstring,missing-function-docstring,missing-class-docstring
 
 # Only show warnings with the listed confidence levels. Leave empty to show
 # all. Valid levels: HIGH, CONTROL_FLOW, INFERENCE, INFERENCE_FAILURE,
