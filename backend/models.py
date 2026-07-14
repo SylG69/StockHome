@@ -12,10 +12,12 @@ from database import Base
 
 
 def gen_uuid() -> str:
+    """Génère un identifiant UUID4 sous forme de chaîne."""
     return str(uuid.uuid4())
 
 
 def utcnow() -> datetime:
+    """Retourne l'horodatage UTC courant."""
     return datetime.now(timezone.utc)
 
 

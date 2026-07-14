@@ -1,9 +1,9 @@
 """Points de terminaison d'authentification pour l'inscription, la connexion,
 la connexion via Google et la récupération de l'utilisateur authentifié."""
+# pylint: disable=line-too-long
 
 import os
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -140,7 +140,6 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
         )
 
         # Si le jeton est valide, on extrait les informations sécurisées
-        user_id = id_info['sub']  # Identifiant unique de l'utilisateur chez Google
         email = id_info.get('email')
         google_id = id_info.get('sub')   # Identifiant unique de l'utilisateur chez Google
         name = id_info.get('name', '')  # Fallback si pas de name défini
@@ -183,9 +182,8 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
             user=schemas.UserResponse.model_validate(user)
         )
 
-    except ValueError:
-        # Le jeton Google est corrompu, modifié ou expiré
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Jeton Google invalide ou expiré"
-        )
+        ) from exc
