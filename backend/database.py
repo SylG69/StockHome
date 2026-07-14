@@ -19,7 +19,7 @@ engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 session_local = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
-class Base(DeclarativeBase):
+class Base(DeclarativeBase): # pylint: disable=too-few-public-methods
     """Classe de base pour les modèles SQLAlchemy."""
 
 

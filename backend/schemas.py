@@ -19,8 +19,8 @@ class UserLogin(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
     """Représentation publique d'un utilisateur renvoyée par l'API."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     email: EmailStr
     username: str
@@ -49,8 +49,8 @@ class CategoryCreate(CategoryBase):
     pass
 
 class CategoryResponse(CategoryBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour une catégorie, inclut métadonnées et propriétaire."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
@@ -74,8 +74,8 @@ class SubCategoryUpdate(BaseModel):
     min_quantity: Optional[int] = None
 
 class SubCategoryResponse(SubCategoryBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour une sous-catégorie, inclut métadonnées et propriétaire."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
@@ -94,8 +94,8 @@ class StorageLocationCreate(StorageLocationBase):
     pass
 
 class StorageLocationResponse(StorageLocationBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour un emplacement de stockage avec métadonnées."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
@@ -136,8 +136,8 @@ class ProductUpdate(BaseModel):
     brand: Optional[str] = None
 
 class ProductResponse(ProductBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour un produit, inclut métadonnées et noms résolus."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
@@ -161,8 +161,8 @@ class ShoppingListItemCreate(ShoppingListItemBase):
     pass
 
 class ShoppingListItemResponse(ShoppingListItemBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour un item de liste de courses, avec métadonnées."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
