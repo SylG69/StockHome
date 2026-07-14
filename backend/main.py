@@ -13,14 +13,11 @@ import config_service
 import dashboard_service
 import product_service
 import shopping_service
-from database import Base, engine
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Crée les tables si elles n'existent pas encore (pratique en dev ;
-    # en prod, utilisez plutôt Alembic pour les migrations de schéma).
-    # Base.metadata.create_all(bind=engine)
+    """Cycle de vie de l'application (le schéma est géré par Alembic, pas ici)."""
     yield
 
 
@@ -55,7 +52,6 @@ def root():
 STATIC_DIR = "static"
 ASSETS_DIR = os.path.join(STATIC_DIR, "assets")
 
-# On ne monte le dossier assets que s'il existe pour éviter le crash au démarrage
 if os.path.exists(ASSETS_DIR):
     app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 else:
@@ -63,12 +59,12 @@ else:
 
 
 @app.get("/{full_path:path}")
-async def serve_frontend(full_path: str):
-    """Catch-all : renvoie index.html pour le routing côté client (SPA)."""
-    INDEX_PATH = os.path.join(STATIC_DIR, "index.html")
+async def serve_frontend(full_path: str):  # pylint: disable=unused-argument
+    """Catch-all : renvoie index.html pour le routing côté client (SPA).
+    full_path est requis par FastAPI pour matcher la route, même si non utilisé ici."""
+    index_path = os.path.join(STATIC_DIR, "index.html")
 
-    if os.path.exists(INDEX_PATH):
-        return FileResponse(INDEX_PATH)
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
 
-    # Si on est en dev sans les statiques buildés, on renvoie un JSON explicite plutôt qu'une erreur 500
     return {"message": "StockHome API v2.0.0 - Mode API seule (Frontend non buildé localement)"}

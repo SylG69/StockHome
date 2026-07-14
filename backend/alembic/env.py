@@ -1,3 +1,6 @@
+"""Configuration de l'environnement Alembic pour les migrations StockHome."""
+# pylint: disable=no-member,wrong-import-position
+
 import os
 import sys
 from logging.config import fileConfig
@@ -9,7 +12,7 @@ from alembic import context
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from database import Base  # ta Base declarative
-import models  # noqa: F401  -- IMPORTANT : force l'enregistrement de tous les modèles
+import models  # pylint: disable=unused-import  -- force l'enregistrement des modèles
 
 config = context.config
 
@@ -25,6 +28,7 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
+    """Exécute les migrations en mode 'offline' (génère du SQL sans connexion active)."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -37,6 +41,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    """Exécute les migrations en mode 'online' (connexion active à la base)."""
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

@@ -263,6 +263,7 @@ def update_product_quantity(
 def delete_product(
     product_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    """Supprime un produit appartenant à l'utilisateur authentifié."""
     product = db.execute(
         select(models.Product).where(models.Product.id == product_id, models.Product.user_id == current_user.id)
     ).scalar_one_or_none()
