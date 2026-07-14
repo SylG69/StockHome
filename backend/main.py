@@ -20,7 +20,7 @@ from database import Base, engine
 async def lifespan(_app: FastAPI):
     # Crée les tables si elles n'existent pas encore (pratique en dev ;
     # en prod, utilisez plutôt Alembic pour les migrations de schéma).
-    Base.metadata.create_all(bind=engine)
+    # Base.metadata.create_all(bind=engine)
     yield
 
 

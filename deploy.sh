@@ -55,6 +55,9 @@ cd "${BACKEND_DIR}"
 log "Installation des dépendances Python…"
 "${VENV}/bin/pip" install -r requirements.txt --quiet
 
+log "Application des migrations Alembic…"
+"${VENV}/bin/alembic" -c "${BACKEND_DIR}/alembic.ini" upgrade head
+
 log "Redémarrage du service ${SERVICE}…"
 systemctl restart "${SERVICE}"
 
