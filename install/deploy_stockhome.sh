@@ -220,7 +220,7 @@ sudo -u postgres psql -d "$DB_NAME" -c "GRANT ALL ON SCHEMA public TO ${DB_USER}
 
 echo "=== 6/8 : Migrations Alembic ==="
 cd "${BACKEND_DIR}"
-"${BACKEND_DIR}/venv/bin/alembic" upgrade head
+"${BACKEND_DIR}/venv/bin/python" bootstrap_db.py
 echo "    Migrations appliquées."
 
 echo "=== 7/8 : Service systemd ${SERVICE_NAME} ==="

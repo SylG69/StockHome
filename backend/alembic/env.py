@@ -12,7 +12,8 @@ from alembic import context
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from database import Base  # ta Base declarative
-import models  # pylint: disable=unused-import  -- force l'enregistrement des modèles
+import models  # pylint: disable=unused-import
+# force l'enregistrement des modèles
 
 config = context.config
 
