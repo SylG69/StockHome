@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
@@ -15,6 +15,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Référence au conteneur du bouton Google, pour mesurer sa largeur réelle
+  // et la transmettre à Google (son bouton est rendu dans un iframe qui
+  // attend une largeur en pixels -- "100%" est ignoré, d'où le bouton trop
+  // étroit par défaut, mal aligné avec celui de GitHub).
+  const googleBtnContainerRef = useRef(null);
 
   // 1. Gestion de l'authentification Google via useEffect
   useEffect(() => {
@@ -76,10 +81,16 @@ export default function LoginPage() {
           context: "signin",
         });
 
-        // Rendu du bouton officiel dans la div avec l'ID 'google-btn'
+        // Rendu du bouton officiel dans la div référencée par
+        // googleBtnContainerRef. Google exige une largeur en pixels (nombre,
+        // 400 max) : on mesure donc la largeur réelle du conteneur plutôt
+        // que de lui passer "100%" (ignoré, d'où un bouton trop étroit).
+        const container = googleBtnContainerRef.current;
+        const measuredWidth = container ? Math.min(container.offsetWidth, 400) : 300;
+
         window.google.accounts.id.renderButton(
-          document.getElementById("google-btn"),
-          { theme: "outline", size: "large", width: "100%", text: "signin_with" }
+          container,
+          { theme: "outline", size: "large", width: measuredWidth, text: "signin_with" }
         );
       }
     };
@@ -247,7 +258,7 @@ export default function LoginPage() {
             </div>
 
             {/* 2. Emplacement unique pour le bouton Google */}
-            <div id="google-btn" className="w-full flex justify-center"></div>
+            <div ref={googleBtnContainerRef} className="w-full flex justify-center"></div>
 
             {/* Bouton GitHub (flux OAuth par redirection, pas de SDK JS) */}
             <Button
