@@ -274,25 +274,59 @@ def delete_product(
     return {"message": "Produit supprimé"}
 
 
+# API v3 (version courante recommandée par Open Food Facts ; la v2 est
+# dépréciée et la v0 legacy). Les trois bases tournent sur le même serveur
+# Product Opener et exposent les mêmes endpoints v3.
 OFF_SOURCES = [
-    ("Open Food Facts", "https://world.openfoodfacts.org/api/v0/product/{barcode}.json"),
-    ("Open Beauty Facts", "https://world.openbeautyfacts.org/api/v0/product/{barcode}.json"),
-    ("Open Pet Food Facts", "https://world.openpetfoodfacts.org/api/v0/product/{barcode}.json"),
+    ("Open Food Facts", "https://world.openfoodfacts.org/api/v3/product/{barcode}"),
+    ("Open Beauty Facts", "https://world.openbeautyfacts.org/api/v3/product/{barcode}"),
+    ("Open Pet Food Facts", "https://world.openpetfoodfacts.org/api/v3/product/{barcode}"),
 ]
 
+# Open Food Facts impose un User-Agent identifiant l'application, au format
+# exact "AppName/Version (ContactEmail)" -- les requêtes anonymes risquent
+# d'être assimilées à un bot et bloquées.
+# (https://openfoodfacts.github.io/openfoodfacts-server/api/#authentication)
+OFF_HEADERS = {"User-Agent": "StockHome/2.0 (s.greneron@gmail.com)"}
 
-async def _fetch_off_product(barcode: str) -> tuple[Optional[dict], Optional[str]]:
+# Champs demandés pour la recherche "simple" (scan / rafraîchissement) :
+# limiter le payload est recommandé par OFF et accélère la réponse. Le mode
+# "information complète" n'utilise pas cette liste (il veut tout).
+OFF_SIMPLE_FIELDS = ",".join([
+    "product_name", "product_name_fr", "brands",
+    "image_url", "image_front_url",
+    "categories", "categories_tags", "quantity",
+    "nutriscore_grade", "nutrient_levels", "nutriments",
+])
+
+
+async def _fetch_off_product(
+    barcode: str, fields: Optional[str] = None
+) -> tuple[Optional[dict], Optional[str]]:
     """Interroge Open Food Facts, Open Beauty Facts puis Open Pet Food Facts
-    dans l'ordre, s'arrête à la première réponse trouvée. Renvoie
-    (produit_brut, nom_de_la_source) ou (None, None) si rien n'est trouvé."""
-    async with httpx.AsyncClient() as client:
+    (API v3) dans l'ordre, s'arrête à la première réponse trouvée. Renvoie
+    (produit_brut, nom_de_la_source) ou (None, None) si rien n'est trouvé.
+
+    Si `fields` est fourni (liste séparée par des virgules), seuls ces
+    champs sont demandés, ce qui allège la réponse.
+    """
+    params = {"fields": fields} if fields else None
+    async with httpx.AsyncClient(headers=OFF_HEADERS) as client:
         for source_name, url_template in OFF_SOURCES:
             try:
-                response = await client.get(url_template.format(barcode=barcode), timeout=4.0)
+                response = await client.get(
+                    url_template.format(barcode=barcode), params=params, timeout=4.0
+                )
+                # En v3, un produit introuvable renvoie un HTTP 404 avec un
+                # corps JSON détaillé ; on ne considère que les 200.
                 if response.status_code == 200:
                     data = response.json()
-                    if data.get("status") == 1:
-                        return data.get("product", {}), source_name
+                    # v3 : "status" est une chaîne ("success" ou
+                    # "success_with_warnings"), contrairement à la v0 où
+                    # c'était l'entier 1.
+                    status_value = data.get("status")
+                    if status_value in ("success", "success_with_warnings") and data.get("product"):
+                        return data["product"], source_name
             except (httpx.TimeoutException, httpx.RequestError):
                 # cette base est en timeout/injoignable : on tente la suivante
                 continue
@@ -349,7 +383,7 @@ async def refresh_product_from_off(
     if not product.barcode:
         raise HTTPException(status_code=400, detail="Ce produit n'a pas de code-barres : impossible d'interroger Open Food Facts")
 
-    off_product, _source = await _fetch_off_product(product.barcode)
+    off_product, _source = await _fetch_off_product(product.barcode, fields=OFF_SIMPLE_FIELDS)
     if off_product is None:
         raise HTTPException(
             status_code=404,
@@ -396,7 +430,7 @@ async def lookup_barcode(barcode: str):
     externe, reste async). Interroge Open Food Facts, Open Beauty Facts puis
     Open Pet Food Facts dans l'ordre, s'arrête à la première réponse trouvée.
     """
-    product, matched_source = await _fetch_off_product(barcode)
+    product, matched_source = await _fetch_off_product(barcode, fields=OFF_SIMPLE_FIELDS)
 
     if product is None:
         raise HTTPException(
