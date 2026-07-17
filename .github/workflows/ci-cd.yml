@@ -9,7 +9,8 @@ on:
 # Autorise la pipeline à écrire dans le Container Registry de GitHub
 permissions:
   packages: write
-  contents: read
+  contents: write
+  deployments: write
 
 jobs:
   # ----------------------------------------------------
@@ -181,3 +182,121 @@ jobs:
        script: |
          echo "Connexion SSH réussie. Déclenchement du script de déploiement..."
          sudo /appli/stockhome/deploy.sh "${{ github.ref_name }}"
+
+  # -------------------------------------------------------
+  # STAGE 5 : MAJ RELEASE (après déploiement en production)
+  # -------------------------------------------------------
+
+  update_release:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    # Accorde explicitement les droits d'écriture pour pousser le tag et créer la release
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (full history & tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get current branch & short sha
+        id: meta
+        run: |
+          echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Bump patch, push tag and create release with changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+
+          # --- find latest semver tag (v?X.Y.Z)
+          LATEST_TAG=$(git tag --list --sort=-v:refname | grep -E '^[v]?[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)
+          echo "Latest tag: '${LATEST_TAG:-<none>}'"
+
+          if [ -z "$LATEST_TAG" ]; then
+            PREFIX=""
+            MAJ=0; MIN=0; PATCH=0
+          else
+            if [[ "$LATEST_TAG" =~ ^v ]]; then
+              PREFIX="v"
+              VERSION="${LATEST_TAG#v}"
+            else
+              PREFIX=""
+              VERSION="$LATEST_TAG"
+            fi
+            IFS='.' read -r MAJ MIN PATCH <<< "$VERSION"
+          fi
+
+          # --- increment patch
+          PATCH=$((PATCH + 1))
+          NEW_TAG="${PREFIX}${MAJ}.${MIN}.${PATCH}"
+          echo "New tag: $NEW_TAG"
+
+          # --- generate changelog: commits since latest tag (or full history if none)
+          if [ -n "$LATEST_TAG" ]; then
+            CHANGELOG=$(git log --no-merges --pretty=format:'- %h %s (%an)' "${LATEST_TAG}..HEAD" || true)
+            RANGE="${LATEST_TAG}..HEAD"
+          else
+            CHANGELOG=$(git log --no-merges --pretty=format:'- %h %s (%an)' HEAD -n 100 || true)
+            RANGE="initial..HEAD"
+          fi
+
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="- (no commits found since ${LATEST_TAG:-start})"
+          fi
+
+          echo "Changelog (excerpt):"
+          echo "$CHANGELOG" | sed -n '1,20p'
+
+          # --- configure git user for tag push
+          git config user.name "${ACTOR}"
+          git config user.email "${ACTOR}@users.noreply.github.com"
+
+          # --- create annotated tag and push
+          git tag -a "${NEW_TAG}" -m "Release ${NEW_TAG} (automatique)"
+          echo "Pushing tag ${NEW_TAG} to origin..."
+          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git"
+          git push "${REPO_URL}" "${NEW_TAG}"
+
+          # --- prepare release body
+          RELEASE_BODY="Automated release ${NEW_TAG}
+
+          Changes (${RANGE}):
+          ${CHANGELOG}
+
+          Commit: ${TARGET_SHA}
+          Deployed by: ${ACTOR}
+          Workflow: ${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER}"
+
+          # /!\ CORRECTION : Export des variables pour qu'elles soient visibles par Python
+          export NEW_TAG
+          export RELEASE_BODY
+
+          JSON_PAYLOAD=$(python3 - <<PY
+          import os, json
+          payload = {
+            "tag_name": os.environ["NEW_TAG"],
+            "name": os.environ["NEW_TAG"],
+            "body": os.environ["RELEASE_BODY"],
+            "draft": False,
+            "prerelease": False,
+            "target_commitish": os.environ["TARGET_SHA"]
+          }
+          print(json.dumps(payload))
+          PY
+          )
+
+          # /!\ AJOUT : Envoi effectif à l'API GitHub pour créer la Release
+          echo "Creating GitHub Release..."
+          curl -s -X POST \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${REPOSITORY}/releases \
+            -d "$JSON_PAYLOAD" > /dev/null
+
+          echo "Release ${NEW_TAG} créée avec succès !"
