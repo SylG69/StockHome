@@ -31,6 +31,11 @@ class User(Base):
     google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+    # "admin" ou "user". Seul un admin accède à la gestion des utilisateurs.
+    role: Mapped[str] = mapped_column(String(20), default="user", nullable=False)
+    # "pending" (en attente de validation par un admin), "active" ou "disabled".
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+
     categories: Mapped[list["Category"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sub_categories: Mapped[list["SubCategory"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     locations: Mapped[list["StorageLocation"]] = relationship(back_populates="user", cascade="all, delete-orphan")

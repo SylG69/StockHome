@@ -25,6 +25,16 @@ class UserResponse(BaseModel):
     email: EmailStr
     username: str
     created_at: datetime
+    role: str = "user"
+    status: str = "pending"
+
+class UserStatusUpdate(BaseModel):
+    """Requête admin pour approuver/refuser/désactiver un compte."""
+    status: str  # "pending" | "active" | "disabled"
+
+class UserRoleUpdate(BaseModel):
+    """Requête admin pour changer le rôle d'un utilisateur."""
+    role: str  # "admin" | "user"
 
 class TokenResponse(BaseModel):
     """Payload contenant le jeton d'accès et l'utilisateur associé."""

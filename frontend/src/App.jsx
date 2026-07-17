@@ -9,6 +9,7 @@ import CategoriesPage from './pages/CategoriesPage';
 import LocationsPage from './pages/LocationsPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import ScannerPage from './pages/ScannerPage';
+import UsersPage from './pages/UsersPage';
 import Layout from './components/Layout';
 import './App.css';
 
@@ -48,6 +49,25 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Page réservée aux admins : un utilisateur normal est renvoyé au dashboard.
+  if (user?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
 function AppRoutes() {
   return (
     <Routes>
@@ -81,6 +101,14 @@ function AppRoutes() {
         <Route path="locations" element={<LocationsPage />} />
         <Route path="shopping-list" element={<ShoppingListPage />} />
         <Route path="scanner" element={<ScannerPage />} />
+        <Route
+          path="users"
+          element={
+            <AdminRoute>
+              <UsersPage />
+            </AdminRoute>
+          }
+        />
       </Route>
     </Routes>
   );

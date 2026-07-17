@@ -63,4 +63,46 @@ def get_current_user(
     user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Un compte en attente de validation ou désactivé ne peut utiliser aucune
+    # route protégée (autre que /me, via get_current_user_any_status), même
+    # s'il possède un jeton valide.
+    if user.status == "pending":
+        raise HTTPException(status_code=403, detail="Votre compte est en attente de validation par un administrateur")
+    if user.status == "disabled":
+        raise HTTPException(status_code=403, detail="Votre compte a été désactivé")
+
     return user
+
+
+def get_current_user_any_status(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> User:
+    """Comme get_current_user, mais sans bloquer les comptes pending/disabled.
+    Réservé à /api/auth/me, pour que le frontend puisse afficher un écran
+    "compte en attente" après une inscription non encore approuvée."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id: Optional[str] = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError as exc:
+        raise credentials_exception from exc
+
+    user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Dépendance FastAPI : autorise uniquement les utilisateurs admin."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+    return current_user

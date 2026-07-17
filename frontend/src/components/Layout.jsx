@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Home,
+  ShieldCheck,
 } from 'lucide-react';
 
 const navItems = [
@@ -24,10 +25,17 @@ const navItems = [
   { to: '/scanner', icon: ScanLine, label: 'Scanner' },
 ];
 
+// Entrée de menu affichée uniquement pour les administrateurs, en plus des
+// items ci-dessus (voir usage avec .filter dans le rendu de la nav).
+const adminNavItem = { to: '/users', icon: ShieldCheck, label: 'Utilisateurs' };
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // La page "Gestion des utilisateurs" n'est visible que pour les admins.
+  const visibleNavItems = user?.role === 'admin' ? [...navItems, adminNavItem] : navItems;
 
   const handleLogout = () => {
     logout();
@@ -49,7 +57,7 @@ export default function Layout() {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -126,7 +134,7 @@ export default function Layout() {
         }`}
       >
         <nav className="px-4 py-6 space-y-1">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
