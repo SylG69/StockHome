@@ -33,6 +33,7 @@ class User(Base):
     last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=True)
     google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    github_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     # "admin" ou "user". Seul un admin accède à la gestion des utilisateurs.
@@ -59,6 +60,8 @@ class User(Base):
             methods.append("email")
         if self.google_id:
             methods.append("google")
+        if self.github_id:
+            methods.append("github")
         return methods
 
 

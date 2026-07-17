@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { toast } from 'sonner';
-import { Home, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Home, Loader2, Eye, EyeOff, Github } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, loginWithToken } = useAuth();
@@ -90,6 +90,30 @@ export default function LoginPage() {
       document.body.removeChild(script);
     };
   }, [navigate]);
+
+  const handleGithubLogin = () => {
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID || '';
+    const redirectUri = import.meta.env.VITE_GITHUB_REDIRECT_URI || `${window.location.origin}/auth/github/callback`;
+
+    if (!clientId) {
+      toast.error('Connexion GitHub non configurée (VITE_GITHUB_CLIENT_ID manquant)');
+      return;
+    }
+
+    // Jeton anti-CSRF : vérifié par GithubCallbackPage au retour, pour
+    // s'assurer que la redirection provient bien de cette tentative de
+    // connexion et pas d'une requête forgée.
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('github_oauth_state', state);
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: 'read:user user:email',
+      state,
+    });
+    window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -224,6 +248,18 @@ export default function LoginPage() {
 
             {/* 2. Emplacement unique pour le bouton Google */}
             <div id="google-btn" className="w-full flex justify-center"></div>
+
+            {/* Bouton GitHub (flux OAuth par redirection, pas de SDK JS) */}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full mt-3 gap-2"
+              onClick={handleGithubLogin}
+              data-testid="github-login-btn"
+            >
+              <Github className="w-4 h-4" />
+              Continuer avec GitHub
+            </Button>
 
             <div className="mt-6 text-center text-sm">
               <span className="text-muted-foreground">Pas encore de compte ? </span>

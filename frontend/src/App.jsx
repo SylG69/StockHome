@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from './components/ui/sonner';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import GithubCallbackPage from './pages/GithubCallbackPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import ProductDetailPage from './pages/ProductDetailPage';
@@ -89,6 +90,10 @@ function AppRoutes() {
           </PublicRoute>
         }
       />
+      {/* Pas de wrapper PublicRoute ici : la page gère elle-même la
+          redirection une fois l'échange terminé, et l'utilisateur n'est pas
+          encore authentifié au moment où GitHub redirige dessus. */}
+      <Route path="/auth/github/callback" element={<GithubCallbackPage />} />
       <Route
         path="/"
         element={

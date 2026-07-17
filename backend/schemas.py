@@ -57,6 +57,13 @@ class GoogleTokenBody(BaseModel):
     """Modèle pour la réception d'un jeton JWT côté serveur (ex: Google OAuth)."""
     token: str
 
+class GithubTokenBody(BaseModel):
+    """Code d'autorisation OAuth GitHub (flux "authorization code"), reçu
+    par le frontend sur sa page de callback puis transmis ici pour être
+    échangé contre un access_token GitHub côté serveur (le client_secret ne
+    doit jamais transiter côté frontend)."""
+    code: str
+
 # ==================== CATEGORIES ====================
 
 class CategoryBase(BaseModel):
