@@ -265,7 +265,9 @@ elif [ -f "${SRC_FRONTEND}/package.json" ]; then
     cat > "${SRC_FRONTEND}/.env" <<EOF
 VITE_API_URL=https://${DOMAIN}
 EOF
-
+    cd "$SRC_FRONTEND"
+    VITE_APP_VERSION=$(git rev-parse --abbrev-ref HEAD) VITE_APP_ENV=test
+    export VITE_APP_VERSION VITE_APP_ENV
     (cd "$SRC_FRONTEND" && npm ci --silent && npm run build --silent)
     rsync -a --delete "${SRC_FRONTEND}/dist/" "${FRONTEND_WEBROOT}/"
 else

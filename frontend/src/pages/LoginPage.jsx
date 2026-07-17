@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { toast } from 'sonner';
-import { Home, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Home, Loader2, Eye, EyeOff, Github } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, loginWithToken } = useAuth();
@@ -15,6 +15,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Référence au conteneur du bouton Google, pour mesurer sa largeur réelle
+  // et la transmettre à Google (son bouton est rendu dans un iframe qui
+  // attend une largeur en pixels -- "100%" est ignoré, d'où le bouton trop
+  // étroit par défaut, mal aligné avec celui de GitHub).
+  const googleBtnContainerRef = useRef(null);
 
   // 1. Gestion de l'authentification Google via useEffect
   useEffect(() => {
@@ -31,7 +36,23 @@ export default function LoginPage() {
           body: JSON.stringify({ token: idToken })
         });
 
-        if (!res.ok) throw new Error("Échec de l'authentification avec Google");
+        if (!res.ok) {
+          // Le backend renvoie un 403 avec un message explicite si le
+          // compte (nouvellement créé via Google ou existant) est en
+          // attente de validation ou désactivé : on remonte ce message
+          // au lieu d'une erreur générique.
+          let detail = null;
+          try {
+            const errBody = await res.json();
+            detail = errBody?.detail;
+          } catch (_) { /* corps non-JSON : on garde le message générique */ }
+
+          if (res.status === 403 && detail) {
+            toast.warning(detail, { duration: 6000 });
+            return;
+          }
+          throw new Error(detail || "Échec de l'authentification avec Google");
+        }
 
         const data = await res.json();
 
@@ -39,7 +60,7 @@ export default function LoginPage() {
 
         // Connexion réussie !
         toast.success('Connexion Google réussie');
-        navigate('/dashboard'); // Redirection vers le tableau de bord après la connexion
+        navigate('/'); // Redirection vers le tableau de bord après la connexion
       } catch (error) {
         toast.error(error.message || 'Erreur lors de la connexion Google');
       } finally {
@@ -60,10 +81,16 @@ export default function LoginPage() {
           context: "signin",
         });
 
-        // Rendu du bouton officiel dans la div avec l'ID 'google-btn'
+        // Rendu du bouton officiel dans la div référencée par
+        // googleBtnContainerRef. Google exige une largeur en pixels (nombre,
+        // 400 max) : on mesure donc la largeur réelle du conteneur plutôt
+        // que de lui passer "100%" (ignoré, d'où un bouton trop étroit).
+        const container = googleBtnContainerRef.current;
+        const measuredWidth = container ? Math.min(container.offsetWidth, 400) : 300;
+
         window.google.accounts.id.renderButton(
-          document.getElementById("google-btn"),
-          { theme: "outline", size: "large", width: "100%", text: "signin_with" }
+          container,
+          { theme: "outline", size: "large", width: measuredWidth, text: "signin_with" }
         );
       }
     };
@@ -74,6 +101,30 @@ export default function LoginPage() {
       document.body.removeChild(script);
     };
   }, [navigate]);
+
+  const handleGithubLogin = () => {
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID || '';
+    const redirectUri = import.meta.env.VITE_GITHUB_REDIRECT_URI || `${window.location.origin}/auth/github/callback`;
+
+    if (!clientId) {
+      toast.error('Connexion GitHub non configurée (VITE_GITHUB_CLIENT_ID manquant)');
+      return;
+    }
+
+    // Jeton anti-CSRF : vérifié par GithubCallbackPage au retour, pour
+    // s'assurer que la redirection provient bien de cette tentative de
+    // connexion et pas d'une requête forgée.
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('github_oauth_state', state);
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: 'read:user user:email',
+      state,
+    });
+    window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,9 +137,17 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('Connexion réussie');
-      navigate('/dashboard');
+      navigate('/');
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur de connexion');
+      // Le backend renvoie un 403 avec un message explicite pour les
+      // comptes en attente de validation ("pending") ou désactivés :
+      // on l'affiche tel quel, en avertissement plutôt qu'en erreur.
+      const detail = error.response?.data?.detail;
+      if (error.response?.status === 403 && detail) {
+        toast.warning(detail, { duration: 6000 });
+      } else {
+        toast.error(detail || 'Erreur de connexion');
+      }
     } finally {
       setLoading(false);
     }
@@ -199,7 +258,19 @@ export default function LoginPage() {
             </div>
 
             {/* 2. Emplacement unique pour le bouton Google */}
-            <div id="google-btn" className="w-full flex justify-center"></div>
+            <div ref={googleBtnContainerRef} className="w-full flex justify-center"></div>
+
+            {/* Bouton GitHub (flux OAuth par redirection, pas de SDK JS) */}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full mt-3 gap-2"
+              onClick={handleGithubLogin}
+              data-testid="github-login-btn"
+            >
+              <Github className="w-4 h-4" />
+              Continuer avec GitHub
+            </Button>
 
             <div className="mt-6 text-center text-sm">
               <span className="text-muted-foreground">Pas encore de compte ? </span>

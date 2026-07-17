@@ -14,6 +14,8 @@ import {
   X,
   Home,
   ShieldCheck,
+  Tag,
+  GitBranch,
 } from 'lucide-react';
 
 const navItems = [
@@ -28,6 +30,27 @@ const navItems = [
 // Entrée de menu affichée uniquement pour les administrateurs, en plus des
 // items ci-dessus (voir usage avec .filter dans le rendu de la nav).
 const adminNavItem = { to: '/users', icon: ShieldCheck, label: 'Utilisateurs' };
+
+// Version affichée dans le menu, injectée au build via des variables Vite :
+// - VITE_APP_VERSION : nom de la branche (staging/test) ou tag git (prod)
+// - VITE_APP_ENV : "production" | "staging" | "development"
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || null;
+const APP_ENV = import.meta.env.VITE_APP_ENV || 'production';
+const IS_PROD_VERSION = APP_ENV === 'production';
+
+// Petit badge discret : icône tag (release prod) ou branche (staging/test),
+// suivi de la valeur brute (tag ou nom de branche). N'affiche rien si la
+// version n'a pas été injectée au build.
+function VersionBadge() {
+  if (!APP_VERSION) return null;
+  const Icon = IS_PROD_VERSION ? Tag : GitBranch;
+  return (
+    <div className="px-4 py-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground/70">
+      <Icon className="w-3 h-3 shrink-0" />
+      <span className="font-mono truncate" title={APP_VERSION}>{APP_VERSION}</span>
+    </div>
+  );
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -80,6 +103,7 @@ export default function Layout() {
           ))}
         </nav>
 
+        <VersionBadge />
         <div className="p-4 border-t border-border">
           <Link
             to="/profile"
@@ -161,6 +185,7 @@ export default function Layout() {
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+          <VersionBadge />
           <Link
             to="/profile"
             onClick={() => setMobileMenuOpen(false)}

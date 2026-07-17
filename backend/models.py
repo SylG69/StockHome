@@ -33,6 +33,7 @@ class User(Base):
     last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=True)
     google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    github_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     # "admin" ou "user". Seul un admin accède à la gestion des utilisateurs.
@@ -45,6 +46,23 @@ class User(Base):
     locations: Mapped[list["StorageLocation"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     products: Mapped[list["Product"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     shopping_items: Mapped[list["ShoppingListItem"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+    @property
+    def auth_methods(self) -> list[str]:
+        """Liste des méthodes de connexion actives pour ce compte. Un compte
+        peut cumuler plusieurs méthodes (ex: inscrit par email puis lié à
+        Google ensuite). Pour ajouter un futur SSO (GitHub, Apple...) :
+        ajouter la colonne d'identifiant correspondante (ex. github_id) au
+        modèle, puis un test ici -- rien d'autre à changer, le schéma et le
+        frontend affichent déjà dynamiquement cette liste."""
+        methods = []
+        if self.password_hash:
+            methods.append("email")
+        if self.google_id:
+            methods.append("google")
+        if self.github_id:
+            methods.append("github")
+        return methods
 
 
 class Category(Base):

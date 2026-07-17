@@ -3,6 +3,7 @@ la connexion via Google et la récupération de l'utilisateur authentifié."""
 # pylint: disable=line-too-long
 
 import os
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -72,6 +73,82 @@ DEMO_PRODUCTS = [
 ]
 
 GOOGLE_CLIENT_ID = "168521676002-u4gd6ltbs8kknb8noim1q7dhtkcpusk6.apps.googleusercontent.com"
+
+# GitHub OAuth App (créée gratuitement sur https://github.com/settings/developers).
+# Contrairement à Google (client_id public utilisable seul) et Apple, GitHub
+# nécessite un échange "code -> access_token" côté serveur avec un
+# client_secret qui ne doit jamais être exposé au frontend.
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+# Doit correspondre EXACTEMENT à la callback URL déclarée dans la config de
+# l'OAuth App GitHub, et à celle utilisée par le frontend pour construire
+# l'URL d'autorisation (voir LoginPage.jsx / GithubCallbackPage.jsx).
+GITHUB_REDIRECT_URI = os.getenv("GITHUB_REDIRECT_URI", "")
+
+GITHUB_API_HEADERS = {"Accept": "application/vnd.github+json", "User-Agent": "StockHome"}
+
+
+async def _exchange_github_code(code: str) -> str:
+    """Échange le code d'autorisation OAuth GitHub contre un access_token."""
+    if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=500,
+            detail="Connexion GitHub non configurée sur le serveur (GITHUB_CLIENT_ID/GITHUB_CLIENT_SECRET manquants)",
+        )
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://github.com/login/oauth/access_token",
+            data={
+                "client_id": GITHUB_CLIENT_ID,
+                "client_secret": GITHUB_CLIENT_SECRET,
+                "code": code,
+                "redirect_uri": GITHUB_REDIRECT_URI,
+            },
+            headers={"Accept": "application/json"},
+            timeout=8.0,
+        )
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Réponse GitHub invalide lors de l'échange du code") from exc
+
+    access_token = data.get("access_token")
+    if not access_token:
+        # GitHub renvoie un HTTP 200 même en cas d'erreur, avec le détail
+        # dans le corps JSON (ex: code déjà utilisé, expiré, redirect_uri
+        # ne correspondant pas à celle déclarée sur l'OAuth App).
+        raise HTTPException(
+            status_code=401,
+            detail=data.get("error_description") or "Code d'autorisation GitHub invalide ou expiré",
+        )
+    return access_token
+
+
+async def _fetch_github_profile(access_token: str) -> dict:
+    """Récupère le profil GitHub (login, nom, avatar) et l'email principal
+    vérifié. L'email n'est présent dans /user que s'il est public : sinon un
+    appel séparé à /user/emails est nécessaire (scope 'user:email')."""
+    headers = {**GITHUB_API_HEADERS, "Authorization": f"Bearer {access_token}"}
+
+    async with httpx.AsyncClient() as client:
+        user_response = await client.get("https://api.github.com/user", headers=headers, timeout=8.0)
+        if user_response.status_code != 200:
+            raise HTTPException(status_code=401, detail="Impossible de récupérer le profil GitHub (jeton invalide)")
+        profile = user_response.json()
+
+        email = profile.get("email")
+        if not email:
+            emails_response = await client.get("https://api.github.com/user/emails", headers=headers, timeout=8.0)
+            if emails_response.status_code == 200:
+                emails = emails_response.json()
+                primary_verified = next((e for e in emails if e.get("primary") and e.get("verified")), None)
+                any_verified = next((e for e in emails if e.get("verified")), None)
+                email = (primary_verified or any_verified or {}).get("email")
+
+    profile["email"] = email
+    return profile
 
 def add_demo_products(db: Session, user_id: str):
     """Ajoute des produits de démonstration pour un nouvel utilisateur."""
@@ -279,6 +356,73 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Jeton Google invalide ou expiré"
         ) from exc
+
+
+@router.post("/github", response_model=schemas.TokenResponse)
+async def auth_github(body: schemas.GithubTokenBody, db: Session = Depends(get_db)):
+    """Authentifie un utilisateur via GitHub OAuth (flux "authorization
+    code" : le frontend a redirigé vers github.com, GitHub a redirigé vers
+    la page de callback avec un `code`, transmis ici) et renvoie un jeton
+    d'accès pour l'application. Miroir de /auth/google."""
+    access_token = await _exchange_github_code(body.code)
+    profile = await _fetch_github_profile(access_token)
+
+    email = profile.get("email")
+    github_id = str(profile["id"]) if profile.get("id") is not None else None
+
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Aucun email vérifié trouvé sur ce compte GitHub. Ajoutez/vérifiez un email dans vos paramètres GitHub puis réessayez.",
+        )
+    if not github_id:
+        raise HTTPException(status_code=400, detail="Identifiant GitHub introuvable")
+
+    user = db.execute(select(models.User).where(models.User.email == email)).scalar_one_or_none()
+
+    if not user:
+        # L'utilisateur n'existe pas : INSCRIPTION AUTOMATIQUE
+        is_first_user = db.execute(select(models.User.id)).first() is None
+        role, account_status = resolve_role_and_status(email, is_first_user)
+
+        user = models.User(
+            email=email,
+            username=profile.get("login") or email.split("@")[0],  # "login" = le pseudo GitHub, toujours présent
+            github_id=github_id,
+            password_hash=None,  # Pas de mot de passe stocké chez nous
+            role=role,
+            status=account_status,
+        )
+        db.add(user)
+        db.flush()
+
+        add_default_categories_and_locations(db, user.id)
+        add_demo_products(db, user.id)
+
+        db.commit()
+        db.refresh(user)
+
+    elif not getattr(user, "github_id", None):
+        # L'utilisateur existait (compte classique ou Google), mais se
+        # connecte via GitHub pour la première fois : on lie les comptes.
+        user.github_id = github_id
+        db.commit()
+        db.refresh(user)
+
+    # Garde-fou : un compte de ADMIN_EMAILS reste toujours admin + actif.
+    if user.email.lower() in ADMIN_EMAILS and (user.role != "admin" or user.status != "active"):
+        user.role = "admin"
+        user.status = "active"
+        db.commit()
+        db.refresh(user)
+
+    if user.status == "pending":
+        raise HTTPException(status_code=403, detail="Votre compte est en attente de validation par un administrateur")
+    if user.status == "disabled":
+        raise HTTPException(status_code=403, detail="Votre compte a été désactivé")
+
+    token = create_token(user.id)
+    return schemas.TokenResponse(access_token=token, user=schemas.UserResponse.model_validate(user))
 
 
 # ==================== ADMINISTRATION DES UTILISATEURS ====================

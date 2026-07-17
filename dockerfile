@@ -4,6 +4,12 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci --legacy-peer-deps
 COPY frontend/ .
+
+ARG APP_VERSION=unknown
+ARG APP_ENV=production
+ENV VITE_APP_VERSION=$APP_VERSION
+ENV VITE_APP_ENV=$APP_ENV
+
 RUN npm run build
 
 # --- ÉTAPE 2 : Build du Backend et Image Finale ---
