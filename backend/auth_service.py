@@ -12,13 +12,34 @@ from google.auth.transport import requests
 
 import models
 import schemas
-from auth import create_token, get_current_user, hash_password, verify_password
+from auth import create_token, get_current_user, get_current_user_any_status, hash_password, require_admin, verify_password
 from database import get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 APP_ENV = os.getenv("APP_ENV", "production")
 IS_STAGING = APP_ENV == "staging"
+
+# Comptes toujours admin + actif, quel que soit l'ordre d'inscription et
+# même après un vidage complet de la base (voir aussi la migration Alembic
+# add_user_role_status qui applique la même règle aux comptes déjà en base).
+ADMIN_EMAILS = {"s.greneron@gmail.com"}
+
+
+def resolve_role_and_status(email: str, is_first_user: bool) -> tuple[str, str]:
+    """Détermine le rôle et le statut initiaux d'un nouveau compte.
+
+    - Un email de ADMIN_EMAILS est toujours admin + actif.
+    - Sinon, le tout premier compte de l'instance devient admin + actif
+      (bootstrap), pour qu'il y ait toujours quelqu'un pour approuver les
+      inscriptions suivantes.
+    - Tous les autres comptes sont créés "user" / "pending".
+    """
+    if email.lower() in ADMIN_EMAILS:
+        return "admin", "active"
+    if is_first_user:
+        return "admin", "active"
+    return "user", "pending"
 
 DEFAULT_CATEGORIES = [
     {"name": "Alimentaire", "icon": "Apple", "color": "#10B981"},
@@ -84,15 +105,27 @@ def add_default_categories_and_locations(db: Session, user_id: str):
 
 @router.post("/register", response_model=schemas.TokenResponse)
 def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
-    """Enregistre un nouvel utilisateur et crée des catégories et emplacements par défaut."""
+    """Enregistre un nouvel utilisateur et crée des catégories et emplacements par défaut.
+
+    Le tout premier compte créé sur l'instance devient automatiquement admin
+    et actif (bootstrap), afin qu'il y ait toujours quelqu'un pour approuver
+    les inscriptions suivantes. Tous les autres comptes sont créés avec le
+    statut "pending" et doivent être approuvés par un admin avant de pouvoir
+    se connecter.
+    """
     existing = db.execute(select(models.User).where(models.User.email == data.email)).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
+
+    is_first_user = db.execute(select(models.User.id)).first() is None
+    role, account_status = resolve_role_and_status(data.email, is_first_user)
 
     user = models.User(
         email=data.email,
         username=data.username,
         password_hash=hash_password(data.password),
+        role=role,
+        status=account_status,
     )
     db.add(user)
     db.flush()
@@ -119,13 +152,63 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
 
+    # Garde-fou : un compte de ADMIN_EMAILS reste toujours admin + actif,
+    # même s'il a été rétrogradé/désactivé par erreur depuis l'écran de
+    # gestion des utilisateurs.
+    if user.email.lower() in ADMIN_EMAILS and (user.role != "admin" or user.status != "active"):
+        user.role = "admin"
+        user.status = "active"
+        db.commit()
+        db.refresh(user)
+
+    if user.status == "pending":
+        raise HTTPException(status_code=403, detail="Votre compte est en attente de validation par un administrateur")
+    if user.status == "disabled":
+        raise HTTPException(status_code=403, detail="Votre compte a été désactivé")
+
     token = create_token(user.id)
     return schemas.TokenResponse(access_token=token, user=schemas.UserResponse.model_validate(user))
 
 
 @router.get("/me", response_model=schemas.UserResponse)
-def get_me(current_user: models.User = Depends(get_current_user)):
-    """Renvoie l'utilisateur actuellement authentifié."""
+def get_me(current_user: models.User = Depends(get_current_user_any_status)):
+    """Renvoie l'utilisateur actuellement authentifié (y compris pending/disabled,
+    pour que le frontend puisse afficher l'écran d'attente approprié)."""
+    return schemas.UserResponse.model_validate(current_user)
+
+
+@router.patch("/me", response_model=schemas.UserResponse)
+def update_me(
+    data: schemas.ProfileUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Met à jour son propre profil : nom d'utilisateur et/ou mot de passe.
+    Le rôle et le statut ne sont jamais modifiables ici (voir les routes
+    admin dédiées) : un utilisateur ne peut pas s'auto-promouvoir."""
+    if data.username is not None:
+        username = data.username.strip()
+        if not username:
+            raise HTTPException(status_code=400, detail="Le nom d'utilisateur ne peut pas être vide")
+        current_user.username = username
+
+    if data.first_name is not None:
+        current_user.first_name = data.first_name.strip() or None
+    if data.last_name is not None:
+        current_user.last_name = data.last_name.strip() or None
+
+    if data.new_password:
+        if len(data.new_password) < 6:
+            raise HTTPException(status_code=400, detail="Le nouveau mot de passe doit contenir au moins 6 caractères")
+        # Un compte créé via Google n'a pas de mot de passe existant : pas de
+        # vérification d'ancien mot de passe à faire dans ce cas.
+        if current_user.password_hash:
+            if not data.current_password or not verify_password(data.current_password, current_user.password_hash):
+                raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
+        current_user.password_hash = hash_password(data.new_password)
+
+    db.commit()
+    db.refresh(current_user)
     return schemas.UserResponse.model_validate(current_user)
 
 @router.post("/google", response_model=schemas.TokenResponse)
@@ -152,11 +235,15 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
 
         if not user:
             # L'utilisateur n'existe pas : INSCRIPTION AUTOMATIQUE
+            is_first_user = db.execute(select(models.User.id)).first() is None
+            role, account_status = resolve_role_and_status(email, is_first_user)
             user = models.User(
                 email=email,
                 username=name if name else email.split('@')[0], # Fallback propre pour le username
                 google_id=google_id,
-                password_hash=None # Pas de mot de passe stocké chez nous
+                password_hash=None, # Pas de mot de passe stocké chez nous
+                role=role,
+                status=account_status,
             )
             db.add(user)
             db.flush()
@@ -173,6 +260,11 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
             db.commit()
             db.refresh(user)
 
+        if user.status == "pending":
+            raise HTTPException(status_code=403, detail="Votre compte est en attente de validation par un administrateur")
+        if user.status == "disabled":
+            raise HTTPException(status_code=403, detail="Votre compte a été désactivé")
+
         # 3. Génération du token JWT interne de l'application
         token = create_token(user.id)
 
@@ -187,3 +279,99 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Jeton Google invalide ou expiré"
         ) from exc
+
+
+# ==================== ADMINISTRATION DES UTILISATEURS ====================
+# Toutes les routes ci-dessous sont réservées aux comptes avec role="admin"
+# (voir la dépendance require_admin). Elles permettent d'approuver ou de
+# refuser les nouveaux comptes ("pending"), ainsi que d'activer/désactiver
+# des comptes existants et de changer leur rôle.
+
+VALID_STATUSES = {"pending", "active", "disabled"}
+VALID_ROLES = {"admin", "user"}
+
+
+@router.get("/users", response_model=list[schemas.UserResponse])
+def list_users(
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Liste tous les utilisateurs de l'application (admin uniquement)."""
+    users = db.execute(select(models.User).order_by(models.User.created_at.asc())).scalars().all()
+    return [schemas.UserResponse.model_validate(u) for u in users]
+
+
+@router.patch("/users/{user_id}/status", response_model=schemas.UserResponse)
+def update_user_status(
+    user_id: str,
+    data: schemas.UserStatusUpdate,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Approuve, refuse (désactive) ou réactive un compte utilisateur (admin uniquement)."""
+    if data.status not in VALID_STATUSES:
+        raise HTTPException(status_code=400, detail="Statut invalide")
+
+    target = db.execute(select(models.User).where(models.User.id == user_id)).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas modifier votre propre statut")
+
+    if target.email.lower() in ADMIN_EMAILS and data.status != "active":
+        raise HTTPException(status_code=400, detail="Ce compte administrateur ne peut pas être désactivé")
+
+    target.status = data.status
+    db.commit()
+    db.refresh(target)
+    return schemas.UserResponse.model_validate(target)
+
+
+@router.patch("/users/{user_id}/role", response_model=schemas.UserResponse)
+def update_user_role(
+    user_id: str,
+    data: schemas.UserRoleUpdate,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Change le rôle (admin/user) d'un utilisateur (admin uniquement)."""
+    if data.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail="Rôle invalide")
+
+    target = db.execute(select(models.User).where(models.User.id == user_id)).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas modifier votre propre rôle")
+
+    if target.email.lower() in ADMIN_EMAILS and data.role != "admin":
+        raise HTTPException(status_code=400, detail="Ce compte doit rester administrateur")
+
+    target.role = data.role
+    db.commit()
+    db.refresh(target)
+    return schemas.UserResponse.model_validate(target)
+
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: str,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Supprime un compte (typiquement pour refuser une inscription en attente)."""
+    target = db.execute(select(models.User).where(models.User.id == user_id)).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas supprimer votre propre compte")
+
+    if target.email.lower() in ADMIN_EMAILS:
+        raise HTTPException(status_code=400, detail="Ce compte administrateur ne peut pas être supprimé")
+
+    db.delete(target)
+    db.commit()
+    return {"message": "Utilisateur supprimé"}

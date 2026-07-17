@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/button';
 import {
@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Home,
+  ShieldCheck,
 } from 'lucide-react';
 
 const navItems = [
@@ -24,10 +25,20 @@ const navItems = [
   { to: '/scanner', icon: ScanLine, label: 'Scanner' },
 ];
 
+// Entrée de menu affichée uniquement pour les administrateurs, en plus des
+// items ci-dessus (voir usage avec .filter dans le rendu de la nav).
+const adminNavItem = { to: '/users', icon: ShieldCheck, label: 'Utilisateurs' };
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // La page "Gestion des utilisateurs" n'est visible que pour les admins.
+  const visibleNavItems = user?.role === 'admin' ? [...navItems, adminNavItem] : navItems;
+
+  // Nom affiché dans le menu : "Prénom Nom" si renseignés, sinon le username.
+  const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username;
 
   const handleLogout = () => {
     logout();
@@ -49,7 +60,7 @@ export default function Layout() {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -70,17 +81,20 @@ export default function Layout() {
         </nav>
 
         <div className="p-4 border-t border-border">
-          <div className="flex items-center gap-3 px-4 py-2 mb-3">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+          <Link
+            to="/profile"
+            className="flex items-center gap-3 px-4 py-2 mb-3 rounded-lg hover:bg-secondary transition-colors duration-200"
+            data-testid="profile-link"
+          >
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
               <span className="text-sm font-semibold text-primary">
-                {user?.name?.charAt(0).toUpperCase()}
+                {displayName?.charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              <p className="text-sm font-medium truncate">{displayName}</p>
             </div>
-          </div>
+          </Link>
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
@@ -126,7 +140,7 @@ export default function Layout() {
         }`}
       >
         <nav className="px-4 py-6 space-y-1">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -147,17 +161,20 @@ export default function Layout() {
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
-          <div className="flex items-center gap-3 px-4 py-2 mb-3">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+          <Link
+            to="/profile"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center gap-3 px-4 py-2 mb-3 rounded-lg hover:bg-secondary transition-colors duration-200"
+          >
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
               <span className="text-sm font-semibold text-primary">
-                {user?.name?.charAt(0).toUpperCase()}
+                {displayName?.charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              <p className="text-sm font-medium truncate">{displayName}</p>
             </div>
-          </div>
+          </Link>
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"

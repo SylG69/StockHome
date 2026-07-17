@@ -25,6 +25,26 @@ class UserResponse(BaseModel):
     email: EmailStr
     username: str
     created_at: datetime
+    role: str = "user"
+    status: str = "pending"
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+class UserStatusUpdate(BaseModel):
+    """Requête admin pour approuver/refuser/désactiver un compte."""
+    status: str  # "pending" | "active" | "disabled"
+
+class UserRoleUpdate(BaseModel):
+    """Requête admin pour changer le rôle d'un utilisateur."""
+    role: str  # "admin" | "user"
+
+class ProfileUpdate(BaseModel):
+    """Requête self-service pour mettre à jour son propre profil."""
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    current_password: Optional[str] = None  # requis si new_password est fourni et qu'un mot de passe existe déjà
+    new_password: Optional[str] = None
 
 class TokenResponse(BaseModel):
     """Payload contenant le jeton d'accès et l'utilisateur associé."""
@@ -115,6 +135,7 @@ class ProductBase(BaseModel):
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
+    nutriscore_grade: Optional[str] = None  # 'a' à 'e', renseigné automatiquement via l'API OFF au scan
 
 class ProductCreate(ProductBase):
     """Requête de création d'un produit; peut contenir un nom de sous-catégorie."""
@@ -134,6 +155,7 @@ class ProductUpdate(BaseModel):
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
+    nutriscore_grade: Optional[str] = None
 
 class ProductResponse(ProductBase):
     """Réponse API pour un produit, inclut métadonnées et noms résolus."""
@@ -169,6 +191,16 @@ class ShoppingListItemResponse(ShoppingListItemBase):
 
 # ==================== OPEN FOOD FACTS ====================
 
+class NutrientLevel(BaseModel):
+    """Un repère nutritionnel individuel (ex: matières grasses), au format
+    affiché par Open Food Facts : nom, niveau (faible/modéré/élevé) et
+    valeur pour 100g/100ml."""
+    key: str  # "fat" | "saturated-fat" | "sugars" | "salt"
+    label: str  # libellé FR, ex: "Matières grasses"
+    level: Optional[str] = None  # "low" | "moderate" | "high"
+    value_100g: Optional[float] = None
+    unit: str = "g"
+
 class OpenFoodFactsProduct(BaseModel):
     """Modèle de suggestion produit basé sur les réponses Open*Facts."""
     barcode: str
@@ -184,3 +216,7 @@ class OpenFoodFactsProduct(BaseModel):
     # libre de tout changer dans le formulaire.
     suggested_category: Optional[str] = None  # ex: "Alimentaire", "Hygiène", "Animaux"
     needs_refrigeration: bool = False
+    # Nutri-Score ('a' à 'e'), None si non applicable/inconnu (ex: produits
+    # non alimentaires venant d'Open Beauty/Pet Food Facts).
+    nutriscore_grade: Optional[str] = None
+    nutrient_levels: List[NutrientLevel] = []

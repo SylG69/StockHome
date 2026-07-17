@@ -81,3 +81,15 @@ agenthub/agents/youtube/db
 # Mobile development
 android-sdk/ frontend/node_modules/.cache/default-development/2.pack
 frontend/node_modules/.cache/default-development/2.pack
+
+# .github actions
+.github/workflows/config_github.sh
+.github/workflows/deploy.yml
+.github/workflows/pylint.yml
+.github/workflows/eslint.yml
+.github/workflows/*.json
+
+# Install
+install/create_database.sql
+install/setup_database.sh
+install/stockhome.conf

@@ -27,9 +27,18 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Prénom / Nom, facultatifs (renseignables depuis la page profil) --
+    # username reste le login/identifiant d'affichage par défaut.
+    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=True)
     google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    # "admin" ou "user". Seul un admin accède à la gestion des utilisateurs.
+    role: Mapped[str] = mapped_column(String(20), default="user", nullable=False)
+    # "pending" (en attente de validation par un admin), "active" ou "disabled".
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
 
     categories: Mapped[list["Category"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sub_categories: Mapped[list["SubCategory"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -97,6 +106,10 @@ class Product(Base):
     unit: Mapped[str] = mapped_column(String(30), default="unité")
     brand: Mapped[str | None] = mapped_column(String(150), nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Nutri-Score ('a' à 'e'), récupéré depuis Open Food Facts au moment du
+    # scan et mis en cache ici pour un affichage rapide dans les listes
+    # (évite un appel OFF par produit à chaque chargement de la page).
+    nutriscore_grade: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     category_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
