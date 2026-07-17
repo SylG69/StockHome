@@ -56,6 +56,23 @@ export default function ScannerPage() {
   const videoRef = useRef(null);
   const codeReader = useRef(null);
   const manualInputRef = useRef(null);
+  // Détection native (rapide, matérielle) via l'API BarcodeDetector du
+  // navigateur -- utilisée en priorité, ZXing sert de repli automatique
+  // pour les navigateurs qui ne la supportent pas (Firefox, anciens Safari).
+  const barcodeDetectorRef = useRef(null);
+  const rafIdRef = useRef(null);
+  const streamRef = useRef(null);
+  // Anti-doublon : la caméra restant allumée en continu en mode course, un
+  // même produit encore visible dans le champ juste après son ajout serait
+  // sinon re-détecté immédiatement. On ignore un code déjà scanné pendant
+  // ce délai.
+  const lastScanRef = useRef({ code: null, time: 0 });
+  const SCAN_COOLDOWN_MS = 2000;
+  // Formats acceptés : uniquement les codes-barres produits de grande
+  // consommation (ceux référencés par Open Food Facts) -- ni QR code, ni
+  // Code128/Data Matrix/etc. Utilisé à la fois pour BarcodeDetector natif
+  // et pour les hints ZXing en repli.
+  const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
 
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
@@ -65,9 +82,6 @@ export default function ScannerPage() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
-
-  // Mode Retour de courses
-  const [shoppingMode, setShoppingMode] = useState(false);
 
   // Mode Retour de courses
   const [shoppingMode, setShoppingMode] = useState(false);
@@ -143,15 +157,59 @@ export default function ScannerPage() {
     setCameraError(null);
     try {
       setCameraActive(true);
-      await codeReader.current.decodeFromVideoDevice(
-        undefined,
-        videoRef.current,
-        (result, error) => {
-          if (result) {
-            handleBarcodeDetected(result.getText());
+
+      // 1. Tentative avec l'API native BarcodeDetector (Chrome/Edge/Android,
+      // Safari 17+) : bien plus rapide car matérielle/OS, pas de librairie
+      // JS à faire tourner sur chaque frame.
+      let useNative = false;
+      if ('BarcodeDetector' in window) {
+        try {
+          const supported = await window.BarcodeDetector.getSupportedFormats();
+          const formats = BARCODE_FORMATS.filter((f) => supported.includes(f));
+          if (formats.length > 0) {
+            barcodeDetectorRef.current = new window.BarcodeDetector({ formats });
+            useNative = true;
           }
+        } catch (e) {
+          useNative = false;
         }
-      );
+      }
+
+      if (useNative) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+        });
+        streamRef.current = stream;
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+
+        const detectLoop = async () => {
+          if (!barcodeDetectorRef.current || !videoRef.current) return;
+          try {
+            const results = await barcodeDetectorRef.current.detect(videoRef.current);
+            if (results.length > 0) {
+              handleBarcodeDetected(results[0].rawValue);
+            }
+          } catch (e) {
+            // Frame non exploitable (transitoire, ex: vidéo pas encore
+            // prête) : on ignore et on continue la boucle.
+          }
+          rafIdRef.current = requestAnimationFrame(detectLoop);
+        };
+        rafIdRef.current = requestAnimationFrame(detectLoop);
+      } else {
+        // 2. Repli ZXing (déjà restreint aux formats EAN/UPC via les hints
+        // configurés à l'instanciation, voir useEffect plus haut).
+        await codeReader.current.decodeFromVideoDevice(
+          undefined,
+          videoRef.current,
+          (result, error) => {
+            if (result) {
+              handleBarcodeDetected(result.getText());
+            }
+          }
+        );
+      }
     } catch (error) {
       console.error('Camera error:', error);
       setCameraError("Impossible d'accéder à la caméra. Vérifiez les permissions.");
@@ -160,6 +218,14 @@ export default function ScannerPage() {
   };
 
   const stopCamera = () => {
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
     if (videoRef.current?.srcObject) {
       const tracks = videoRef.current.srcObject.getTracks();
       tracks.forEach((track) => track.stop());
@@ -203,12 +269,21 @@ export default function ScannerPage() {
   const handleBarcodeDetected = useCallback(async (barcode) => {
     if (searching) return;
 
-    const wasCameraActive = cameraActive;
-    stopCamera();
+    // Anti-doublon : même code détecté deux fois de suite en moins de
+    // SCAN_COOLDOWN_MS (typiquement le même produit encore dans le champ de
+    // la caméra) -> on ignore, plutôt que de l'ajouter deux fois.
+    const now = Date.now();
+    if (barcode === lastScanRef.current.code && now - lastScanRef.current.time < SCAN_COOLDOWN_MS) {
+      return;
+    }
+    lastScanRef.current = { code: barcode, time: now };
+
     setSearching(true);
     playScanSound();
 
     // --- LOGIQUE MODE COURSE ---
+    // La caméra n'est JAMAIS coupée ici : elle reste allumée en continu
+    // pendant tout le mode course (voir cooldown anti-doublon ci-dessus).
     if (shoppingMode) {
       try {
         let isExisting = false;
@@ -273,14 +348,14 @@ export default function ScannerPage() {
         toast.error("Erreur lors de l'ajout automatique");
       } finally {
         setSearching(false);
-        if (wasCameraActive) {
-          setTimeout(() => startCamera(), 300);
-        }
       }
       return;
     }
 
     // --- LOGIQUE MODE CLASSIQUE ---
+    // Ici on coupe la caméra le temps d'afficher le dialogue de résultat
+    // (relancée ensuite par handleCloseDialog / handleSaveNewProduct).
+    stopCamera();
     setScannedProduct({ barcode });
     setOpenFoodFactsData(null);
     setExistingProduct(null);
@@ -343,7 +418,7 @@ export default function ScannerPage() {
     } finally {
       setSearching(false);
     }
-  }, [searching, cameraActive, shoppingMode, categories, subcategories, locations, api]);
+  }, [searching, shoppingMode, categories, subcategories, locations, api]);
 
   const handleManualSearch = () => {
     if (!manualBarcode.trim()) {
