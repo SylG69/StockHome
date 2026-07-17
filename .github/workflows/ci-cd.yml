@@ -164,21 +164,19 @@ jobs:
         run: |
           curl -f -X POST "${{ secrets.DEPLOY_WEBHOOK_URL_PROD }}"
 
-  #deploy:
-  #  name: Execute remote deploy script via SSH
-  #  needs: verification # S'assure que le job 'verification' a réussi
-  #  runs-on: ubuntu-latest
-  #  # Optionnel : décommente la ligne ci-dessous si tu veux que le déploiement
-  #  # ne se fasse QUE sur la branche main (pour éviter de déployer tes branches de test)
-  #  # if: github.ref == 'refs/heads/main'
-  #  steps:
-  #  - name: Connect and deploy
-  #    uses: appleboy/ssh-action@v1.0.3
-  #    with:
-  #      host: ${{ secrets.SSH_HOST }}
-  #      username: ${{ secrets.SSH_USER }}
-  #      key: ${{ secrets.SSH_KEY }}
-  #      port: 22
-  #      script: |
-  #        echo "Connexion SSH réussie. Déclenchement du script de déploiement..."
-  #        sudo /appli/stockhome/deploy.sh
+  deploy-test:
+   name: Execute remote deploy script via SSH
+   needs: [pylint, eslint]
+   runs-on: ubuntu-latest
+   if: github.ref == 'refs/heads/feature/*' && github.actor == 'SylG69'
+   steps:
+   - name: Connect and deploy
+     uses: appleboy/ssh-action@v1.0.3
+     with:
+       host: ${{ secrets.SSH_HOST }}
+       username: ${{ secrets.SSH_USER }}
+       key: ${{ secrets.SSH_KEY }}
+       port: 22
+       script: |
+         echo "Connexion SSH réussie. Déclenchement du script de déploiement..."
+         sudo /appli/stockhome/deploy.sh
