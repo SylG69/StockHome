@@ -19,18 +19,42 @@ class UserLogin(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
     """Représentation publique d'un utilisateur renvoyée par l'API."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     email: EmailStr
     username: str
     created_at: datetime
+    role: str = "user"
+    status: str = "pending"
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+class UserStatusUpdate(BaseModel):
+    """Requête admin pour approuver/refuser/désactiver un compte."""
+    status: str  # "pending" | "active" | "disabled"
+
+class UserRoleUpdate(BaseModel):
+    """Requête admin pour changer le rôle d'un utilisateur."""
+    role: str  # "admin" | "user"
+
+class ProfileUpdate(BaseModel):
+    """Requête self-service pour mettre à jour son propre profil."""
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    current_password: Optional[str] = None  # requis si new_password est fourni et qu'un mot de passe existe déjà
+    new_password: Optional[str] = None
 
 class TokenResponse(BaseModel):
     """Payload contenant le jeton d'accès et l'utilisateur associé."""
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+class GoogleTokenBody(BaseModel):
+    """Modèle pour la réception d'un jeton JWT côté serveur (ex: Google OAuth)."""
+    token: str
 
 # ==================== CATEGORIES ====================
 
@@ -45,8 +69,8 @@ class CategoryCreate(CategoryBase):
     pass
 
 class CategoryResponse(CategoryBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour une catégorie, inclut métadonnées et propriétaire."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
@@ -70,8 +94,8 @@ class SubCategoryUpdate(BaseModel):
     min_quantity: Optional[int] = None
 
 class SubCategoryResponse(SubCategoryBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour une sous-catégorie, inclut métadonnées et propriétaire."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
@@ -90,8 +114,8 @@ class StorageLocationCreate(StorageLocationBase):
     pass
 
 class StorageLocationResponse(StorageLocationBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour un emplacement de stockage avec métadonnées."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
@@ -111,6 +135,7 @@ class ProductBase(BaseModel):
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
+    nutriscore_grade: Optional[str] = None  # 'a' à 'e', renseigné automatiquement via l'API OFF au scan
 
 class ProductCreate(ProductBase):
     """Requête de création d'un produit; peut contenir un nom de sous-catégorie."""
@@ -130,10 +155,11 @@ class ProductUpdate(BaseModel):
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
+    nutriscore_grade: Optional[str] = None
 
 class ProductResponse(ProductBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour un produit, inclut métadonnées et noms résolus."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
@@ -157,13 +183,23 @@ class ShoppingListItemCreate(ShoppingListItemBase):
     pass
 
 class ShoppingListItemResponse(ShoppingListItemBase):
-    model_config = ConfigDict(from_attributes=True)
     """Réponse API pour un item de liste de courses, avec métadonnées."""
+    model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
     created_at: datetime
 
 # ==================== OPEN FOOD FACTS ====================
+
+class NutrientLevel(BaseModel):
+    """Un repère nutritionnel individuel (ex: matières grasses), au format
+    affiché par Open Food Facts : nom, niveau (faible/modéré/élevé) et
+    valeur pour 100g/100ml."""
+    key: str  # "fat" | "saturated-fat" | "sugars" | "salt"
+    label: str  # libellé FR, ex: "Matières grasses"
+    level: Optional[str] = None  # "low" | "moderate" | "high"
+    value_100g: Optional[float] = None
+    unit: str = "g"
 
 class OpenFoodFactsProduct(BaseModel):
     """Modèle de suggestion produit basé sur les réponses Open*Facts."""
@@ -180,3 +216,7 @@ class OpenFoodFactsProduct(BaseModel):
     # libre de tout changer dans le formulaire.
     suggested_category: Optional[str] = None  # ex: "Alimentaire", "Hygiène", "Animaux"
     needs_refrigeration: bool = False
+    # Nutri-Score ('a' à 'e'), None si non applicable/inconnu (ex: produits
+    # non alimentaires venant d'Open Beauty/Pet Food Facts).
+    nutriscore_grade: Optional[str] = None
+    nutrient_levels: List[NutrientLevel] = []

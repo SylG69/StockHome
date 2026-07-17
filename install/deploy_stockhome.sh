@@ -74,7 +74,7 @@ APACHE_LOG_DIR="$([ "$OS_FAMILY" = "debian" ] && echo /var/log/apache2 || echo /
 [ -z "$SERVICE_USER" ] && SERVICE_USER="$([ "$OS_FAMILY" = "debian" ] && echo www-data || echo apache)"
 
 # ---------- Installation des dépendances système ----------
-echo "=== 1/7 : Dépendances système (${OS_FAMILY}) ==="
+echo "=== 1/8 : Dépendances système (${OS_FAMILY}) ==="
 
 if [ "$OS_FAMILY" = "debian" ]; then
     apt-get update -qq
@@ -157,7 +157,7 @@ if [ -f "$EXISTING_ENV" ]; then
     echo "    .env existant détecté : réutilisation du mot de passe DB et du JWT secret."
 fi
 
-echo "=== 2/7 : Récupération de la release GitHub (${GITHUB_REPO} @ ${RELEASE_TAG}) ==="
+echo "=== 2/8 : Récupération de la release GitHub (${GITHUB_REPO} @ ${RELEASE_TAG}) ==="
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
@@ -185,7 +185,7 @@ SRC_FRONTEND="${WORK_DIR}/extracted/${REPO_FRONTEND_SUBDIR}"
 
 [ -d "$SRC_BACKEND" ] || { echo "Dossier backend introuvable dans la release : ${SRC_BACKEND}" >&2; exit 1; }
 
-echo "=== 3/7 : Déploiement du backend dans ${BACKEND_DIR} ==="
+echo "=== 3/8 : Déploiement du backend dans ${BACKEND_DIR} ==="
 mkdir -p "$BACKEND_DIR"
 rsync -a --delete --exclude='.env' --exclude='venv' "${SRC_BACKEND}/" "${BACKEND_DIR}/"
 
@@ -193,7 +193,7 @@ python3 -m venv "${BACKEND_DIR}/venv"
 "${BACKEND_DIR}/venv/bin/pip" install --upgrade pip -q
 "${BACKEND_DIR}/venv/bin/pip" install -r "${BACKEND_DIR}/requirements.txt" -q
 
-echo "=== 4/7 : Génération du .env (mot de passe DB, nom de base, JWT secret) ==="
+echo "=== 4/8 : Génération du .env (mot de passe DB, nom de base, JWT secret) ==="
 cat > "${BACKEND_DIR}/.env" <<EOF
 DATABASE_URL=postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@localhost:5432/${DB_NAME}
 JWT_SECRET=${JWT_SECRET}
@@ -202,7 +202,7 @@ EOF
 chmod 600 "${BACKEND_DIR}/.env"
 chown -R "${SERVICE_USER}:${SERVICE_USER}" "$BACKEND_DIR"
 
-echo "=== 5/7 : Base de données PostgreSQL ==="
+echo "=== 5/8 : Base de données PostgreSQL ==="
 if sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1; then
     sudo -u postgres psql -c "ALTER ROLE ${DB_USER} WITH LOGIN PASSWORD '${DB_PASSWORD}';" >/dev/null
 else
@@ -214,10 +214,16 @@ fi
 sudo -u postgres psql -d "$DB_NAME" -c "GRANT ALL ON SCHEMA public TO ${DB_USER};
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${DB_USER};
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${DB_USER};" >/dev/null
-# Les tables (users, categories, produits, ...) sont créées automatiquement
-# au démarrage de l'appli via Base.metadata.create_all().
 
-echo "=== 6/7 : Service systemd ${SERVICE_NAME} ==="
+# Les tables (users, categories, produits, ...) sont créées/mises à jour
+# via les migrations Alembic (voir section "6/8" ci-dessous).
+
+echo "=== 6/8 : Migrations Alembic ==="
+cd "${BACKEND_DIR}"
+"${BACKEND_DIR}/venv/bin/python" bootstrap_db.py
+echo "    Migrations appliquées."
+
+echo "=== 7/8 : Service systemd ${SERVICE_NAME} ==="
 cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]
 Description=StockHome API (FastAPI/uvicorn)
@@ -240,7 +246,7 @@ systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}" >/dev/null
 systemctl restart "${SERVICE_NAME}"
 
-echo "=== 7/7 : Frontend + Apache + Let's Encrypt ==="
+echo "=== 8/8 : Frontend + Apache + Let's Encrypt ==="
 
 # --- Frontend : build si nécessaire, sinon copie directe (dist déjà présent) ---
 mkdir -p "$FRONTEND_WEBROOT"

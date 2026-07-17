@@ -55,6 +55,9 @@ cd "${BACKEND_DIR}"
 log "Installation des dépendances Python…"
 "${VENV}/bin/pip" install -r requirements.txt --quiet
 
+log "Application des migrations Alembic…"
+"${VENV}/bin/python" bootstrap_db.py
+
 log "Redémarrage du service ${SERVICE}…"
 systemctl restart "${SERVICE}"
 

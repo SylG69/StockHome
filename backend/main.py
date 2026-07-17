@@ -13,14 +13,11 @@ import config_service
 import dashboard_service
 import product_service
 import shopping_service
-from database import Base, engine
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Crée les tables si elles n'existent pas encore (pratique en dev ;
-    # en prod, utilisez plutôt Alembic pour les migrations de schéma).
-    Base.metadata.create_all(bind=engine)
+    """Cycle de vie de l'application (le schéma est géré par Alembic, pas ici)."""
     yield
 
 
@@ -52,10 +49,22 @@ def root():
 # IMPORTANT : ces routes doivent rester APRÈS toutes les routes API ci-dessus,
 # sinon le catch-all interceptera les appels /api/...
 
-app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+STATIC_DIR = "static"
+ASSETS_DIR = os.path.join(STATIC_DIR, "assets")
+
+if os.path.exists(ASSETS_DIR):
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+else:
+    print(f"⚠️ Warning: {ASSETS_DIR} non trouvé. Les fichiers statiques du frontend ne seront pas servis.")
 
 
 @app.get("/{full_path:path}")
-async def serve_frontend(full_path: str):
-    """Catch-all : renvoie index.html pour le routing côté client (SPA)."""
-    return FileResponse("static/index.html")
+async def serve_frontend(full_path: str):  # pylint: disable=unused-argument
+    """Catch-all : renvoie index.html pour le routing côté client (SPA).
+    full_path est requis par FastAPI pour matcher la route, même si non utilisé ici."""
+    index_path = os.path.join(STATIC_DIR, "index.html")
+
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+
+    return {"message": "StockHome API v2.0.0 - Mode API seule (Frontend non buildé localement)"}

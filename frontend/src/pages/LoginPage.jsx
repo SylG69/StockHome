@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -9,11 +9,71 @@ import { toast } from 'sonner';
 import { Home, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithToken } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // 1. Gestion de l'authentification Google via useEffect
+  useEffect(() => {
+// Cette fonction sera appelée par Google dès que l'utilisateur aura choisi son compte
+    const handleCredentialResponse = async (response) => {
+      setLoading(true);
+      try {
+        const idToken = response.credential;
+
+        // On envoie ce jeton à ton backend FastAPI
+        const res = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: idToken })
+        });
+
+        if (!res.ok) throw new Error("Échec de l'authentification avec Google");
+
+        const data = await res.json();
+
+        loginWithToken(data.access_token, data.user);
+
+        // Connexion réussie !
+        toast.success('Connexion Google réussie');
+        navigate('/dashboard'); // Redirection vers le tableau de bord après la connexion
+      } catch (error) {
+        toast.error(error.message || 'Erreur lors de la connexion Google');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const script = document.createElement('script');
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      /* global google */
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: "168521676002-u4gd6ltbs8kknb8noim1q7dhtkcpusk6.apps.googleusercontent.com",
+          callback: handleCredentialResponse,
+          context: "signin",
+        });
+
+        // Rendu du bouton officiel dans la div avec l'ID 'google-btn'
+        window.google.accounts.id.renderButton(
+          document.getElementById("google-btn"),
+          { theme: "outline", size: "large", width: "100%", text: "signin_with" }
+        );
+      }
+    };
+    document.body.appendChild(script);
+
+    // Nettoyage au démontage du composant
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,6 +86,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('Connexion réussie');
+      navigate('/dashboard');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erreur de connexion');
     } finally {
@@ -126,6 +187,20 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
+
+            {/* Séparateur visuel */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Ou continuer avec</span>
+              </div>
+            </div>
+
+            {/* 2. Emplacement unique pour le bouton Google */}
+            <div id="google-btn" className="w-full flex justify-center"></div>
+
             <div className="mt-6 text-center text-sm">
               <span className="text-muted-foreground">Pas encore de compte ? </span>
               <Link

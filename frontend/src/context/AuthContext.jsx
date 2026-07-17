@@ -67,6 +67,22 @@ export const AuthProvider = ({ children }) => {
     fetchUser();
   }, [fetchUser]);
 
+  // Utilisé après un login externe (Google) qui a déjà renvoyé
+  // access_token + user depuis le backend : on met à jour le contexte
+  // directement, sans reload ni appel /auth/me supplémentaire.
+  const loginWithToken = (accessToken, userData) => {
+    localStorage.setItem('token', accessToken);
+    setToken(accessToken);
+    setUser(userData);
+  };
+
+  // Met à jour l'utilisateur dans le contexte après une modification de
+  // profil (PATCH /auth/me), pour refléter immédiatement le nouveau nom
+  // dans le menu sans recharger la page.
+  const updateUser = useCallback((userData) => {
+    setUser(userData);
+  }, []);
+
   const login = async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
     const { access_token, user: userData } = response.data;
@@ -84,12 +100,17 @@ export const AuthProvider = ({ children }) => {
       password
     });
 
-    // Si votre API register ne renvoie pas encore de token,
-    // il faudra peut-être appeler login() juste après ici.
-    const { access_token, id } = response.data;
-    if (access_token) {
+    const { access_token, user: userData } = response.data;
+
+    // Un compte nouvellement inscrit peut être "pending" (en attente de
+    // validation par un admin) : dans ce cas on NE stocke PAS le token,
+    // sinon l'utilisateur semblerait connecté alors que toutes ses
+    // requêtes seraient rejetées en 403. La page d'inscription doit
+    // afficher le message d'attente en se basant sur userData.status.
+    if (access_token && userData?.status === 'active') {
       localStorage.setItem('token', access_token);
       setToken(access_token);
+      setUser(userData);
     }
     return response.data;
   };
@@ -101,6 +122,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    loginWithToken,
+    updateUser,
     api,
     isAuthenticated: !!user,
   };
