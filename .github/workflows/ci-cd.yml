@@ -179,4 +179,4 @@ jobs:
        port: 22
        script: |
          echo "Connexion SSH réussie. Déclenchement du script de déploiement..."
-         sudo /appli/stockhome/deploy.sh ${github.ref_name}
+         sudo /appli/stockhome/deploy.sh ${GITHUB_REF_NAME}
