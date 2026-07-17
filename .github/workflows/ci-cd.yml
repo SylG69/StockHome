@@ -168,7 +168,7 @@ jobs:
    name: Execute remote deploy script via SSH
    needs: [pylint, eslint, ci-testing]
    runs-on: ubuntu-latest
-   if: github.ref == 'refs/heads/feature/*' && github.actor == '186385091+SylG69@users.noreply.github.com'
+   if: github.ref == 'refs/heads/feature/*' && github.actor_id == '186385091+SylG69@users.noreply.github.com'
    steps:
    - name: Connect and deploy
      uses: appleboy/ssh-action@v1.0.3
