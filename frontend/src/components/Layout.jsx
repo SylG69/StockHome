@@ -34,10 +34,6 @@ const adminNavItem = { to: '/users', icon: ShieldCheck, label: 'Utilisateurs' };
 // Version affichée dans le menu, injectée au build via des variables Vite :
 // - VITE_APP_VERSION : nom de la branche (staging/test) ou tag git (prod)
 // - VITE_APP_ENV : "production" | "staging" | "development"
-// Exemples de build :
-//   Prod    : VITE_APP_VERSION=$(git describe --tags --always) VITE_APP_ENV=production npm run build
-//   Staging : VITE_APP_VERSION=$(git rev-parse --abbrev-ref HEAD) VITE_APP_ENV=staging npm run build
-// Si VITE_APP_VERSION n'est pas défini (ex: dev local), rien n'est affiché.
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || null;
 const APP_ENV = import.meta.env.VITE_APP_ENV || 'production';
 const IS_PROD_VERSION = APP_ENV === 'production';
@@ -49,7 +45,7 @@ function VersionBadge() {
   if (!APP_VERSION) return null;
   const Icon = IS_PROD_VERSION ? Tag : GitBranch;
   return (
-    <div className="px-4 py-2 flex items-center gap-1.5 text-xs text-muted-foreground/70">
+    <div className="px-4 py-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground/70">
       <Icon className="w-3 h-3 shrink-0" />
       <span className="font-mono truncate" title={APP_VERSION}>{APP_VERSION}</span>
     </div>
