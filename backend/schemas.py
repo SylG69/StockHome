@@ -27,6 +27,8 @@ class UserResponse(BaseModel):
     created_at: datetime
     role: str = "user"
     status: str = "pending"
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
 
 class UserStatusUpdate(BaseModel):
     """Requête admin pour approuver/refuser/désactiver un compte."""
@@ -39,6 +41,8 @@ class UserRoleUpdate(BaseModel):
 class ProfileUpdate(BaseModel):
     """Requête self-service pour mettre à jour son propre profil."""
     username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     current_password: Optional[str] = None  # requis si new_password est fourni et qu'un mot de passe existe déjà
     new_password: Optional[str] = None
 

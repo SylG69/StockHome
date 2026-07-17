@@ -23,12 +23,17 @@ export default function ProfilePage() {
   const { api, user, updateUser } = useAuth();
 
   const [username, setUsername] = useState(user?.username || '');
+  const [firstName, setFirstName] = useState(user?.first_name || '');
+  const [lastName, setLastName] = useState(user?.last_name || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   const roleInfo = ROLE_INFO[user?.role] || ROLE_INFO.user;
+
+  // Nom affiché : "Prénom Nom" si renseignés, sinon le username (login).
+  const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username;
 
   const handleSave = async () => {
     if (!username.trim()) {
@@ -46,6 +51,8 @@ export default function ProfilePage() {
 
     const payload = {};
     if (username.trim() !== user?.username) payload.username = username.trim();
+    if (firstName.trim() !== (user?.first_name || '')) payload.first_name = firstName.trim();
+    if (lastName.trim() !== (user?.last_name || '')) payload.last_name = lastName.trim();
     if (newPassword) {
       payload.new_password = newPassword;
       payload.current_password = currentPassword;
@@ -88,11 +95,11 @@ export default function ProfilePage() {
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
               <span className="text-xl font-bold text-primary">
-                {user?.username?.charAt(0).toUpperCase()}
+                {displayName?.charAt(0).toUpperCase()}
               </span>
             </div>
             <div>
-              <h2 className="text-lg font-bold">{user?.username}</h2>
+              <h2 className="text-lg font-bold">{displayName}</h2>
               <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <UserIcon className="w-3.5 h-3.5" /> {user?.email}
               </p>
@@ -112,13 +119,31 @@ export default function ProfilePage() {
         <CardContent className="p-6 space-y-6">
           <div>
             <h3 className="font-semibold text-primary mb-4">Modifier mes informations</h3>
-            <div>
-              <Label>Nom d'utilisateur</Label>
-              <Input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                data-testid="profile-username-input"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Prénom</Label>
+                <Input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  data-testid="profile-firstname-input"
+                />
+              </div>
+              <div>
+                <Label>Nom</Label>
+                <Input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  data-testid="profile-lastname-input"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Nom d'utilisateur (login)</Label>
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  data-testid="profile-username-input"
+                />
+              </div>
             </div>
           </div>
 

@@ -322,6 +322,56 @@ def _extract_nutrient_levels(product: dict) -> list[schemas.NutrientLevel]:
     return result
 
 
+VALID_NUTRISCORE = {"a", "b", "c", "d", "e"}
+
+
+@router.post("/products/{product_id}/refresh-off", response_model=schemas.ProductResponse)
+async def refresh_product_from_off(
+    product_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Rafraîchit les données Open*Facts d'un produit existant (rattrapage
+    pour les produits scannés avant l'ajout du Nutri-Score) : met à jour le
+    nutriscore_grade, et complète l'image/la marque si elles sont vides.
+    Nécessite que le produit ait un code-barres."""
+    product = db.execute(
+        select(models.Product)
+        .where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+        .options(
+            selectinload(models.Product.category),
+            selectinload(models.Product.location),
+            selectinload(models.Product.sub_category),
+        )
+    ).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
+    if not product.barcode:
+        raise HTTPException(status_code=400, detail="Ce produit n'a pas de code-barres : impossible d'interroger Open Food Facts")
+
+    off_product, _source = await _fetch_off_product(product.barcode)
+    if off_product is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)",
+        )
+
+    raw_nutriscore = (off_product.get("nutriscore_grade") or "").lower()
+    product.nutriscore_grade = raw_nutriscore if raw_nutriscore in VALID_NUTRISCORE else None
+
+    # On complète uniquement les champs vides : pas d'écrasement des données
+    # saisies/modifiées par l'utilisateur.
+    if not product.image_url:
+        product.image_url = off_product.get("image_url") or off_product.get("image_front_url")
+    if not product.brand:
+        product.brand = off_product.get("brands")
+
+    product.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(product, attribute_names=["category", "location", "sub_category"])
+    return _enrich_product(product)
+
+
 @router.get("/barcode/{barcode}/full")
 async def lookup_barcode_full(barcode: str):
     """

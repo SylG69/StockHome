@@ -192,6 +192,11 @@ def update_me(
             raise HTTPException(status_code=400, detail="Le nom d'utilisateur ne peut pas être vide")
         current_user.username = username
 
+    if data.first_name is not None:
+        current_user.first_name = data.first_name.strip() or None
+    if data.last_name is not None:
+        current_user.last_name = data.last_name.strip() or None
+
     if data.new_password:
         if len(data.new_password) < 6:
             raise HTTPException(status_code=400, detail="Le nouveau mot de passe doit contenir au moins 6 caractères")

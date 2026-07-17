@@ -14,6 +14,7 @@ import {
   Tag,
   Loader2,
   Info,
+  RefreshCw,
 } from 'lucide-react';
 
 const NUTRISCORE_STYLES = {
@@ -122,6 +123,25 @@ export default function ProductDetailPage() {
   const [offSimple, setOffSimple] = useState(null);
   const [offFull, setOffFull] = useState(null);
   const [offLoading, setOffLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefreshFromOff = async () => {
+    setRefreshing(true);
+    try {
+      const response = await api.post(`/products/${encodeURIComponent(id)}/refresh-off`);
+      setProduct(response.data);
+      // Les données OFF en cache local sont peut-être obsolètes : on les
+      // vide pour qu'elles soient rechargées à la prochaine consultation.
+      setOffSimple(null);
+      setOffFull(null);
+      if (response.data.barcode) fetchOffData(response.data.barcode, fullInfo, true);
+      toast.success('Données Open Food Facts actualisées');
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Erreur lors de l'actualisation");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     fetchProduct();
@@ -143,16 +163,16 @@ export default function ProductDetailPage() {
     }
   };
 
-  const fetchOffData = async (barcode, full) => {
+  const fetchOffData = async (barcode, full, force = false) => {
     setOffLoading(true);
     try {
       if (full) {
-        if (!offFull) {
+        if (force || !offFull) {
           const res = await api.get(`/barcode/${barcode}/full`);
           setOffFull(res.data);
         }
       } else {
-        if (!offSimple) {
+        if (force || !offSimple) {
           const res = await api.get(`/barcode/${barcode}`);
           setOffSimple(res.data);
         }
@@ -191,9 +211,21 @@ export default function ProductDetailPage() {
         </Button>
 
         {product.barcode && (
-          <div className="flex items-center gap-2">
-            <Label htmlFor="full-info" className="text-sm">Information complète</Label>
-            <Switch id="full-info" checked={fullInfo} onCheckedChange={handleToggleFullInfo} data-testid="toggle-full-info" />
+          <div className="flex items-center gap-4 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshFromOff}
+              disabled={refreshing}
+              data-testid="refresh-off-btn"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Actualiser depuis OFF
+            </Button>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="full-info" className="text-sm">Information complète</Label>
+              <Switch id="full-info" checked={fullInfo} onCheckedChange={handleToggleFullInfo} data-testid="toggle-full-info" />
+            </div>
           </div>
         )}
       </div>
