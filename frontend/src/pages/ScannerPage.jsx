@@ -65,7 +65,9 @@ export default function ScannerPage() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
-  const [allSubCategories, setAllSubCategories] = useState([]);
+
+  // Mode Retour de courses
+  const [shoppingMode, setShoppingMode] = useState(false);
 
   // Mode Retour de courses
   const [shoppingMode, setShoppingMode] = useState(false);
