@@ -11,6 +11,7 @@ import LocationsPage from './pages/LocationsPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import ScannerPage from './pages/ScannerPage';
 import UsersPage from './pages/UsersPage';
+import ProfilePage from './pages/ProfilePage';
 import Layout from './components/Layout';
 import './App.css';
 
@@ -99,6 +100,7 @@ function AppRoutes() {
         <Route index element={<DashboardPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="products/:id" element={<ProductDetailPage />} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="locations" element={<LocationsPage />} />
         <Route path="shopping-list" element={<ShoppingListPage />} />

@@ -57,6 +57,7 @@ export default function DashboardPage() {
       icon: Package,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
+      to: '/products',
     },
     {
       title: 'Stock Bas',
@@ -65,6 +66,7 @@ export default function DashboardPage() {
       color: 'text-destructive',
       bgColor: 'bg-destructive/10',
       alert: stats?.low_stock_count > 0,
+      to: '/products?low_stock=true',
     },
     {
       title: 'Catégories',
@@ -72,6 +74,7 @@ export default function DashboardPage() {
       icon: FolderOpen,
       color: 'text-emerald-500',
       bgColor: 'bg-emerald-500/10',
+      to: '/categories',
     },
     {
       title: 'Emplacements',
@@ -79,6 +82,7 @@ export default function DashboardPage() {
       icon: MapPin,
       color: 'text-amber-500',
       bgColor: 'bg-amber-500/10',
+      to: '/locations',
     },
   ];
 
@@ -113,34 +117,45 @@ export default function DashboardPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, index) => (
-          <Card
+          <Link
             key={stat.title}
-            className={`bg-card border-border card-hover animate-fade-in stagger-${index + 1}`}
-            data-testid={`stat-card-${stat.title.toLowerCase().replace(' ', '-')}`}
+            to={stat.to}
+            className={`block animate-fade-in stagger-${index + 1}`}
+            data-testid={`stat-card-link-${stat.title.toLowerCase().replace(' ', '-')}`}
           >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className={`p-3 rounded-xl ${stat.bgColor}`}>
-                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
+            <Card
+              className="bg-card border-border card-hover h-full"
+              data-testid={`stat-card-${stat.title.toLowerCase().replace(' ', '-')}`}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className={`p-3 rounded-xl ${stat.bgColor}`}>
+                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                  </div>
+                  {stat.alert && (
+                    <Badge variant="destructive" className="animate-pulse">
+                      Alerte
+                    </Badge>
+                  )}
                 </div>
-                {stat.alert && (
-                  <Badge variant="destructive" className="animate-pulse">
-                    Alerte
-                  </Badge>
-                )}
-              </div>
-              <div className="mt-4">
-                <p className="text-3xl font-bold">{stat.value}</p>
-                <p className="text-sm text-muted-foreground mt-1">{stat.title}</p>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="mt-4">
+                  <p className="text-3xl font-bold">{stat.value}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{stat.title}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
       {/* Quick Actions & Low Stock */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Quick Actions */}
+      {/* Actions Rapides étant masqué, la grille repasse en 1 colonne pour
+          que la carte Stock Bas occupe toute la largeur. Repasser en
+          lg:grid-cols-2 si Actions Rapides est réactivé. */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Actions Rapides -- masqué temporairement à la demande, code
+            conservé pour réactivation future si besoin. */}
+        {/*
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Actions Rapides</CardTitle>
@@ -175,6 +190,7 @@ export default function DashboardPage() {
             </Link>
           </CardContent>
         </Card>
+        */}
 
         {/* Low Stock Sub-categories */}
         <Card className="bg-card border-border">

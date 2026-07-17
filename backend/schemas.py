@@ -36,6 +36,12 @@ class UserRoleUpdate(BaseModel):
     """Requête admin pour changer le rôle d'un utilisateur."""
     role: str  # "admin" | "user"
 
+class ProfileUpdate(BaseModel):
+    """Requête self-service pour mettre à jour son propre profil."""
+    username: Optional[str] = None
+    current_password: Optional[str] = None  # requis si new_password est fourni et qu'un mot de passe existe déjà
+    new_password: Optional[str] = None
+
 class TokenResponse(BaseModel):
     """Payload contenant le jeton d'accès et l'utilisateur associé."""
     access_token: str

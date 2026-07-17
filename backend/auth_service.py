@@ -176,6 +176,36 @@ def get_me(current_user: models.User = Depends(get_current_user_any_status)):
     pour que le frontend puisse afficher l'écran d'attente approprié)."""
     return schemas.UserResponse.model_validate(current_user)
 
+
+@router.patch("/me", response_model=schemas.UserResponse)
+def update_me(
+    data: schemas.ProfileUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Met à jour son propre profil : nom d'utilisateur et/ou mot de passe.
+    Le rôle et le statut ne sont jamais modifiables ici (voir les routes
+    admin dédiées) : un utilisateur ne peut pas s'auto-promouvoir."""
+    if data.username is not None:
+        username = data.username.strip()
+        if not username:
+            raise HTTPException(status_code=400, detail="Le nom d'utilisateur ne peut pas être vide")
+        current_user.username = username
+
+    if data.new_password:
+        if len(data.new_password) < 6:
+            raise HTTPException(status_code=400, detail="Le nouveau mot de passe doit contenir au moins 6 caractères")
+        # Un compte créé via Google n'a pas de mot de passe existant : pas de
+        # vérification d'ancien mot de passe à faire dans ce cas.
+        if current_user.password_hash:
+            if not data.current_password or not verify_password(data.current_password, current_user.password_hash):
+                raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
+        current_user.password_hash = hash_password(data.new_password)
+
+    db.commit()
+    db.refresh(current_user)
+    return schemas.UserResponse.model_validate(current_user)
+
 @router.post("/google", response_model=schemas.TokenResponse)
 async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_db)):
     """Authentifie un utilisateur via Google OAuth2 et renvoie un jeton d'accès pour l'application."""
