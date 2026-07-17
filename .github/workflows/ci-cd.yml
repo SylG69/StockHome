@@ -169,6 +169,7 @@ jobs:
    needs: [pylint, eslint, ci-testing]
    runs-on: ubuntu-latest
    if: startsWith(github.ref, 'refs/heads/feature/') && github.actor == 'SylG69'
+   environment: test
    steps:
    - name: Connect and deploy
      uses: appleboy/ssh-action@v1.0.3
