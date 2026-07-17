@@ -31,7 +31,23 @@ export default function LoginPage() {
           body: JSON.stringify({ token: idToken })
         });
 
-        if (!res.ok) throw new Error("Échec de l'authentification avec Google");
+        if (!res.ok) {
+          // Le backend renvoie un 403 avec un message explicite si le
+          // compte (nouvellement créé via Google ou existant) est en
+          // attente de validation ou désactivé : on remonte ce message
+          // au lieu d'une erreur générique.
+          let detail = null;
+          try {
+            const errBody = await res.json();
+            detail = errBody?.detail;
+          } catch (_) { /* corps non-JSON : on garde le message générique */ }
+
+          if (res.status === 403 && detail) {
+            toast.warning(detail, { duration: 6000 });
+            return;
+          }
+          throw new Error(detail || "Échec de l'authentification avec Google");
+        }
 
         const data = await res.json();
 
@@ -39,7 +55,7 @@ export default function LoginPage() {
 
         // Connexion réussie !
         toast.success('Connexion Google réussie');
-        navigate('/dashboard'); // Redirection vers le tableau de bord après la connexion
+        navigate('/'); // Redirection vers le tableau de bord après la connexion
       } catch (error) {
         toast.error(error.message || 'Erreur lors de la connexion Google');
       } finally {
@@ -86,9 +102,17 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('Connexion réussie');
-      navigate('/dashboard');
+      navigate('/');
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur de connexion');
+      // Le backend renvoie un 403 avec un message explicite pour les
+      // comptes en attente de validation ("pending") ou désactivés :
+      // on l'affiche tel quel, en avertissement plutôt qu'en erreur.
+      const detail = error.response?.data?.detail;
+      if (error.response?.status === 403 && detail) {
+        toast.warning(detail, { duration: 6000 });
+      } else {
+        toast.error(detail || 'Erreur de connexion');
+      }
     } finally {
       setLoading(false);
     }

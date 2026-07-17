@@ -29,6 +29,7 @@ class UserResponse(BaseModel):
     status: str = "pending"
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    auth_methods: List[str] = []  # ex: ["email"], ["google"], ["email", "google"]
 
 class UserStatusUpdate(BaseModel):
     """Requête admin pour approuver/refuser/désactiver un compte."""

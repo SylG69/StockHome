@@ -88,28 +88,185 @@ function NutrientLevelsList({ levels }) {
   );
 }
 
-// Affiche récursivement un objet JSON brut Open Food Facts de façon lisible,
-// pour le mode "information complète" (fiche OFF complète, sans mise en
-// forme spécifique -- l'objectif est l'exhaustivité, pas l'esthétique).
-function RawOffViewer({ data }) {
-  const entries = Object.entries(data || {}).filter(([, v]) => v !== null && v !== '' && v !== undefined);
+// --- Fiche produit façon Open Food Facts (mode "information complète") ---
+
+// Champ texte simple : "Libellé : valeur" (comme "Quantité : 425 g" sur OFF).
+function OffField({ label, value }) {
+  if (!value) return null;
   return (
-    <div className="space-y-2">
-      {entries.map(([key, value]) => (
-        <div key={key} className="border-b border-border pb-2">
-          <p className="text-xs font-mono text-muted-foreground">{key}</p>
-          {typeof value === 'object' ? (
-            <pre className="text-xs whitespace-pre-wrap break-words bg-secondary/30 rounded p-2 mt-1">
-              {JSON.stringify(value, null, 2)}
-            </pre>
-          ) : (
-            <p className="text-sm break-words">{String(value)}</p>
-          )}
-        </div>
-      ))}
+    <p className="text-sm">
+      <span className="font-semibold">{label} : </span>
+      <span className="text-muted-foreground">{value}</span>
+    </p>
+  );
+}
+
+// Champ à valeurs multiples séparées par virgules (catégories, labels...),
+// affiché en tags plutôt qu'en texte brut concaténé.
+function OffTagsField({ label, value }) {
+  if (!value) return null;
+  const tags = value.split(',').map((t) => t.trim()).filter(Boolean);
+  if (tags.length === 0) return null;
+  return (
+    <div>
+      <p className="text-sm font-semibold mb-1.5">{label} :</p>
+      <div className="flex flex-wrap gap-1.5">
+        {tags.map((tag) => (
+          <Badge key={tag} variant="outline" className="font-normal">{tag}</Badge>
+        ))}
+      </div>
     </div>
   );
 }
+
+const NOVA_INFO = {
+  1: { label: 'Aliments non transformés ou transformés minimalement', color: 'bg-emerald-500' },
+  2: { label: 'Ingrédients culinaires transformés', color: 'bg-lime-500' },
+  3: { label: 'Aliments transformés', color: 'bg-amber-500' },
+  4: { label: 'Aliments ultra-transformés', color: 'bg-destructive' },
+};
+
+const ECOSCORE_STYLES = {
+  a: 'bg-emerald-500 text-white',
+  b: 'bg-lime-500 text-white',
+  c: 'bg-amber-400 text-black',
+  d: 'bg-orange-500 text-white',
+  e: 'bg-destructive text-white',
+};
+
+// Les 3 cartes "correspondance" comme en bas de la fiche OFF : Nutri-Score,
+// groupe NOVA (ultra-transformation), Green-Score/Eco-Score.
+function OffScoreCards({ product }) {
+  const nutriscore = (product.nutriscore_grade || '').toLowerCase();
+  const nova = product.nova_group;
+  const ecoscore = (product.ecoscore_grade || product.environmental_score_grade || '').toLowerCase();
+
+  const cards = [];
+  if (nutriscore && NUTRISCORE_STYLES[nutriscore]) {
+    cards.push({
+      key: 'nutriscore',
+      title: `Nutri-Score ${nutriscore.toUpperCase()}`,
+      description: NUTRISCORE_TEXT[nutriscore],
+      badgeClass: NUTRISCORE_STYLES[nutriscore],
+      badgeContent: nutriscore,
+    });
+  }
+  if (nova && NOVA_INFO[nova]) {
+    cards.push({
+      key: 'nova',
+      title: `Groupe NOVA ${nova}`,
+      description: NOVA_INFO[nova].label,
+      badgeClass: NOVA_INFO[nova].color + ' text-white',
+      badgeContent: nova,
+    });
+  }
+  if (ecoscore && ECOSCORE_STYLES[ecoscore]) {
+    cards.push({
+      key: 'ecoscore',
+      title: `Green-Score ${ecoscore.toUpperCase()}`,
+      description: 'Impact environnemental estimé',
+      badgeClass: ECOSCORE_STYLES[ecoscore],
+      badgeContent: ecoscore,
+    });
+  }
+
+  if (cards.length === 0) return null;
+
+  return (
+    <div>
+      <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">
+        Correspondance avec vos préférences
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {cards.map((c) => (
+          <div key={c.key} className="p-3 rounded-lg border border-border bg-secondary/30 flex items-start gap-2">
+            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-black uppercase shrink-0 ${c.badgeClass}`}>
+              {c.badgeContent}
+            </span>
+            <div>
+              <p className="text-sm font-semibold leading-tight">{c.title}</p>
+              <p className="text-xs text-muted-foreground">{c.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OffProductSheet({ data, barcode }) {
+  const [showRaw, setShowRaw] = useState(false);
+
+  const genericName = data.generic_name_fr || data.generic_name || '';
+  const packaging = data.packaging_text_fr || data.packaging_text || data.packaging || '';
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-6">
+        {data.image_url && (
+          <img
+            src={data.image_url}
+            alt={data.product_name || 'Produit'}
+            className="w-40 h-40 object-contain rounded-lg border border-border bg-white p-2 mx-auto sm:mx-0 shrink-0"
+          />
+        )}
+        <div className="space-y-2 flex-1 min-w-0">
+          {barcode && (
+            <p className="text-sm">
+              <span className="font-semibold">Code-barres : </span>
+              <span className="font-mono text-muted-foreground">{barcode}</span>
+            </p>
+          )}
+          <OffField label="Dénomination générique" value={genericName} />
+          <OffField label="Quantité" value={data.quantity} />
+          <OffField label="Emballage" value={packaging} />
+          <OffField label="Marques" value={data.brands} />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <OffTagsField label="Catégories" value={data.categories} />
+        <OffTagsField label="Labels, certifications, récompenses" value={data.labels} />
+        <OffTagsField label="Allergènes" value={data.allergens} />
+      </div>
+
+      <div className="space-y-1">
+        <OffField label="Origine des ingrédients" value={data.origins} />
+        <OffField label="Lieux de fabrication ou de transformation" value={data.manufacturing_places} />
+        <OffField label="Magasins" value={data.stores} />
+        <OffField label="Pays de vente" value={data.countries} />
+      </div>
+
+      {(data.ingredients_text_fr || data.ingredients_text) && (
+        <div>
+          <p className="text-sm font-semibold mb-1">Ingrédients :</p>
+          <p className="text-sm text-muted-foreground">{data.ingredients_text_fr || data.ingredients_text}</p>
+        </div>
+      )}
+
+      <OffScoreCards product={data} />
+
+      {/* Accès aux données brutes complètes, repliable, pour les champs non
+          repris ci-dessus (exhaustivité sans polluer l'affichage principal). */}
+      <div className="pt-2 border-t border-border">
+        <button
+          type="button"
+          onClick={() => setShowRaw((v) => !v)}
+          className="text-xs text-muted-foreground hover:text-foreground underline"
+          data-testid="toggle-raw-off-data"
+        >
+          {showRaw ? 'Masquer' : 'Voir'} toutes les données brutes Open Food Facts
+        </button>
+        {showRaw && (
+          <pre className="text-xs whitespace-pre-wrap break-words bg-secondary/30 rounded p-3 mt-2 max-h-96 overflow-y-auto">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -302,7 +459,7 @@ export default function ProductDetailPage() {
             ) : offFull?.product ? (
               <>
                 <p className="text-xs text-muted-foreground mb-4">Source : {offFull.source}</p>
-                <RawOffViewer data={offFull.product} />
+                <OffProductSheet data={offFull.product} barcode={product.barcode} />
               </>
             ) : (
               <p className="text-sm text-muted-foreground">

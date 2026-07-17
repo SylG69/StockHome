@@ -1,21 +1,25 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { toast } from 'sonner';
-import { Home, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Home, Loader2, Eye, EyeOff, Clock } from 'lucide-react';
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const navigate = useNavigate();
   const [username, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Passe à true quand le compte est créé avec le statut "pending" :
+  // on remplace alors le formulaire par l'écran d'attente de validation.
+  const [pendingApproval, setPendingApproval] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,8 +40,20 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(username, email, password);
-      toast.success('Compte créé avec succès');
+      const result = await register(username, email, password);
+
+      if (result?.user?.status === 'pending') {
+        // Compte créé mais en attente de validation par un administrateur :
+        // le token n'a pas été stocké (voir AuthContext.register), on
+        // affiche l'écran d'attente à la place du formulaire.
+        setPendingApproval(true);
+      } else {
+        // Compte actif immédiatement (premier utilisateur / email admin) :
+        // AuthContext a stocké le token, PublicRoute redirigera vers "/",
+        // mais on navigue explicitement pour ne pas dépendre du re-render.
+        toast.success('Compte créé avec succès');
+        navigate('/');
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Erreur lors de l'inscription");
     } finally {
@@ -82,12 +98,44 @@ export default function RegisterPage() {
               </div>
               <h1 className="text-2xl font-bold">StockHome</h1>
             </div>
-            <CardTitle className="text-2xl font-bold">Créer un compte</CardTitle>
-            <CardDescription>
-              Remplissez le formulaire pour créer votre compte
-            </CardDescription>
+            {pendingApproval ? (
+              <>
+                <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-2">
+                  <Clock className="w-7 h-7 text-amber-500" />
+                </div>
+                <CardTitle className="text-2xl font-bold">Compte en attente de validation</CardTitle>
+                <CardDescription>
+                  Votre compte a bien été créé
+                </CardDescription>
+              </>
+            ) : (
+              <>
+                <CardTitle className="text-2xl font-bold">Créer un compte</CardTitle>
+                <CardDescription>
+                  Remplissez le formulaire pour créer votre compte
+                </CardDescription>
+              </>
+            )}
           </CardHeader>
           <CardContent>
+            {pendingApproval ? (
+              <div className="space-y-6" data-testid="pending-approval-screen">
+                <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm text-center">
+                  Un administrateur doit approuver votre inscription avant votre
+                  première connexion. Vous pourrez vous connecter dès que votre
+                  compte aura été validé.
+                </div>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => navigate('/login')}
+                  data-testid="back-to-login-btn"
+                >
+                  Retour à la connexion
+                </Button>
+              </div>
+            ) : (
+            <>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nom</Label>
@@ -172,6 +220,8 @@ export default function RegisterPage() {
                 Se connecter
               </Link>
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
       </div>

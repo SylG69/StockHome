@@ -46,6 +46,21 @@ class User(Base):
     products: Mapped[list["Product"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     shopping_items: Mapped[list["ShoppingListItem"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
+    @property
+    def auth_methods(self) -> list[str]:
+        """Liste des méthodes de connexion actives pour ce compte. Un compte
+        peut cumuler plusieurs méthodes (ex: inscrit par email puis lié à
+        Google ensuite). Pour ajouter un futur SSO (GitHub, Apple...) :
+        ajouter la colonne d'identifiant correspondante (ex. github_id) au
+        modèle, puis un test ici -- rien d'autre à changer, le schéma et le
+        frontend affichent déjà dynamiquement cette liste."""
+        methods = []
+        if self.password_hash:
+            methods.append("email")
+        if self.google_id:
+            methods.append("google")
+        return methods
+
 
 class Category(Base):
     __tablename__ = "categories"
