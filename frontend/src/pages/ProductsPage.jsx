@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -62,6 +62,7 @@ import { cn } from "@/lib/utils";
 
 export default function ProductsPage() {
   const { api } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -175,73 +176,133 @@ export default function ProductsPage() {
     return acc;
   }, {});
 
-  // --- COMPOSANT CARTE PRODUIT ---
-  const ProductCard = ({ product, groupTotalStock, groupThreshold }) => {
-    const isLowStock = groupTotalStock < groupThreshold;
+  // --- BADGE NUTRI-SCORE ---
+  const NUTRISCORE_STYLES = {
+    a: 'bg-emerald-500 text-white',
+    b: 'bg-lime-500 text-white',
+    c: 'bg-amber-400 text-black',
+    d: 'bg-orange-500 text-white',
+    e: 'bg-destructive text-white',
+  };
 
+  const NutriscoreBadge = ({ grade }) => {
+    if (!grade || !NUTRISCORE_STYLES[grade]) {
+      return <span className="text-xs text-muted-foreground">—</span>;
+    }
     return (
-      <Card className="bg-card border-border card-hover animate-fade-in">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-3">
-            {product.image_url ? (
-              <img src={product.image_url} alt={product.name} className="w-16 h-16 rounded-lg object-cover" />
-            ) : (
-              <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
-                <Package className="w-8 h-8 text-muted-foreground" />
-              </div>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleOpenDialog(product)}><Edit className="w-4 h-4 mr-2" /> Modifier</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
-                  <Trash2 className="w-4 h-4 mr-2" /> Supprimer
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <Badge variant="default" className="text-xs mb-1">
-            {subCategories.find(s => s.id === product.sub_category_id)?.name || "Général"}
-          </Badge>
-          <h3 className="font-semibold text-sm truncate">{product.name}</h3>
-          <p className="text-xs text-muted-foreground truncate mb-4">{product.brand || 'Sans marque'}</p>
-
-          <div className="flex items-center justify-between">
-            {/* Version mobile amicalisée avec boutons plus gros */}
-            <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-md hover:bg-background"
-                onClick={() => handleQuantityChange(product, -1)}
-                disabled={product.quantity <= 0}
-              >
-                <Minus className="w-4 h-4" />
-              </Button>
-              <span className={`text-base font-bold min-w-[32px] text-center ${isLowStock ? 'text-destructive' : 'text-emerald-500'}`}>
-                {product.quantity}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-md hover:bg-background"
-                onClick={() => handleQuantityChange(product, 1)}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            {isLowStock && (
-              <div className="flex items-center gap-1 text-[10px] text-destructive font-black uppercase tracking-tighter">
-                <AlertTriangle className="w-3 h-3" /> Stock bas
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <span
+        className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black uppercase ${NUTRISCORE_STYLES[grade]}`}
+        title={`Nutri-Score ${grade.toUpperCase()}`}
+      >
+        {grade}
+      </span>
     );
   };
+
+  // --- LIGNE DE TABLEAU PRODUIT ---
+  // Vue synthétique demandée : miniature, nom, marque, catégorie,
+  // emplacement, nutriscore. La quantité et les actions sont conservées
+  // car nécessaires à la gestion du stock (fonctionnalité déjà existante).
+  const ProductRow = ({ product, groupTotalStock, groupThreshold }) => {
+    const isLowStock = groupTotalStock < groupThreshold;
+    const category = categories.find(c => c.id === product.category_id);
+    const location = locations.find(l => l.id === product.location_id);
+
+    return (
+      <tr
+        className="border-b border-border last:border-0 hover:bg-secondary/30 cursor-pointer transition-colors"
+        onClick={() => navigate(`/products/${product.id}`)}
+        data-testid={`product-row-${product.id}`}
+      >
+        <td className="p-3 w-16">
+          {product.image_url ? (
+            <img src={product.image_url} alt={product.name} className="w-10 h-10 rounded-lg object-cover" />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
+              <Package className="w-5 h-5 text-muted-foreground" />
+            </div>
+          )}
+        </td>
+        <td className="p-3 font-medium text-sm">{product.name}</td>
+        <td className="p-3 text-sm text-muted-foreground">{product.brand || 'Sans marque'}</td>
+        <td className="p-3 text-sm text-muted-foreground">{category?.name || '—'}</td>
+        <td className="p-3 text-sm text-muted-foreground">{location?.name || '—'}</td>
+        <td className="p-3"><NutriscoreBadge grade={product.nutriscore_grade} /></td>
+        <td className="p-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border w-fit">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-md hover:bg-background"
+              onClick={() => handleQuantityChange(product, -1)}
+              disabled={product.quantity <= 0}
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </Button>
+            <span className={`text-sm font-bold min-w-[28px] text-center ${isLowStock ? 'text-destructive' : 'text-emerald-500'}`}>
+              {product.quantity}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-md hover:bg-background"
+              onClick={() => handleQuantityChange(product, 1)}
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+          {isLowStock && (
+            <div className="flex items-center gap-1 text-[10px] text-destructive font-black uppercase tracking-tighter mt-1">
+              <AlertTriangle className="w-3 h-3" /> Stock bas
+            </div>
+          )}
+        </td>
+        <td className="p-3 w-10" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleOpenDialog(product)}><Edit className="w-4 h-4 mr-2" /> Modifier</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
+                <Trash2 className="w-4 h-4 mr-2" /> Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </td>
+      </tr>
+    );
+  };
+
+  // --- TABLEAU DE PRODUITS (en-têtes + lignes) ---
+  const ProductsTable = ({ products, groupTotalStock, groupThreshold }) => (
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <table className="w-full">
+        <thead>
+          <tr className="bg-secondary/50 text-left text-xs uppercase text-muted-foreground font-bold">
+            <th className="p-3 w-16"></th>
+            <th className="p-3">Nom</th>
+            <th className="p-3">Marque</th>
+            <th className="p-3">Catégorie</th>
+            <th className="p-3">Emplacement</th>
+            <th className="p-3">Nutri-Score</th>
+            <th className="p-3">Quantité</th>
+            <th className="p-3 w-10"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.map(p => (
+            <ProductRow
+              key={p.id}
+              product={p}
+              groupTotalStock={groupTotalStock ?? p.quantity}
+              groupThreshold={groupThreshold ?? (subCategories.find(s => s.id === p.sub_category_id)?.min_quantity || 0)}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   // --- VUES CONDITIONNELLES ---
   const productsView = isGrouped ? (
@@ -303,11 +364,7 @@ export default function ProductsPage() {
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-4 px-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {group.products.map(p => (
-                  <ProductCard key={p.id} product={p} groupTotalStock={group.totalStock} groupThreshold={group.threshold} />
-                ))}
-              </div>
+              <ProductsTable products={group.products} groupTotalStock={group.totalStock} groupThreshold={group.threshold} />
             </AccordionContent>
           </AccordionItem>
         );
@@ -315,12 +372,7 @@ export default function ProductsPage() {
     </Accordion>
   ) : (
   // ... reste du code inchangé
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {filteredProducts.map(p => {
-        const sub = subCategories.find(s => s.id === p.sub_category_id);
-        return <ProductCard key={p.id} product={p} groupTotalStock={p.quantity} groupThreshold={sub?.min_quantity || 0} />;
-      })}
-    </div>
+    <ProductsTable products={filteredProducts} />
   );
 
   const handleOpenDialog = (product = null) => {

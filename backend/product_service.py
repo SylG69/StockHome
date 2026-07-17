@@ -274,6 +274,71 @@ def delete_product(
     return {"message": "Produit supprimé"}
 
 
+OFF_SOURCES = [
+    ("Open Food Facts", "https://world.openfoodfacts.org/api/v0/product/{barcode}.json"),
+    ("Open Beauty Facts", "https://world.openbeautyfacts.org/api/v0/product/{barcode}.json"),
+    ("Open Pet Food Facts", "https://world.openpetfoodfacts.org/api/v0/product/{barcode}.json"),
+]
+
+
+async def _fetch_off_product(barcode: str) -> tuple[Optional[dict], Optional[str]]:
+    """Interroge Open Food Facts, Open Beauty Facts puis Open Pet Food Facts
+    dans l'ordre, s'arrête à la première réponse trouvée. Renvoie
+    (produit_brut, nom_de_la_source) ou (None, None) si rien n'est trouvé."""
+    async with httpx.AsyncClient() as client:
+        for source_name, url_template in OFF_SOURCES:
+            try:
+                response = await client.get(url_template.format(barcode=barcode), timeout=4.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == 1:
+                        return data.get("product", {}), source_name
+            except (httpx.TimeoutException, httpx.RequestError):
+                # cette base est en timeout/injoignable : on tente la suivante
+                continue
+    return None, None
+
+
+NUTRIENT_LABELS = {
+    "fat": "Matières grasses",
+    "saturated-fat": "Acides gras saturés",
+    "sugars": "Sucres",
+    "salt": "Sel",
+}
+
+
+def _extract_nutrient_levels(product: dict) -> list[schemas.NutrientLevel]:
+    """Construit la liste des repères nutritionnels (comme affichés sur
+    Open Food Facts) à partir des champs nutrient_levels/nutriments bruts."""
+    levels = product.get("nutrient_levels") or {}
+    nutriments = product.get("nutriments") or {}
+    result = []
+    for key, label in NUTRIENT_LABELS.items():
+        level = levels.get(key)
+        value = nutriments.get(f"{key}_100g")
+        if level is None and value is None:
+            continue
+        result.append(schemas.NutrientLevel(key=key, label=label, level=level, value_100g=value))
+    return result
+
+
+@router.get("/barcode/{barcode}/full")
+async def lookup_barcode_full(barcode: str):
+    """
+    Renvoie la fiche produit Open Food Facts complète et brute (utilisée par
+    la fiche détail produit en mode "information complète"). Contrairement à
+    /barcode/{barcode}, ne présélectionne rien côté StockHome : c'est un
+    passe-plat direct de la réponse Open*Facts.
+    """
+    product, matched_source = await _fetch_off_product(barcode)
+    if product is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)",
+        )
+    return {"source": matched_source, "product": product}
+
+
 @router.get("/barcode/{barcode}", response_model=schemas.OpenFoodFactsProduct)
 async def lookup_barcode(barcode: str):
     """
@@ -281,28 +346,7 @@ async def lookup_barcode(barcode: str):
     externe, reste async). Interroge Open Food Facts, Open Beauty Facts puis
     Open Pet Food Facts dans l'ordre, s'arrête à la première réponse trouvée.
     """
-    sources = [
-        ("Open Food Facts", f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"),
-        ("Open Beauty Facts", f"https://world.openbeautyfacts.org/api/v0/product/{barcode}.json"),
-        ("Open Pet Food Facts", f"https://world.openpetfoodfacts.org/api/v0/product/{barcode}.json"),
-    ]
-
-    product = None
-    matched_source = None
-
-    async with httpx.AsyncClient() as client:
-        for source_name, url in sources:
-            try:
-                response = await client.get(url, timeout=4.0)
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("status") == 1:
-                        product = data.get("product", {})
-                        matched_source = source_name
-                        break  # produit trouvé, on arrête là
-            except (httpx.TimeoutException, httpx.RequestError):
-                # cette base est en timeout/injoignable : on tente la suivante
-                continue
+    product, matched_source = await _fetch_off_product(barcode)
 
     if product is None:
         raise HTTPException(
@@ -348,6 +392,12 @@ async def lookup_barcode(barcode: str):
     categories_tags = " ".join(product.get("categories_tags", []) or []).lower()
     needs_refrigeration = any(keyword in categories_tags for keyword in REFRIGERATION_KEYWORDS)
 
+    # Nutri-Score : OFF renvoie 'a'..'e', ou parfois 'not-applicable'/'unknown'
+    # pour les produits non alimentaires (Beauty/Pet Facts) -- on ne garde
+    # que les valeurs a-e exploitables pour l'affichage.
+    raw_nutriscore = (product.get("nutriscore_grade") or "").lower()
+    nutriscore_grade = raw_nutriscore if raw_nutriscore in {"a", "b", "c", "d", "e"} else None
+
     return schemas.OpenFoodFactsProduct(
         barcode=barcode,
         name=product.get("product_name") or product.get("product_name_fr"),
@@ -359,4 +409,6 @@ async def lookup_barcode(barcode: str):
         source=matched_source,
         suggested_category=suggested_category,
         needs_refrigeration=needs_refrigeration,
+        nutriscore_grade=nutriscore_grade,
+        nutrient_levels=_extract_nutrient_levels(product),
     )

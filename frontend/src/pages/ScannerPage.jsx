@@ -93,6 +93,7 @@ export default function ScannerPage() {
     location_id: '',
     image_url: '',
     description: '',
+    nutriscore_grade: null,
   });
 
   useEffect(() => {
@@ -256,6 +257,7 @@ export default function ScannerPage() {
             location_id: fridgeLocation?.id || locations[0]?.id || 'none',
             image_url: offData?.image_url || '',
             description: offData?.categories || '',
+            nutriscore_grade: offData?.nutriscore_grade || null,
           };
 
           await api.post('/products', newProductData);
@@ -322,11 +324,13 @@ export default function ScannerPage() {
           sub_category_id: matchedSubCategoryId,
           sub_category_name: offSuggestions.length > 0 ? offSuggestions[0] : '',
           description: offRes.data.categories || '',
+          nutriscore_grade: offRes.data.nutriscore_grade || null,
         });
       } catch (error) {
         setFormData({
           name: '', brand: '', barcode: barcode, quantity: 1, min_quantity: 1, unit: 'unité',
           category_id: null, location_id: null, image_url: '', sub_category_id: null, sub_category_name: '', description: '',
+          nutriscore_grade: null,
         });
       }
 

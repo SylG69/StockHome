@@ -125,6 +125,7 @@ class ProductBase(BaseModel):
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
+    nutriscore_grade: Optional[str] = None  # 'a' à 'e', renseigné automatiquement via l'API OFF au scan
 
 class ProductCreate(ProductBase):
     """Requête de création d'un produit; peut contenir un nom de sous-catégorie."""
@@ -144,6 +145,7 @@ class ProductUpdate(BaseModel):
     location_id: Optional[str] = None
     image_url: Optional[str] = None
     brand: Optional[str] = None
+    nutriscore_grade: Optional[str] = None
 
 class ProductResponse(ProductBase):
     """Réponse API pour un produit, inclut métadonnées et noms résolus."""
@@ -179,6 +181,16 @@ class ShoppingListItemResponse(ShoppingListItemBase):
 
 # ==================== OPEN FOOD FACTS ====================
 
+class NutrientLevel(BaseModel):
+    """Un repère nutritionnel individuel (ex: matières grasses), au format
+    affiché par Open Food Facts : nom, niveau (faible/modéré/élevé) et
+    valeur pour 100g/100ml."""
+    key: str  # "fat" | "saturated-fat" | "sugars" | "salt"
+    label: str  # libellé FR, ex: "Matières grasses"
+    level: Optional[str] = None  # "low" | "moderate" | "high"
+    value_100g: Optional[float] = None
+    unit: str = "g"
+
 class OpenFoodFactsProduct(BaseModel):
     """Modèle de suggestion produit basé sur les réponses Open*Facts."""
     barcode: str
@@ -194,3 +206,7 @@ class OpenFoodFactsProduct(BaseModel):
     # libre de tout changer dans le formulaire.
     suggested_category: Optional[str] = None  # ex: "Alimentaire", "Hygiène", "Animaux"
     needs_refrigeration: bool = False
+    # Nutri-Score ('a' à 'e'), None si non applicable/inconnu (ex: produits
+    # non alimentaires venant d'Open Beauty/Pet Food Facts).
+    nutriscore_grade: Optional[str] = None
+    nutrient_levels: List[NutrientLevel] = []
