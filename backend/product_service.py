@@ -275,12 +275,17 @@ def delete_product(
 
 
 # API v3 (version courante recommandée par Open Food Facts ; la v2 est
-# dépréciée et la v0 legacy). Les trois bases tournent sur le même serveur
+# dépréciée et la v0 legacy). Les quatre bases tournent sur le même serveur
 # Product Opener et exposent les mêmes endpoints v3.
+# Ordre volontaire : du plus spécifique au plus général. Open Products Facts
+# couvre les produits qui ne rentrent dans aucune des 3 bases spécialisées
+# (bricolage, électronique, jouets, textile...) -- on ne l'interroge qu'en
+# dernier recours, une fois les bases plus ciblées épuisées.
 OFF_SOURCES = [
     ("Open Food Facts", "https://world.openfoodfacts.org/api/v3/product/{barcode}"),
     ("Open Beauty Facts", "https://world.openbeautyfacts.org/api/v3/product/{barcode}"),
     ("Open Pet Food Facts", "https://world.openpetfoodfacts.org/api/v3/product/{barcode}"),
+    ("Open Products Facts", "https://world.openproductsfacts.org/api/v3/product/{barcode}"),
 ]
 
 # Open Food Facts impose un User-Agent identifiant l'application, au format
@@ -303,7 +308,7 @@ OFF_SIMPLE_FIELDS = ",".join([
 async def _fetch_off_product(
     barcode: str, fields: Optional[str] = None
 ) -> tuple[Optional[dict], Optional[str]]:
-    """Interroge Open Food Facts, Open Beauty Facts puis Open Pet Food Facts
+    """Interroge Open Food Facts, Open Beauty Facts, Open Pet Food Facts puis Open Products Facts
     (API v3) dans l'ordre, s'arrête à la première réponse trouvée. Renvoie
     (produit_brut, nom_de_la_source) ou (None, None) si rien n'est trouvé.
 
@@ -387,7 +392,7 @@ async def refresh_product_from_off(
     if off_product is None:
         raise HTTPException(
             status_code=404,
-            detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)",
+            detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Cosmétiques, Animaux, Produits divers)",
         )
 
     raw_nutriscore = (off_product.get("nutriscore_grade") or "").lower()
@@ -418,7 +423,7 @@ async def lookup_barcode_full(barcode: str):
     if product is None:
         raise HTTPException(
             status_code=404,
-            detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)",
+            detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Cosmétiques, Animaux, Produits divers)",
         )
     return {"source": matched_source, "product": product}
 
@@ -435,7 +440,7 @@ async def lookup_barcode(barcode: str):
     if product is None:
         raise HTTPException(
             status_code=404,
-            detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Animaux, Cosmétiques)",
+            detail="Produit non trouvé sur les bases de données partenaires (Alimentaire, Cosmétiques, Animaux, Produits divers)",
         )
 
     # NB : "categories_old" est un champ déprécié par Open Food Facts, absent
@@ -462,6 +467,7 @@ async def lookup_barcode(barcode: str):
         "Open Food Facts": "Alimentaire",
         "Open Beauty Facts": "Hygiène",
         "Open Pet Food Facts": "Animaux",
+        "Open Products Facts": "Autre",  # base généraliste, pas de catégorie StockHome spécifique dédiée
     }
     suggested_category = SOURCE_TO_CATEGORY.get(matched_source)
 

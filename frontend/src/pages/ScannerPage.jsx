@@ -6,7 +6,6 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +41,7 @@ import {
   Inbox,
   X,
   Pencil,
+  PackageMinus,
 } from 'lucide-react';
 // IMPORT DES HINTS ET DES FORMATS POUR LES OPTIMISATIONS DE VITESSE
 import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
@@ -97,8 +97,10 @@ export default function ScannerPage() {
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
 
-  // Mode Retour de courses
-  const [shoppingMode, setShoppingMode] = useState(false);
+  // Mode de scan : 'add' (classique, ouvre une fiche à compléter),
+  // 'shopping' (Retour de courses, +1 auto), 'consume' (Consommation, -1
+  // auto). Un seul actif à la fois, pour éviter toute ambiguïté.
+  const [scanMode, setScanMode] = useState('add');
 
   // Zone tampon : scans en mode course non trouvés en stock ET non trouvés
   // sur Open Food Facts -- on ne crée plus de produit générique "Produit
@@ -345,10 +347,33 @@ export default function ScannerPage() {
     setSearching(true);
     playScanSound();
 
+    // --- LOGIQUE MODE CONSOMMATION ---
+    // La caméra reste allumée en continu, comme en mode course. On ne
+    // touche jamais à Open Food Facts ni à la zone tampon ici : on
+    // décrémente uniquement un produit déjà présent dans le stock.
+    if (scanMode === 'consume') {
+      try {
+        const existingRes = await api.get(`/products/barcode/${barcode}`);
+        const prod = existingRes.data;
+        if (prod.quantity <= 0) {
+          toast.warning(`${prod.name} : stock déjà à 0`);
+        } else {
+          await api.patch(`/products/${prod.id}/quantity?delta=-1`);
+          const remaining = prod.quantity - 1;
+          toast.success(`-1 : ${prod.name} (${remaining} ${prod.unit || ''} restant${remaining > 1 ? 's' : ''})`);
+        }
+      } catch (error) {
+        toast.error(`Produit non trouvé dans votre stock (code ${barcode})`);
+      } finally {
+        setSearching(false);
+      }
+      return;
+    }
+
     // --- LOGIQUE MODE COURSE ---
     // La caméra n'est JAMAIS coupée ici : elle reste allumée en continu
     // pendant tout le mode course (voir cooldown anti-doublon ci-dessus).
-    if (shoppingMode) {
+    if (scanMode === 'shopping') {
       try {
         let isExisting = false;
         let productName = '';
@@ -496,7 +521,7 @@ export default function ScannerPage() {
     } finally {
       setSearching(false);
     }
-  }, [searching, shoppingMode, categories, subcategories, locations, api]);
+  }, [searching, scanMode, categories, subcategories, locations, api]);
 
   const handleManualSearch = () => {
     if (!manualBarcode.trim()) {
@@ -615,24 +640,53 @@ export default function ScannerPage() {
         <p className="text-muted-foreground mt-1">Scannez un code-barres pour ajouter ou mettre à jour un produit</p>
       </div>
 
-      {/* Mode Retour de courses */}
-      <Card className={cn("bg-card border transition-all duration-300", shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border")}>
-        <CardContent className="p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className={cn("p-2.5 rounded-lg", shoppingMode ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground")}>
-              <ShoppingCart className="w-5 h-5" />
+      {/* Mode de scan : Ajout manuel / Retour de courses / Consommation */}
+      <Card className={cn("bg-card border transition-all duration-300", scanMode !== 'add' ? "border-primary/60 bg-primary/5 shadow-md" : "border-border")}>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className={cn("p-2.5 rounded-lg", scanMode !== 'add' ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground")}>
+              {scanMode === 'consume' ? <PackageMinus className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-sm">Mode "Retour de courses"</h2>
-                {shoppingMode && <Badge className="text-[9px] h-4 uppercase bg-primary">Actif</Badge>}
+                <h2 className="font-bold text-sm">Mode de scan</h2>
+                {scanMode !== 'add' && <Badge className="text-[9px] h-4 uppercase bg-primary">Actif</Badge>}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">Bip sonore, incrémentation automatique et enregistrement instantané en arrière-plan.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {scanMode === 'add' && "Chaque scan ouvre une fiche pour ajouter le produit manuellement."}
+                {scanMode === 'shopping' && "Bip sonore, incrémentation automatique (+1) et enregistrement instantané en arrière-plan."}
+                {scanMode === 'consume' && "Bip sonore, décrémentation automatique (-1) du produit scanné dans votre stock."}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Label htmlFor="shopping-mode" className="text-xs font-black uppercase text-muted-foreground">{shoppingMode ? "Activé" : "Désactivé"}</Label>
-            <Switch id="shopping-mode" checked={shoppingMode} onCheckedChange={setShoppingMode} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Button
+              type="button"
+              variant={scanMode === 'add' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setScanMode('add')}
+              data-testid="scan-mode-add"
+            >
+              Ajout manuel
+            </Button>
+            <Button
+              type="button"
+              variant={scanMode === 'shopping' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setScanMode('shopping')}
+              data-testid="scan-mode-shopping"
+            >
+              <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Retour de courses
+            </Button>
+            <Button
+              type="button"
+              variant={scanMode === 'consume' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setScanMode('consume')}
+              data-testid="scan-mode-consume"
+            >
+              <PackageMinus className="w-3.5 h-3.5 mr-1.5" /> Consommation
+            </Button>
           </div>
         </CardContent>
       </Card>
