@@ -44,6 +44,16 @@ import {
 } from 'lucide-react';
 import { Switch } from "@/components/ui/switch";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -134,6 +144,43 @@ export default function ProductsPage() {
     }
   };
 
+  // --- RENOMMAGE D'UNE SOUS-CATÉGORIE ---
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renamingSubCategory, setRenamingSubCategory] = useState(null); // { id, name, categoryId, threshold }
+  const [renameValue, setRenameValue] = useState('');
+
+  const handleOpenRenameDialog = (subCatId, group) => {
+    setRenamingSubCategory({ id: subCatId, categoryId: group.categoryId, threshold: group.threshold });
+    setRenameValue(group.name);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameSubCategory = async () => {
+    if (!renamingSubCategory) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      toast.error('Le nom ne peut pas être vide');
+      return;
+    }
+    try {
+      const encodedId = encodeURIComponent(renamingSubCategory.id);
+      // PUT (et non PATCH) : l'endpoint remplace tous les champs, on renvoie
+      // donc category_id/min_quantity inchangés en plus du nouveau nom.
+      await api.put(`/subcategories/${encodedId}`, {
+        name: trimmed,
+        category_id: renamingSubCategory.categoryId,
+        min_quantity: renamingSubCategory.threshold,
+      });
+      toast.success('Sous-catégorie renommée');
+      setRenameDialogOpen(false);
+      setRenamingSubCategory(null);
+      fetchData();
+    } catch (error) {
+      console.error('Erreur lors du renommage:', error);
+      toast.error('Erreur lors du renommage');
+    }
+  };
+
   const handleQuantityChange = async (product, delta) => {
     try {
       const response = await api.patch(`/products/${product.id}/quantity?delta=${delta}`);
@@ -168,7 +215,12 @@ export default function ProductsPage() {
         name: subCat?.name || "Sans sous-catégorie",
         products: [],
         totalStock: 0,
-        threshold: subCat?.min_quantity || 0
+        threshold: subCat?.min_quantity || 0,
+        // Nécessaire pour le renommage : PUT /subcategories/{id} remplace
+        // TOUS les champs (pas de mise à jour partielle côté backend), il
+        // faut donc renvoyer category_id/min_quantity inchangés avec le
+        // nouveau nom, sous peine de les réinitialiser à leurs défauts.
+        categoryId: subCat?.category_id || null,
       };
     }
     acc[subCatId].products.push(product);
@@ -315,6 +367,18 @@ export default function ProductsPage() {
               <div className="flex items-center justify-between w-full pr-4">
                 <div className="flex items-center gap-3">
                   <span className="font-bold text-lg">{group.name}</span>
+                  {subCatId !== 'no-sub' && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => { e.stopPropagation(); handleOpenRenameDialog(subCatId, group); }}
+                      title="Renommer la sous-catégorie"
+                      data-testid={`rename-subcategory-${subCatId}`}
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                   <Badge variant="outline" className="bg-background">{group.products.length} produits</Badge>
                 </div>
                 <div className="flex items-center gap-4 sm:gap-6">
@@ -429,6 +493,7 @@ export default function ProductsPage() {
       await api.delete(`/products/${encodedId}`);
       toast.success('Produit supprimé');
       setDeleteDialogOpen(false);
+      setProductToDelete(null);
       fetchData();
     } catch (e) {
       toast.error("Erreur lors de la suppression");
@@ -632,6 +697,55 @@ export default function ProductsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
             <Button onClick={handleSave} disabled={saving}>Enregistrer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation de suppression -- manquait dans la refonte en
+          tableaux, d'où l'impossibilité de supprimer un produit jusqu'ici. */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce produit ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {productToDelete && (
+                <>Le produit <strong>{productToDelete.name}</strong> sera définitivement supprimé de votre stock. Cette action est irréversible.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProductToDelete(null)}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="confirm-delete-product-btn"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Renommage d'une sous-catégorie */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Renommer la sous-catégorie</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rename-subcategory-input">Nom</Label>
+            <Input
+              id="rename-subcategory-input"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSubCategory(); }}
+              autoFocus
+              data-testid="rename-subcategory-input"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>Annuler</Button>
+            <Button onClick={handleRenameSubCategory} data-testid="confirm-rename-subcategory-btn">Renommer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
