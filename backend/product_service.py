@@ -74,6 +74,57 @@ def get_product_by_barcode(
     return _enrich_product(product)
 
 
+# Correspondance Nutri-Score <-> valeur numérique, pour calculer une moyenne
+# (A = meilleure qualité nutritionnelle = 0, E = moins bonne = 4).
+NUTRISCORE_VALUES = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4}
+NUTRISCORE_FROM_VALUE = {v: k for k, v in NUTRISCORE_VALUES.items()}
+
+
+@router.get("/products/nutriscore-stats")
+def get_nutriscore_stats(
+    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """
+    Statistiques Nutri-Score, calculées UNIQUEMENT sur les produits de la
+    catégorie "Alimentaire" (insensible à la casse) -- utilisées par les
+    widgets du tableau de bord. Les produits sans catégorie ou d'une autre
+    catégorie (hygiène, animaux...) ne sont pas comptabilisés : leur
+    Nutri-Score, quand il existe, n'est pas pertinent pour ces widgets.
+    """
+    grades = db.execute(
+        select(models.Product.nutriscore_grade)
+        .join(models.Category, models.Product.category_id == models.Category.id)
+        .where(
+            models.Product.user_id == current_user.id,
+            func.lower(models.Category.name) == "alimentaire",
+        )
+    ).scalars().all()
+
+    distribution = {"a": 0, "b": 0, "c": 0, "d": 0, "e": 0, "unknown": 0}
+    graded_values = []
+
+    for grade in grades:
+        key = (grade or "").lower()
+        if key in NUTRISCORE_VALUES:
+            distribution[key] += 1
+            graded_values.append(NUTRISCORE_VALUES[key])
+        else:
+            distribution["unknown"] += 1
+
+    average_grade = None
+    average_score = None
+    if graded_values:
+        average_score = round(sum(graded_values) / len(graded_values), 2)
+        average_grade = NUTRISCORE_FROM_VALUE[round(average_score)]
+
+    return {
+        "distribution": distribution,
+        "average_grade": average_grade,
+        "average_score": average_score,
+        "total_food_products": len(grades),
+    }
+
+
 @router.get("/products/{product_id}", response_model=schemas.ProductResponse)
 def get_product(
     product_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)

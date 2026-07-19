@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -14,15 +14,23 @@ import {
   ArrowRight,
   TrendingDown,
   Tag,
+  Apple,
+  BarChart3,
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const { api, user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Statistiques Nutri-Score (produits alimentaires uniquement), chargées
+  // séparément du reste du dashboard.
+  const [nutriscoreStats, setNutriscoreStats] = useState(null);
+  const [nutriscoreLoading, setNutriscoreLoading] = useState(true);
 
   useEffect(() => {
     fetchStats();
+    fetchNutriscoreStats();
   }, []);
 
   const fetchStats = async () => {
@@ -35,6 +43,35 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  const fetchNutriscoreStats = async () => {
+    try {
+      const response = await api.get('/products/nutriscore-stats');
+      setNutriscoreStats(response.data);
+    } catch (error) {
+      console.error('Failed to fetch nutriscore stats:', error);
+    } finally {
+      setNutriscoreLoading(false);
+    }
+  };
+
+  // Styles Nutri-Score, cohérents avec ProductsPage.jsx / ProductDetailPage.jsx
+  const NUTRISCORE_BAR_COLOR = {
+    a: 'bg-emerald-500',
+    b: 'bg-lime-500',
+    c: 'bg-amber-400',
+    d: 'bg-orange-500',
+    e: 'bg-destructive',
+    unknown: 'bg-muted-foreground/30',
+  };
+  const NUTRISCORE_BADGE_STYLE = {
+    a: 'bg-emerald-500 text-white',
+    b: 'bg-lime-500 text-white',
+    c: 'bg-amber-400 text-black',
+    d: 'bg-orange-500 text-white',
+    e: 'bg-destructive text-white',
+  };
+  const NUTRISCORE_LABEL = { a: 'A', b: 'B', c: 'C', d: 'D', e: 'E', unknown: '?' };
 
   if (loading) {
     return (
@@ -236,6 +273,109 @@ export default function DashboardPage() {
                   <Package className="w-8 h-8 text-emerald-500" />
                 </div>
                 <p className="text-muted-foreground">Tous vos produits sont en stock !</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Nutri-Score des produits alimentaires */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Répartition par Nutri-Score (graphique cliquable) */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              Répartition Nutri-Score
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {nutriscoreLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+              </div>
+            ) : !nutriscoreStats || nutriscoreStats.total_food_products === 0 ? (
+              <div className="text-center py-8">
+                <Apple className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">Aucun produit alimentaire avec Nutri-Score pour le moment.</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Basé sur {nutriscoreStats.total_food_products} produit{nutriscoreStats.total_food_products > 1 ? 's' : ''} alimentaire{nutriscoreStats.total_food_products > 1 ? 's' : ''} — cliquez sur une barre pour voir les produits correspondants.
+                </p>
+                <div className="flex items-end justify-between gap-2 h-40">
+                  {(() => {
+                    const maxCount = Math.max(...Object.values(nutriscoreStats.distribution), 1);
+                    return ['a', 'b', 'c', 'd', 'e', 'unknown'].map((key) => {
+                      const count = nutriscoreStats.distribution[key] || 0;
+                      const heightPct = count === 0 ? 4 : Math.max((count / maxCount) * 100, 8);
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => navigate(`/products?nutriscore=${key}`)}
+                          className="flex-1 flex flex-col items-center justify-end h-full gap-1.5 group"
+                          data-testid={`nutriscore-bar-${key}`}
+                        >
+                          <span className="text-xs font-bold text-muted-foreground group-hover:text-foreground transition-colors">
+                            {count}
+                          </span>
+                          <div
+                            className={`w-full rounded-t-md transition-all duration-300 group-hover:opacity-80 ${NUTRISCORE_BAR_COLOR[key]}`}
+                            style={{ height: `${heightPct}%` }}
+                          />
+                          <span className="text-xs font-black uppercase text-muted-foreground group-hover:text-foreground transition-colors">
+                            {NUTRISCORE_LABEL[key]}
+                          </span>
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Nutri-Score moyen */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Apple className="w-5 h-5 text-emerald-500" />
+              Nutri-Score moyen
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {nutriscoreLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+              </div>
+            ) : !nutriscoreStats || !nutriscoreStats.average_grade ? (
+              <div className="text-center py-8">
+                <Apple className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">
+                  Pas encore assez de produits alimentaires avec Nutri-Score pour calculer une moyenne.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <span
+                  className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-4xl font-black uppercase shrink-0 ${NUTRISCORE_BADGE_STYLE[nutriscoreStats.average_grade]}`}
+                >
+                  {nutriscoreStats.average_grade}
+                </span>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {nutriscoreStats.average_grade.toUpperCase()}
+                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                      (score {nutriscoreStats.average_score})
+                    </span>
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Calculé sur {nutriscoreStats.total_food_products} produit{nutriscoreStats.total_food_products > 1 ? 's' : ''} alimentaire{nutriscoreStats.total_food_products > 1 ? 's' : ''} avec Nutri-Score connu.
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>
