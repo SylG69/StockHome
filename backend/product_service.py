@@ -365,8 +365,18 @@ async def _fetch_off_product(
 
     Si `fields` est fourni (liste séparée par des virgules), seuls ces
     champs sont demandés, ce qui allège la réponse.
+
+    lc=fr est systématiquement envoyé : les champs dérivés de la taxonomie
+    (categories, labels...) sont alors renvoyés par OFF directement traduits
+    en français quand une traduction existe dans leur taxonomie, avec repli
+    automatique côté serveur OFF sinon. Cela ne concerne pas les champs de
+    texte libre (product_name, ingredients_text...), qui restent dans la
+    langue saisie par le contributeur -- voir _pick_localized_name ci-dessous
+    pour le nom du produit.
     """
-    params = {"fields": fields} if fields else None
+    params = {"lc": "fr"}
+    if fields:
+        params["fields"] = fields
     async with httpx.AsyncClient(headers=OFF_HEADERS) as client:
         for source_name, url_template in OFF_SOURCES:
             try:
@@ -387,6 +397,30 @@ async def _fetch_off_product(
                 # cette base est en timeout/injoignable : on tente la suivante
                 continue
     return None, None
+
+
+def _pick_localized_name(product: dict) -> Optional[str]:
+    """Choisit le nom du produit en priorisant le français.
+
+    Le nom de produit est un champ de texte libre (saisi par un
+    contributeur), pas une entrée de taxonomie : lc=fr n'a donc aucun effet
+    dessus, contrairement aux catégories. OFF stocke un champ par langue
+    (product_name_fr, product_name_en, product_name_de...) en plus du champ
+    générique "product_name" qui reflète la langue principale de la fiche --
+    laquelle n'est pas forcément le français, même si une version FR existe
+    par ailleurs. On vérifie donc product_name_fr en priorité, quelle que
+    soit sa position parmi les champs renvoyés par l'API.
+    """
+    if product.get("product_name_fr"):
+        return product["product_name_fr"]
+    if product.get("product_name"):
+        return product["product_name"]
+    # Dernier recours : n'importe quelle autre variante de langue présente
+    # sur la fiche (ordre alphabétique pour un résultat déterministe).
+    for key in sorted(product.keys()):
+        if key.startswith("product_name_") and product[key]:
+            return product[key]
+    return None
 
 
 NUTRIENT_LABELS = {
@@ -541,7 +575,7 @@ async def lookup_barcode(barcode: str):
 
     return schemas.OpenFoodFactsProduct(
         barcode=barcode,
-        name=product.get("product_name") or product.get("product_name_fr"),
+        name=_pick_localized_name(product),
         brand=product.get("brands"),
         image_url=product.get("image_url") or product.get("image_front_url"),
         categories=product.get("categories"),
