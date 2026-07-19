@@ -32,14 +32,14 @@ const DONATION_PLATFORMS = [
     icon: Heart,
     color: 'text-yellow-500 bg-yellow-500/10',
     description: 'Plateforme associative à but non lucratif, pensée pour les dons récurrents aux projets libres.',
-    url: '', // TODO: https://liberapay.com/votre-compte
+    url: 'https://liberapay.com/SylG69',
   },
   {
     name: 'PayPal',
     icon: Wallet,
     color: 'text-blue-500 bg-blue-500/10',
     description: 'Le plus simple et le plus universellement connu pour un don ponctuel rapide.',
-    url: '', // TODO: https://paypal.me/votre-compte
+    url: 'https://paypal.me/Sylg69',
   },
 ];
 
