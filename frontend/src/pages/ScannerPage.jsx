@@ -62,6 +62,14 @@ export default function ScannerPage() {
   const videoRef = useRef(null);
   const codeReader = useRef(null);
   const manualInputRef = useRef(null);
+  // Toujours à jour vers la dernière version de handleBarcodeDetected (voir
+  // useEffect plus bas). Indispensable car la boucle de détection (native ou
+  // ZXing) est créée UNE SEULE FOIS au démarrage de la caméra et tourne en
+  // continu sans jamais être recréée : sans cette ref, elle garderait pour
+  // toujours la version de handleBarcodeDetected (et donc le scanMode) telle
+  // qu'elle était au moment du démarrage, ignorant tout changement de mode
+  // (course/consommation/ajout) tant que la caméra reste allumée.
+  const handleBarcodeDetectedRef = useRef(null);
   // Détection native (rapide, matérielle) via l'API BarcodeDetector du
   // navigateur -- utilisée en priorité, ZXing sert de repli automatique
   // pour les navigateurs qui ne la supportent pas (Firefox, anciens Safari).
@@ -71,6 +79,12 @@ export default function ScannerPage() {
   // Piste vidéo active, utilisée pour piloter le flash (applyConstraints)
   // indépendamment du moteur de détection utilisé (natif ou ZXing).
   const videoTrackRef = useRef(null);
+  // Mémorise l'identifiant de caméra (deviceId) effectivement utilisé pour
+  // chaque sens ('environment'/'user') une fois trouvé, pour un changement
+  // de caméra fiable et instantané ensuite -- la contrainte facingMode seule
+  // est mal respectée par certains navigateurs/appareils (bascule parfois
+  // toujours sur la caméra frontale malgré la demande "environment").
+  const knownDeviceIdsRef = useRef({});
   // Anti-doublon : la caméra restant allumée en continu en mode course, un
   // même produit encore visible dans le champ juste après son ajout serait
   // sinon re-détecté immédiatement. On ignore un code déjà scanné pendant
@@ -186,6 +200,21 @@ export default function ScannerPage() {
     }
   };
 
+  // Construit la contrainte vidéo pour un sens de caméra donné : priorité
+  // absolue au deviceId déjà connu pour ce sens (garantit de retomber sur la
+  // même caméra physique), sinon facingMode en tant que PRÉFÉRENCE ("ideal").
+  // Une simple chaîne (facingMode: 'environment') est mal respectée par
+  // certains navigateurs/navigateurs embarqués -- bug très documenté qui
+  // fait souvent rester sur la caméra frontale malgré la demande -- la forme
+  // { ideal: ... } est nettement plus fiable.
+  const buildVideoConstraint = (facing) => {
+    const knownId = knownDeviceIdsRef.current[facing];
+    if (knownId) {
+      return { deviceId: { exact: knownId } };
+    }
+    return { facingMode: { ideal: facing } };
+  };
+
   const startCamera = async (facing = facingMode) => {
     setCameraError(null);
     try {
@@ -210,7 +239,7 @@ export default function ScannerPage() {
 
       if (useNative) {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facing },
+          video: buildVideoConstraint(facing),
         });
         streamRef.current = stream;
         videoRef.current.srcObject = stream;
@@ -221,7 +250,11 @@ export default function ScannerPage() {
           try {
             const results = await barcodeDetectorRef.current.detect(videoRef.current);
             if (results.length > 0) {
-              handleBarcodeDetected(results[0].rawValue);
+              // Toujours via la ref : la boucle est créée une seule fois et
+              // ne doit jamais garder une version figée du handler (sinon un
+              // changement de scanMode pendant que la caméra tourne serait
+              // ignoré -- voir le commentaire sur handleBarcodeDetectedRef).
+              handleBarcodeDetectedRef.current?.(results[0].rawValue);
             }
           } catch (e) {
             // Frame non exploitable (transitoire, ex: vidéo pas encore
@@ -236,11 +269,11 @@ export default function ScannerPage() {
         // decodeFromConstraints (plutôt que decodeFromVideoDevice) permet de
         // choisir la caméra avant/arrière via facingMode.
         await codeReader.current.decodeFromConstraints(
-          { video: { facingMode: facing } },
+          { video: buildVideoConstraint(facing) },
           videoRef.current,
           (result, error) => {
             if (result) {
-              handleBarcodeDetected(result.getText());
+              handleBarcodeDetectedRef.current?.(result.getText());
             }
           }
         );
@@ -254,6 +287,15 @@ export default function ScannerPage() {
       const capabilities = track?.getCapabilities?.() || {};
       setTorchSupported(!!capabilities.torch);
       setTorchOn(false);
+
+      // Mémorise l'identifiant de la caméra effectivement obtenue pour ce
+      // sens : les prochains changements de caméra vers ce même sens
+      // redemanderont ce deviceId précis plutôt que de refaire confiance à
+      // facingMode, garantissant qu'on retombe bien sur la bonne caméra.
+      const activeDeviceId = track?.getSettings?.()?.deviceId;
+      if (activeDeviceId) {
+        knownDeviceIdsRef.current[facing] = activeDeviceId;
+      }
     } catch (error) {
       console.error('Camera error:', error);
       setCameraError("Impossible d'accéder à la caméra. Vérifiez les permissions.");
@@ -522,6 +564,13 @@ export default function ScannerPage() {
       setSearching(false);
     }
   }, [searching, scanMode, categories, subcategories, locations, api]);
+
+  // Garde handleBarcodeDetectedRef pointé vers la dernière version à chaque
+  // changement de dépendance (notamment scanMode) -- voir le commentaire sur
+  // la ref elle-même pour le pourquoi.
+  useEffect(() => {
+    handleBarcodeDetectedRef.current = handleBarcodeDetected;
+  }, [handleBarcodeDetected]);
 
   const handleManualSearch = () => {
     if (!manualBarcode.trim()) {
