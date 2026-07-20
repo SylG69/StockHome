@@ -41,8 +41,21 @@ import {
   Settings2,
   Check,
   ChevronsUpDown,
+  ChevronsDown,
+  ChevronsUp,
+  X,
 } from 'lucide-react';
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Accordion,
   AccordionContent,
@@ -75,6 +88,9 @@ export default function ProductsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterLowStock, setFilterLowStock] = useState(searchParams.get('low_stock') === 'true');
+  // Filtre Nutri-Score, utilisé notamment par le lien "cliquer sur le
+  // graphique" du tableau de bord (?nutriscore=a, b, c, d, e ou unknown).
+  const [filterNutriscore, setFilterNutriscore] = useState(searchParams.get('nutriscore') || 'all');
   const [hideOutOfStock, setHideOutOfStock] = useState(true);
   const [isGrouped, setIsGrouped] = useState(true);
 
@@ -134,6 +150,47 @@ export default function ProductsPage() {
     }
   };
 
+  // --- RENOMMAGE D'UNE SOUS-CATÉGORIE ---
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renamingSubCategory, setRenamingSubCategory] = useState(null); // { id, name, categoryId, threshold }
+  const [renameValue, setRenameValue] = useState('');
+
+  // Groupes ouverts dans l'accordéon (mode groupé). null tant que non
+  // initialisé -> tous ouverts par défaut (comportement précédent).
+  const [openGroups, setOpenGroups] = useState(null);
+
+  const handleOpenRenameDialog = (subCatId, group) => {
+    setRenamingSubCategory({ id: subCatId, categoryId: group.categoryId, threshold: group.threshold });
+    setRenameValue(group.name);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameSubCategory = async () => {
+    if (!renamingSubCategory) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      toast.error('Le nom ne peut pas être vide');
+      return;
+    }
+    try {
+      const encodedId = encodeURIComponent(renamingSubCategory.id);
+      // PUT (et non PATCH) : l'endpoint remplace tous les champs, on renvoie
+      // donc category_id/min_quantity inchangés en plus du nouveau nom.
+      await api.put(`/subcategories/${encodedId}`, {
+        name: trimmed,
+        category_id: renamingSubCategory.categoryId,
+        min_quantity: renamingSubCategory.threshold,
+      });
+      toast.success('Sous-catégorie renommée');
+      setRenameDialogOpen(false);
+      setRenamingSubCategory(null);
+      fetchData();
+    } catch (error) {
+      console.error('Erreur lors du renommage:', error);
+      toast.error('Erreur lors du renommage');
+    }
+  };
+
   const handleQuantityChange = async (product, delta) => {
     try {
       const response = await api.patch(`/products/${product.id}/quantity?delta=${delta}`);
@@ -156,8 +213,12 @@ export default function ProductsPage() {
     const matchesLocation = filterLocation === 'all' || product.location_id === filterLocation;
     const matchesLowStock = !filterLowStock || product.quantity < threshold;
     const matchesAvailable = !hideOutOfStock || product.quantity > 0;
+    const matchesNutriscore = filterNutriscore === 'all' ||
+      (filterNutriscore === 'unknown'
+        ? !product.nutriscore_grade
+        : (product.nutriscore_grade || '').toLowerCase() === filterNutriscore.toLowerCase());
 
-    return matchesSearch && matchesCategory && matchesLocation && matchesLowStock && matchesAvailable;
+    return matchesSearch && matchesCategory && matchesLocation && matchesLowStock && matchesAvailable && matchesNutriscore;
   });
 
   const groupedProducts = filteredProducts.reduce((acc, product) => {
@@ -168,13 +229,32 @@ export default function ProductsPage() {
         name: subCat?.name || "Sans sous-catégorie",
         products: [],
         totalStock: 0,
-        threshold: subCat?.min_quantity || 0
+        threshold: subCat?.min_quantity || 0,
+        // Nécessaire pour le renommage : PUT /subcategories/{id} remplace
+        // TOUS les champs (pas de mise à jour partielle côté backend), il
+        // faut donc renvoyer category_id/min_quantity inchangés avec le
+        // nouveau nom, sous peine de les réinitialiser à leurs défauts.
+        categoryId: subCat?.category_id || null,
       };
     }
     acc[subCatId].products.push(product);
     acc[subCatId].totalStock += product.quantity;
     return acc;
   }, {});
+
+  const groupKeys = Object.keys(groupedProducts);
+  const groupKeysSignature = groupKeys.join(',');
+
+  // Ouvre tous les groupes par défaut, et à chaque fois que la liste de
+  // groupes change réellement (changement de filtre par ex.) -- sans
+  // écraser un plié/déplié manuel entre deux renders identiques.
+  useEffect(() => {
+    setOpenGroups(groupKeys);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupKeysSignature]);
+
+  const handleExpandAll = () => setOpenGroups(groupKeys);
+  const handleCollapseAll = () => setOpenGroups([]);
 
   // --- BADGE NUTRI-SCORE ---
   const NUTRISCORE_STYLES = {
@@ -274,9 +354,104 @@ export default function ProductsPage() {
     );
   };
 
-  // --- TABLEAU DE PRODUITS (en-têtes + lignes) ---
+  // --- CARTE COMPACTE (mobile uniquement) ---
+  // Le tableau complet est illisible sur petit écran (colonnes trop
+  // serrées) : on affiche à la place une carte verticale compacte,
+  // reprenant les mêmes informations et actions dans un format tactile.
+  const ProductMobileCard = ({ product, groupTotalStock, groupThreshold }) => {
+    const isLowStock = groupTotalStock < groupThreshold;
+    const category = categories.find(c => c.id === product.category_id);
+    const location = locations.find(l => l.id === product.location_id);
+
+    return (
+      <div
+        className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card active:bg-secondary/40 transition-colors"
+        onClick={() => navigate(`/products/${product.id}`)}
+        data-testid={`product-mobile-card-${product.id}`}
+      >
+        {product.image_url ? (
+          <img src={product.image_url} alt={product.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+        ) : (
+          <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+            <Package className="w-6 h-6 text-muted-foreground" />
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-sm truncate">{product.name}</p>
+            <NutriscoreBadge grade={product.nutriscore_grade} />
+          </div>
+          <p className="text-xs text-muted-foreground truncate">
+            {product.brand || 'Sans marque'}
+            {(category || location) && ' · '}
+            {[category?.name, location?.name].filter(Boolean).join(' · ')}
+          </p>
+          {isLowStock && (
+            <div className="flex items-center gap-1 text-[10px] text-destructive font-black uppercase tracking-tighter mt-0.5">
+              <AlertTriangle className="w-3 h-3" /> Stock bas
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col items-end gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-0.5 bg-secondary/40 p-0.5 rounded-lg border border-border">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-md hover:bg-background"
+              onClick={() => handleQuantityChange(product, -1)}
+              disabled={product.quantity <= 0}
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </Button>
+            <span className={`text-sm font-bold min-w-[24px] text-center ${isLowStock ? 'text-destructive' : 'text-emerald-500'}`}>
+              {product.quantity}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-md hover:bg-background"
+              onClick={() => handleQuantityChange(product, 1)}
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-muted-foreground">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleOpenDialog(product)}><Edit className="w-4 h-4 mr-2" /> Modifier</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
+                <Trash2 className="w-4 h-4 mr-2" /> Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    );
+  };
+
+  // --- TABLEAU DE PRODUITS (en-têtes + lignes, desktop/tablette) + cartes (mobile) ---
   const ProductsTable = ({ products, groupTotalStock, groupThreshold }) => (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <>
+      {/* Mobile : cartes compactes, pas de tableau (illisible en dessous de sm) */}
+      <div className="sm:hidden space-y-2">
+        {products.map(p => (
+          <ProductMobileCard
+            key={p.id}
+            product={p}
+            groupTotalStock={groupTotalStock ?? p.quantity}
+            groupThreshold={groupThreshold ?? (subCategories.find(s => s.id === p.sub_category_id)?.min_quantity || 0)}
+          />
+        ))}
+      </div>
+
+      {/* Tablette/desktop : tableau complet */}
+      <div className="hidden sm:block overflow-x-auto rounded-lg border border-border">
       <table className="w-full">
         <thead>
           <tr className="bg-secondary/50 text-left text-xs uppercase text-muted-foreground font-bold">
@@ -301,12 +476,13 @@ export default function ProductsPage() {
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 
   // --- VUES CONDITIONNELLES ---
   const productsView = isGrouped ? (
-    <Accordion type="multiple" defaultValue={Object.keys(groupedProducts)} className="space-y-4">
+    <Accordion type="multiple" value={openGroups ?? groupKeys} onValueChange={setOpenGroups} className="space-y-4">
       {Object.entries(groupedProducts).map(([subCatId, group]) => {
         const isGroupLowStock = group.totalStock < group.threshold;
         return (
@@ -315,6 +491,18 @@ export default function ProductsPage() {
               <div className="flex items-center justify-between w-full pr-4">
                 <div className="flex items-center gap-3">
                   <span className="font-bold text-lg">{group.name}</span>
+                  {subCatId !== 'no-sub' && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => { e.stopPropagation(); handleOpenRenameDialog(subCatId, group); }}
+                      title="Renommer la sous-catégorie"
+                      data-testid={`rename-subcategory-${subCatId}`}
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                   <Badge variant="outline" className="bg-background">{group.products.length} produits</Badge>
                 </div>
                 <div className="flex items-center gap-4 sm:gap-6">
@@ -429,6 +617,7 @@ export default function ProductsPage() {
       await api.delete(`/products/${encodedId}`);
       toast.success('Produit supprimé');
       setDeleteDialogOpen(false);
+      setProductToDelete(null);
       fetchData();
     } catch (e) {
       toast.error("Erreur lors de la suppression");
@@ -450,6 +639,23 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {filterNutriscore !== 'all' && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="gap-1.5 pr-1">
+            Nutri-Score : {filterNutriscore === 'unknown' ? 'Inconnu' : filterNutriscore.toUpperCase()}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 hover:bg-transparent"
+              onClick={() => setFilterNutriscore('all')}
+              data-testid="clear-nutriscore-filter"
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          </Badge>
+        </div>
+      )}
+
       <Card className="bg-card border-border">
         <CardContent className="p-4 flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative">
@@ -464,6 +670,17 @@ export default function ProductsPage() {
                 {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
+
+            {isGrouped && (
+              <div className="flex gap-1">
+                <Button variant="outline" size="sm" onClick={handleExpandAll} data-testid="expand-all-groups">
+                  <ChevronsDown className="w-4 h-4 mr-1.5" /> Tout déplier
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCollapseAll} data-testid="collapse-all-groups">
+                  <ChevronsUp className="w-4 h-4 mr-1.5" /> Tout plier
+                </Button>
+              </div>
+            )}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -632,6 +849,55 @@ export default function ProductsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
             <Button onClick={handleSave} disabled={saving}>Enregistrer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation de suppression -- manquait dans la refonte en
+          tableaux, d'où l'impossibilité de supprimer un produit jusqu'ici. */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce produit ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {productToDelete && (
+                <>Le produit <strong>{productToDelete.name}</strong> sera définitivement supprimé de votre stock. Cette action est irréversible.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProductToDelete(null)}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="confirm-delete-product-btn"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Renommage d'une sous-catégorie */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Renommer la sous-catégorie</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rename-subcategory-input">Nom</Label>
+            <Input
+              id="rename-subcategory-input"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSubCategory(); }}
+              autoFocus
+              data-testid="rename-subcategory-input"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>Annuler</Button>
+            <Button onClick={handleRenameSubCategory} data-testid="confirm-rename-subcategory-btn">Renommer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

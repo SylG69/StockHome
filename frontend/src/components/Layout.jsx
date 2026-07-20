@@ -5,8 +5,7 @@ import { Button } from './ui/button';
 import {
   LayoutDashboard,
   Package,
-  FolderOpen,
-  MapPin,
+  Settings,
   ShoppingCart,
   ScanLine,
   LogOut,
@@ -14,13 +13,16 @@ import {
   X,
   Home,
   ShieldCheck,
+  Tag,
+  GitBranch,
+  Info,
+  Heart,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Tableau de bord', exact: true },
   { to: '/products', icon: Package, label: 'Produits' },
-  { to: '/categories', icon: FolderOpen, label: 'Catégories' },
-  { to: '/locations', icon: MapPin, label: 'Emplacements' },
+  { to: '/configuration', icon: Settings, label: 'Configuration' },
   { to: '/shopping-list', icon: ShoppingCart, label: 'Liste de courses' },
   { to: '/scanner', icon: ScanLine, label: 'Scanner' },
 ];
@@ -28,6 +30,59 @@ const navItems = [
 // Entrée de menu affichée uniquement pour les administrateurs, en plus des
 // items ci-dessus (voir usage avec .filter dans le rendu de la nav).
 const adminNavItem = { to: '/users', icon: ShieldCheck, label: 'Utilisateurs' };
+
+// Version affichée dans le menu, injectée au build via des variables Vite :
+// - VITE_APP_VERSION : nom de la branche (staging/test) ou tag git (prod)
+// - VITE_APP_ENV : "production" | "staging" | "development"
+// Exemples de build :
+//   Prod    : VITE_APP_VERSION=$(git describe --tags --always) VITE_APP_ENV=production npm run build
+//   Staging : VITE_APP_VERSION=$(git rev-parse --abbrev-ref HEAD) VITE_APP_ENV=staging npm run build
+// Si VITE_APP_VERSION n'est pas défini (ex: dev local), rien n'est affiché.
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || null;
+const APP_ENV = import.meta.env.VITE_APP_ENV || 'production';
+const IS_PROD_VERSION = APP_ENV === 'production';
+
+// Petit badge discret : icône tag (release prod) ou branche (staging/test),
+// suivi de la valeur brute (tag ou nom de branche). N'affiche rien si la
+// version n'a pas été injectée au build.
+// Liens secondaires du menu (À propos, Soutenir l'app), affichés juste
+// au-dessus du badge de version. onNavigate ferme le menu mobile au clic.
+function FooterLinks({ onNavigate }) {
+  const items = [
+    { to: '/about', icon: Info, label: 'À propos' },
+    { to: '/sponsor', icon: Heart, label: "Soutenir l'app" },
+  ];
+  return (
+    <div className="px-2 py-1 space-y-0.5">
+      {items.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            `flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors duration-200 ${
+              isActive ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
+            }`
+          }
+        >
+          <item.icon className="w-3.5 h-3.5" />
+          {item.label}
+        </NavLink>
+      ))}
+    </div>
+  );
+}
+
+function VersionBadge() {
+  if (!APP_VERSION) return null;
+  const Icon = IS_PROD_VERSION ? Tag : GitBranch;
+  return (
+    <div className="px-4 py-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground/70">
+      <Icon className="w-3 h-3 shrink-0" />
+      <span className="font-mono truncate" title={APP_VERSION}>{APP_VERSION}</span>
+    </div>
+  );
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -80,6 +135,8 @@ export default function Layout() {
           ))}
         </nav>
 
+        <FooterLinks />
+        <VersionBadge />
         <div className="p-4 border-t border-border">
           <Link
             to="/profile"
@@ -161,6 +218,8 @@ export default function Layout() {
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+          <FooterLinks onNavigate={() => setMobileMenuOpen(false)} />
+          <VersionBadge />
           <Link
             to="/profile"
             onClick={() => setMobileMenuOpen(false)}

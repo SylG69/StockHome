@@ -29,6 +29,7 @@ class UserResponse(BaseModel):
     status: str = "pending"
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    auth_methods: List[str] = []  # ex: ["email"], ["google"], ["email", "google"]
 
 class UserStatusUpdate(BaseModel):
     """Requête admin pour approuver/refuser/désactiver un compte."""
@@ -55,6 +56,13 @@ class TokenResponse(BaseModel):
 class GoogleTokenBody(BaseModel):
     """Modèle pour la réception d'un jeton JWT côté serveur (ex: Google OAuth)."""
     token: str
+
+class GithubTokenBody(BaseModel):
+    """Code d'autorisation OAuth GitHub (flux "authorization code"), reçu
+    par le frontend sur sa page de callback puis transmis ici pour être
+    échangé contre un access_token GitHub côté serveur (le client_secret ne
+    doit jamais transiter côté frontend)."""
+    code: str
 
 # ==================== CATEGORIES ====================
 

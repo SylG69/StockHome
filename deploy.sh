@@ -85,6 +85,8 @@ success "Dépendances installées."
 
 # ── 4. Frontend : build ───────────────────────────────────────────────────────
 log "━━━ 4/5 — Build du frontend ━━━"
+VITE_APP_VERSION=$(git rev-parse --abbrev-ref HEAD) VITE_APP_ENV=test
+export VITE_APP_VERSION VITE_APP_ENV
 npm run build
 success "Build terminé."
 

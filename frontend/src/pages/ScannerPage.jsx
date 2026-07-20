@@ -6,7 +6,6 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +35,13 @@ import {
   Check,
   ChevronsUpDown,
   ShoppingCart,
+  SwitchCamera,
+  Flashlight,
+  FlashlightOff,
+  Inbox,
+  X,
+  Pencil,
+  PackageMinus,
 } from 'lucide-react';
 // IMPORT DES HINTS ET DES FORMATS POUR LES OPTIMISATIONS DE VITESSE
 import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
@@ -56,18 +62,76 @@ export default function ScannerPage() {
   const videoRef = useRef(null);
   const codeReader = useRef(null);
   const manualInputRef = useRef(null);
+  // Toujours à jour vers la dernière version de handleBarcodeDetected (voir
+  // useEffect plus bas). Indispensable car la boucle de détection (native ou
+  // ZXing) est créée UNE SEULE FOIS au démarrage de la caméra et tourne en
+  // continu sans jamais être recréée : sans cette ref, elle garderait pour
+  // toujours la version de handleBarcodeDetected (et donc le scanMode) telle
+  // qu'elle était au moment du démarrage, ignorant tout changement de mode
+  // (course/consommation/ajout) tant que la caméra reste allumée.
+  const handleBarcodeDetectedRef = useRef(null);
+  // Détection native (rapide, matérielle) via l'API BarcodeDetector du
+  // navigateur -- utilisée en priorité, ZXing sert de repli automatique
+  // pour les navigateurs qui ne la supportent pas (Firefox, anciens Safari).
+  const barcodeDetectorRef = useRef(null);
+  const rafIdRef = useRef(null);
+  const streamRef = useRef(null);
+  // Piste vidéo active, utilisée pour piloter le flash (applyConstraints)
+  // indépendamment du moteur de détection utilisé (natif ou ZXing).
+  const videoTrackRef = useRef(null);
+  // Mémorise l'identifiant de caméra (deviceId) effectivement utilisé pour
+  // chaque sens ('environment'/'user') une fois trouvé, pour un changement
+  // de caméra fiable et instantané ensuite -- la contrainte facingMode seule
+  // est mal respectée par certains navigateurs/appareils (bascule parfois
+  // toujours sur la caméra frontale malgré la demande "environment").
+  const knownDeviceIdsRef = useRef({});
+  // Anti-doublon : la caméra restant allumée en continu en mode course, un
+  // même produit encore visible dans le champ juste après son ajout serait
+  // sinon re-détecté immédiatement. On ignore un code déjà scanné pendant
+  // ce délai.
+  const lastScanRef = useRef({ code: null, time: 0 });
+  const SCAN_COOLDOWN_MS = 2000;
+  // Formats acceptés : uniquement les codes-barres produits de grande
+  // consommation (ceux référencés par Open Food Facts) -- ni QR code, ni
+  // Code128/Data Matrix/etc. Utilisé à la fois pour BarcodeDetector natif
+  // et pour les hints ZXing en repli.
+  const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
 
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [locations, setLocations] = useState([]);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+  // Caméra avant/arrière et flash (torche), disponibles uniquement quand la
+  // caméra tourne et, pour le flash, seulement si l'appareil le supporte.
+  const [facingMode, setFacingMode] = useState('environment');
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
 
-  // Mode Retour de courses
-  const [shoppingMode, setShoppingMode] = useState(false);
+  // Mode de scan : 'add' (classique, ouvre une fiche à compléter),
+  // 'shopping' (Retour de courses, +1 auto), 'consume' (Consommation, -1
+  // auto). Un seul actif à la fois, pour éviter toute ambiguïté.
+  const [scanMode, setScanMode] = useState('add');
+
+  // Zone tampon : scans en mode course non trouvés en stock ET non trouvés
+  // sur Open Food Facts -- on ne crée plus de produit générique "Produit
+  // inconnu" pour eux (pour ne pas polluer la page Produits), on les met de
+  // côté ici pour un traitement manuel ultérieur. Persisté en localStorage
+  // pour ne pas les perdre en cas de rechargement accidentel pendant les courses.
+  const [unmatchedBuffer, setUnmatchedBuffer] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('scanner_unmatched_buffer') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('scanner_unmatched_buffer', JSON.stringify(unmatchedBuffer));
+  }, [unmatchedBuffer]);
 
   // Scanned product state
   const [scannedProduct, setScannedProduct] = useState(null);
@@ -136,19 +200,102 @@ export default function ScannerPage() {
     }
   };
 
-  const startCamera = async () => {
+  // Construit la contrainte vidéo pour un sens de caméra donné : priorité
+  // absolue au deviceId déjà connu pour ce sens (garantit de retomber sur la
+  // même caméra physique), sinon facingMode en tant que PRÉFÉRENCE ("ideal").
+  // Une simple chaîne (facingMode: 'environment') est mal respectée par
+  // certains navigateurs/navigateurs embarqués -- bug très documenté qui
+  // fait souvent rester sur la caméra frontale malgré la demande -- la forme
+  // { ideal: ... } est nettement plus fiable.
+  const buildVideoConstraint = (facing) => {
+    const knownId = knownDeviceIdsRef.current[facing];
+    if (knownId) {
+      return { deviceId: { exact: knownId } };
+    }
+    return { facingMode: { ideal: facing } };
+  };
+
+  const startCamera = async (facing = facingMode) => {
     setCameraError(null);
     try {
       setCameraActive(true);
-      await codeReader.current.decodeFromVideoDevice(
-        undefined,
-        videoRef.current,
-        (result, error) => {
-          if (result) {
-            handleBarcodeDetected(result.getText());
+
+      // 1. Tentative avec l'API native BarcodeDetector (Chrome/Edge/Android,
+      // Safari 17+) : bien plus rapide car matérielle/OS, pas de librairie
+      // JS à faire tourner sur chaque frame.
+      let useNative = false;
+      if ('BarcodeDetector' in window) {
+        try {
+          const supported = await window.BarcodeDetector.getSupportedFormats();
+          const formats = BARCODE_FORMATS.filter((f) => supported.includes(f));
+          if (formats.length > 0) {
+            barcodeDetectorRef.current = new window.BarcodeDetector({ formats });
+            useNative = true;
           }
+        } catch (e) {
+          useNative = false;
         }
-      );
+      }
+
+      if (useNative) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: buildVideoConstraint(facing),
+        });
+        streamRef.current = stream;
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+
+        const detectLoop = async () => {
+          if (!barcodeDetectorRef.current || !videoRef.current) return;
+          try {
+            const results = await barcodeDetectorRef.current.detect(videoRef.current);
+            if (results.length > 0) {
+              // Toujours via la ref : la boucle est créée une seule fois et
+              // ne doit jamais garder une version figée du handler (sinon un
+              // changement de scanMode pendant que la caméra tourne serait
+              // ignoré -- voir le commentaire sur handleBarcodeDetectedRef).
+              handleBarcodeDetectedRef.current?.(results[0].rawValue);
+            }
+          } catch (e) {
+            // Frame non exploitable (transitoire, ex: vidéo pas encore
+            // prête) : on ignore et on continue la boucle.
+          }
+          rafIdRef.current = requestAnimationFrame(detectLoop);
+        };
+        rafIdRef.current = requestAnimationFrame(detectLoop);
+      } else {
+        // 2. Repli ZXing (déjà restreint aux formats EAN/UPC via les hints
+        // configurés à l'instanciation, voir useEffect plus haut).
+        // decodeFromConstraints (plutôt que decodeFromVideoDevice) permet de
+        // choisir la caméra avant/arrière via facingMode.
+        await codeReader.current.decodeFromConstraints(
+          { video: buildVideoConstraint(facing) },
+          videoRef.current,
+          (result, error) => {
+            if (result) {
+              handleBarcodeDetectedRef.current?.(result.getText());
+            }
+          }
+        );
+      }
+
+      // Récupère la piste vidéo active (quel que soit le moteur utilisé, le
+      // flux est de toute façon attaché à videoRef.current.srcObject) pour
+      // piloter le flash, et détecte s'il est supporté par l'appareil.
+      const track = videoRef.current?.srcObject?.getVideoTracks?.()[0] || null;
+      videoTrackRef.current = track;
+      const capabilities = track?.getCapabilities?.() || {};
+      setTorchSupported(!!capabilities.torch);
+      setTorchOn(false);
+
+      // Mémorise l'identifiant de la caméra effectivement obtenue pour ce
+      // sens : les prochains changements de caméra vers ce même sens
+      // redemanderont ce deviceId précis plutôt que de refaire confiance à
+      // facingMode, garantissant qu'on retombe bien sur la bonne caméra.
+      const activeDeviceId = track?.getSettings?.()?.deviceId;
+      if (activeDeviceId) {
+        knownDeviceIdsRef.current[facing] = activeDeviceId;
+      }
     } catch (error) {
       console.error('Camera error:', error);
       setCameraError("Impossible d'accéder à la caméra. Vérifiez les permissions.");
@@ -157,6 +304,14 @@ export default function ScannerPage() {
   };
 
   const stopCamera = () => {
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
     if (videoRef.current?.srcObject) {
       const tracks = videoRef.current.srcObject.getTracks();
       tracks.forEach((track) => track.stop());
@@ -165,7 +320,29 @@ export default function ScannerPage() {
     if (codeReader.current) {
       codeReader.current.reset();
     }
+    videoTrackRef.current = null;
+    setTorchSupported(false);
+    setTorchOn(false);
     setCameraActive(false);
+  };
+
+  const toggleTorch = async () => {
+    const track = videoTrackRef.current;
+    if (!track) return;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
+      setTorchOn((v) => !v);
+    } catch (e) {
+      toast.error("Le flash n'est pas disponible sur cet appareil");
+      setTorchSupported(false);
+    }
+  };
+
+  const switchCamera = async () => {
+    const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
+    stopCamera();
+    setFacingMode(nextFacing);
+    await startCamera(nextFacing);
   };
 
   const playScanSound = () => {
@@ -200,13 +377,45 @@ export default function ScannerPage() {
   const handleBarcodeDetected = useCallback(async (barcode) => {
     if (searching) return;
 
-    const wasCameraActive = cameraActive;
-    stopCamera();
+    // Anti-doublon : même code détecté deux fois de suite en moins de
+    // SCAN_COOLDOWN_MS (typiquement le même produit encore dans le champ de
+    // la caméra) -> on ignore, plutôt que de l'ajouter deux fois.
+    const now = Date.now();
+    if (barcode === lastScanRef.current.code && now - lastScanRef.current.time < SCAN_COOLDOWN_MS) {
+      return;
+    }
+    lastScanRef.current = { code: barcode, time: now };
+
     setSearching(true);
     playScanSound();
 
+    // --- LOGIQUE MODE CONSOMMATION ---
+    // La caméra reste allumée en continu, comme en mode course. On ne
+    // touche jamais à Open Food Facts ni à la zone tampon ici : on
+    // décrémente uniquement un produit déjà présent dans le stock.
+    if (scanMode === 'consume') {
+      try {
+        const existingRes = await api.get(`/products/barcode/${barcode}`);
+        const prod = existingRes.data;
+        if (prod.quantity <= 0) {
+          toast.warning(`${prod.name} : stock déjà à 0`);
+        } else {
+          await api.patch(`/products/${prod.id}/quantity?delta=-1`);
+          const remaining = prod.quantity - 1;
+          toast.success(`-1 : ${prod.name} (${remaining} ${prod.unit || ''} restant${remaining > 1 ? 's' : ''})`);
+        }
+      } catch (error) {
+        toast.error(`Produit non trouvé dans votre stock (code ${barcode})`);
+      } finally {
+        setSearching(false);
+      }
+      return;
+    }
+
     // --- LOGIQUE MODE COURSE ---
-    if (shoppingMode) {
+    // La caméra n'est JAMAIS coupée ici : elle reste allumée en continu
+    // pendant tout le mode course (voir cooldown anti-doublon ci-dessus).
+    if (scanMode === 'shopping') {
       try {
         let isExisting = false;
         let productName = '';
@@ -226,15 +435,29 @@ export default function ScannerPage() {
             offData = offRes.data;
           } catch (e) {}
 
-          const matchedCategory = offData?.suggested_category
+          if (!offData) {
+            // Ni en stock, ni trouvé sur Open Food Facts : on ne crée PAS de
+            // produit générique "Produit inconnu" (ça polluait la page
+            // Produits). On le met de côté dans la zone tampon pour un
+            // traitement manuel ultérieur (bouton "Compléter" plus bas).
+            setUnmatchedBuffer((prev) => {
+              if (prev.some((entry) => entry.barcode === barcode)) return prev; // déjà en tampon
+              return [{ barcode, scannedAt: new Date().toISOString() }, ...prev].slice(0, 50);
+            });
+            toast.warning(`Code ${barcode} non trouvé — mis de côté dans la zone tampon`);
+            setManualBarcode('');
+            return;
+          }
+
+          const matchedCategory = offData.suggested_category
             ? categories.find(c => c.name.toLowerCase() === offData.suggested_category.toLowerCase())
             : null;
 
-          const fridgeLocation = offData?.needs_refrigeration
+          const fridgeLocation = offData.needs_refrigeration
             ? locations.find(l => /r[ée]frig[ée]rateur|frigo/i.test(l.name))
             : null;
 
-          const offSuggestions = offData?.sub_categories_suggestions || [];
+          const offSuggestions = offData.sub_categories_suggestions || [];
           let matchedSubCategoryId = null;
           for (const suggestion of offSuggestions) {
             const found = subcategories.find(s => s.name.toLowerCase() === suggestion.toLowerCase());
@@ -245,8 +468,8 @@ export default function ScannerPage() {
           }
 
           const newProductData = {
-            name: offData?.name || `Produit inconnu (${barcode})`,
-            brand: offData?.brand || '',
+            name: offData.name || `Produit inconnu (${barcode})`,
+            brand: offData.brand || '',
             barcode: barcode,
             quantity: 1,
             min_quantity: 1,
@@ -255,9 +478,9 @@ export default function ScannerPage() {
             sub_category_id: matchedSubCategoryId,
             sub_category_name: offSuggestions.length > 0 ? offSuggestions[0] : '',
             location_id: fridgeLocation?.id || locations[0]?.id || 'none',
-            image_url: offData?.image_url || '',
-            description: offData?.categories || '',
-            nutriscore_grade: offData?.nutriscore_grade || null,
+            image_url: offData.image_url || '',
+            description: offData.categories || '',
+            nutriscore_grade: offData.nutriscore_grade || null,
           };
 
           await api.post('/products', newProductData);
@@ -270,14 +493,14 @@ export default function ScannerPage() {
         toast.error("Erreur lors de l'ajout automatique");
       } finally {
         setSearching(false);
-        if (wasCameraActive) {
-          setTimeout(() => startCamera(), 300);
-        }
       }
       return;
     }
 
     // --- LOGIQUE MODE CLASSIQUE ---
+    // Ici on coupe la caméra le temps d'afficher le dialogue de résultat
+    // (relancée ensuite par handleCloseDialog / handleSaveNewProduct).
+    stopCamera();
     setScannedProduct({ barcode });
     setOpenFoodFactsData(null);
     setExistingProduct(null);
@@ -340,7 +563,14 @@ export default function ScannerPage() {
     } finally {
       setSearching(false);
     }
-  }, [searching, cameraActive, shoppingMode, categories, subcategories, locations, api]);
+  }, [searching, scanMode, categories, subcategories, locations, api]);
+
+  // Garde handleBarcodeDetectedRef pointé vers la dernière version à chaque
+  // changement de dépendance (notamment scanMode) -- voir le commentaire sur
+  // la ref elle-même pour le pourquoi.
+  useEffect(() => {
+    handleBarcodeDetectedRef.current = handleBarcodeDetected;
+  }, [handleBarcodeDetected]);
 
   const handleManualSearch = () => {
     if (!manualBarcode.trim()) {
@@ -381,6 +611,26 @@ export default function ScannerPage() {
     };
   }, [handleBarcodeDetected]);
 
+  // Ouvre le dialogue "nouveau produit" pré-rempli avec un code-barres mis
+  // de côté dans la zone tampon, pour le compléter manuellement.
+  const handleCompleteFromBuffer = (barcode) => {
+    setExistingProduct(null);
+    setOpenFoodFactsData(null);
+    setScannedProduct({ barcode });
+    setFormData({
+      name: '', brand: '', barcode, quantity: 1, min_quantity: 1, unit: 'unité',
+      category_id: null, location_id: null, image_url: '', sub_category_id: null, sub_category_name: '', description: '',
+      nutriscore_grade: null,
+    });
+    setResultDialogOpen(true);
+  };
+
+  const handleRemoveFromBuffer = (barcode) => {
+    setUnmatchedBuffer((prev) => prev.filter((entry) => entry.barcode !== barcode));
+  };
+
+  const handleClearBuffer = () => setUnmatchedBuffer([]);
+
   const handleCloseDialog = () => {
     setResultDialogOpen(false);
     setTimeout(() => startCamera(), 200);
@@ -412,6 +662,11 @@ export default function ScannerPage() {
     try {
       await api.post('/products', formData);
       toast.success("Produit ajouté au stock");
+      // Si ce produit venait de la zone tampon (barcode non trouvé sur OFF,
+      // complété manuellement), on le retire du tampon.
+      if (formData.barcode) {
+        setUnmatchedBuffer((prev) => prev.filter((entry) => entry.barcode !== formData.barcode));
+      }
       // On reste sur la page Scanner (pas de redirection vers /products) :
       // on ferme le dialogue et on relance la caméra si elle était active,
       // comme le fait déjà handleCloseDialog pour le dialogue "produit existant".
@@ -434,24 +689,53 @@ export default function ScannerPage() {
         <p className="text-muted-foreground mt-1">Scannez un code-barres pour ajouter ou mettre à jour un produit</p>
       </div>
 
-      {/* Mode Retour de courses */}
-      <Card className={cn("bg-card border transition-all duration-300", shoppingMode ? "border-primary/60 bg-primary/5 shadow-md" : "border-border")}>
-        <CardContent className="p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className={cn("p-2.5 rounded-lg", shoppingMode ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground")}>
-              <ShoppingCart className="w-5 h-5" />
+      {/* Mode de scan : Ajout manuel / Retour de courses / Consommation */}
+      <Card className={cn("bg-card border transition-all duration-300", scanMode !== 'add' ? "border-primary/60 bg-primary/5 shadow-md" : "border-border")}>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className={cn("p-2.5 rounded-lg", scanMode !== 'add' ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground")}>
+              {scanMode === 'consume' ? <PackageMinus className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-sm">Mode "Retour de courses"</h2>
-                {shoppingMode && <Badge className="text-[9px] h-4 uppercase bg-primary">Actif</Badge>}
+                <h2 className="font-bold text-sm">Mode de scan</h2>
+                {scanMode !== 'add' && <Badge className="text-[9px] h-4 uppercase bg-primary">Actif</Badge>}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">Bip sonore, incrémentation automatique et enregistrement instantané en arrière-plan.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {scanMode === 'add' && "Chaque scan ouvre une fiche pour ajouter le produit manuellement."}
+                {scanMode === 'shopping' && "Bip sonore, incrémentation automatique (+1) et enregistrement instantané en arrière-plan."}
+                {scanMode === 'consume' && "Bip sonore, décrémentation automatique (-1) du produit scanné dans votre stock."}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Label htmlFor="shopping-mode" className="text-xs font-black uppercase text-muted-foreground">{shoppingMode ? "Activé" : "Désactivé"}</Label>
-            <Switch id="shopping-mode" checked={shoppingMode} onCheckedChange={setShoppingMode} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Button
+              type="button"
+              variant={scanMode === 'add' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setScanMode('add')}
+              data-testid="scan-mode-add"
+            >
+              Ajout manuel
+            </Button>
+            <Button
+              type="button"
+              variant={scanMode === 'shopping' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setScanMode('shopping')}
+              data-testid="scan-mode-shopping"
+            >
+              <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Retour de courses
+            </Button>
+            <Button
+              type="button"
+              variant={scanMode === 'consume' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setScanMode('consume')}
+              data-testid="scan-mode-consume"
+            >
+              <PackageMinus className="w-3.5 h-3.5 mr-1.5" /> Consommation
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -470,6 +754,37 @@ export default function ScannerPage() {
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-64 object-cover" />
                 <div className="scanner-overlay" />
               </div>
+              {cameraActive && (
+                <div className="absolute top-2 right-2 flex gap-2 z-10">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="bg-black/50 hover:bg-black/70 text-white border-none backdrop-blur-sm"
+                    onClick={switchCamera}
+                    title="Changer de caméra"
+                    data-testid="switch-camera-btn"
+                  >
+                    <SwitchCamera className="w-4 h-4" />
+                  </Button>
+                  {torchSupported && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      className={cn(
+                        "bg-black/50 hover:bg-black/70 text-white border-none backdrop-blur-sm",
+                        torchOn && "bg-amber-500/90 hover:bg-amber-500 text-black"
+                      )}
+                      onClick={toggleTorch}
+                      title={torchOn ? "Éteindre le flash" : "Allumer le flash"}
+                      data-testid="toggle-torch-btn"
+                    >
+                      {torchOn ? <Flashlight className="w-4 h-4" /> : <FlashlightOff className="w-4 h-4" />}
+                    </Button>
+                  )}
+                </div>
+              )}
               {!cameraActive && (
                 <div className="w-full h-64 flex flex-col items-center justify-center bg-secondary/20">
                   {cameraError ? (
@@ -552,6 +867,64 @@ export default function ScannerPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Zone tampon : scans en mode course non trouvés sur Open Food Facts */}
+      {unmatchedBuffer.length > 0 && (
+        <Card className="bg-card border-amber-500/30" data-testid="unmatched-buffer-card">
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Inbox className="w-5 h-5 text-amber-500" />
+              Zone tampon — codes non trouvés
+              <Badge variant="outline" className="ml-1">{unmatchedBuffer.length}</Badge>
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={handleClearBuffer} data-testid="clear-buffer-btn">
+              Vider
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Ces codes-barres scannés en mode course n'ont été trouvés ni dans votre stock, ni sur Open Food Facts.
+              Ils n'ont donc pas été ajoutés automatiquement. Complétez-les manuellement ou retirez-les.
+            </p>
+            <div className="space-y-2">
+              {unmatchedBuffer.map((entry) => (
+                <div
+                  key={entry.barcode}
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg bg-secondary/30 border border-border"
+                  data-testid={`buffer-entry-${entry.barcode}`}
+                >
+                  <div className="min-w-0">
+                    <p className="font-mono text-sm truncate">{entry.barcode}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Scanné à {new Date(entry.scannedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCompleteFromBuffer(entry.barcode)}
+                      data-testid={`complete-buffer-${entry.barcode}`}
+                    >
+                      <Pencil className="w-3.5 h-3.5 mr-1.5" /> Compléter
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => handleRemoveFromBuffer(entry.barcode)}
+                      title="Retirer de la zone tampon"
+                      data-testid={`remove-buffer-${entry.barcode}`}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Dialog Produit Existant */}
       <Dialog open={resultDialogOpen && existingProduct} onOpenChange={handleCloseDialog}>

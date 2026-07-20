@@ -3,15 +3,17 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from './components/ui/sonner';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import GithubCallbackPage from './pages/GithubCallbackPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import ProductDetailPage from './pages/ProductDetailPage';
-import CategoriesPage from './pages/CategoriesPage';
-import LocationsPage from './pages/LocationsPage';
+import ConfigurationPage from './pages/ConfigurationPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import ScannerPage from './pages/ScannerPage';
 import UsersPage from './pages/UsersPage';
 import ProfilePage from './pages/ProfilePage';
+import AboutPage from './pages/AboutPage';
+import SponsorPage from './pages/SponsorPage';
 import Layout from './components/Layout';
 import './App.css';
 
@@ -89,6 +91,10 @@ function AppRoutes() {
           </PublicRoute>
         }
       />
+      {/* Pas de wrapper PublicRoute ici : la page gère elle-même la
+          redirection une fois l'échange terminé, et l'utilisateur n'est pas
+          encore authentifié au moment où GitHub redirige dessus. */}
+      <Route path="/auth/github/callback" element={<GithubCallbackPage />} />
       <Route
         path="/"
         element={
@@ -101,8 +107,13 @@ function AppRoutes() {
         <Route path="products" element={<ProductsPage />} />
         <Route path="products/:id" element={<ProductDetailPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="categories" element={<CategoriesPage />} />
-        <Route path="locations" element={<LocationsPage />} />
+        <Route path="about" element={<AboutPage />} />
+        <Route path="sponsor" element={<SponsorPage />} />
+        <Route path="configuration" element={<ConfigurationPage />} />
+        {/* Redirections pour ne pas casser d'anciens liens/favoris vers les
+            pages fusionnées. */}
+        <Route path="categories" element={<Navigate to="/configuration?section=categories" replace />} />
+        <Route path="locations" element={<Navigate to="/configuration?section=locations" replace />} />
         <Route path="shopping-list" element={<ShoppingListPage />} />
         <Route path="scanner" element={<ScannerPage />} />
         <Route
