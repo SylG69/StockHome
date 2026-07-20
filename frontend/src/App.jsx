@@ -7,8 +7,7 @@ import GithubCallbackPage from './pages/GithubCallbackPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import ProductDetailPage from './pages/ProductDetailPage';
-import CategoriesPage from './pages/CategoriesPage';
-import LocationsPage from './pages/LocationsPage';
+import ConfigurationPage from './pages/ConfigurationPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import ScannerPage from './pages/ScannerPage';
 import UsersPage from './pages/UsersPage';
@@ -110,8 +109,11 @@ function AppRoutes() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="about" element={<AboutPage />} />
         <Route path="sponsor" element={<SponsorPage />} />
-        <Route path="categories" element={<CategoriesPage />} />
-        <Route path="locations" element={<LocationsPage />} />
+        <Route path="configuration" element={<ConfigurationPage />} />
+        {/* Redirections pour ne pas casser d'anciens liens/favoris vers les
+            pages fusionnées. */}
+        <Route path="categories" element={<Navigate to="/configuration?section=categories" replace />} />
+        <Route path="locations" element={<Navigate to="/configuration?section=locations" replace />} />
         <Route path="shopping-list" element={<ShoppingListPage />} />
         <Route path="scanner" element={<ScannerPage />} />
         <Route

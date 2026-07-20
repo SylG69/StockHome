@@ -5,8 +5,7 @@ import { Button } from './ui/button';
 import {
   LayoutDashboard,
   Package,
-  FolderOpen,
-  MapPin,
+  Settings,
   ShoppingCart,
   ScanLine,
   LogOut,
@@ -23,8 +22,7 @@ import {
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Tableau de bord', exact: true },
   { to: '/products', icon: Package, label: 'Produits' },
-  { to: '/categories', icon: FolderOpen, label: 'Catégories' },
-  { to: '/locations', icon: MapPin, label: 'Emplacements' },
+  { to: '/configuration', icon: Settings, label: 'Configuration' },
   { to: '/shopping-list', icon: ShoppingCart, label: 'Liste de courses' },
   { to: '/scanner', icon: ScanLine, label: 'Scanner' },
 ];

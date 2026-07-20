@@ -64,19 +64,20 @@ const colorOptions = [
   { value: '#14B8A6', label: 'Turquoise' },
 ];
 
-export default function CategoriesPage() {
+// Section "Catégories" de la page Configuration (voir ConfigurationPage.jsx).
+// Anciennement une page à part entière (/categories) ; logique inchangée,
+// seul l'en-tête pleine page a été retiré (déjà géré par le shell).
+export default function CategoriesConfigSection() {
   const { api } = useAuth();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Form state
   const [formData, setFormData] = useState({
     name: '',
     icon: 'Package',
@@ -126,7 +127,6 @@ export default function CategoriesPage() {
     setSaving(true);
     try {
       if (editingCategory) {
-        // Utilisation de encodeURIComponent pour protéger le caractère '#' dans l'ID
         const encodedId = encodeURIComponent(editingCategory.id);
         await api.put(`/categories/${encodedId}`, formData);
         toast.success('Catégorie mise à jour');
@@ -168,11 +168,11 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="config-categories-section">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Catégories</h1>
-          <p className="text-muted-foreground mt-1">Organisez vos produits par catégories</p>
+          <h2 className="text-xl font-bold">Catégories</h2>
+          <p className="text-muted-foreground text-sm mt-1">Organisez vos produits par catégories</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="btn-glow">
           <Plus className="w-4 h-4 mr-2" />
@@ -181,14 +181,13 @@ export default function CategoriesPage() {
       </div>
 
       {categories.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {categories.map((category, index) => {
             const IconComponent = iconMap[category.icon] || Package;
             return (
               <Card key={category.id} className="bg-card border-border card-hover animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
-                    {/* Utilisation de la couleur dynamique pour le fond et l'icône */}
                     <div
                       className="p-3 rounded-xl"
                       style={{ backgroundColor: `${category.color || '#3B82F6'}20` }}
@@ -241,8 +240,8 @@ export default function CategoriesPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="name">Nom *</Label>
-              <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-input border-border" />
+              <Label htmlFor="category-name">Nom *</Label>
+              <Input id="category-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-input border-border" />
             </div>
             <div>
               <Label>Icône</Label>
@@ -276,7 +275,6 @@ export default function CategoriesPage() {
                 ))}
               </div>
             </div>
-            {/* Preview */}
             <div className="pt-4 border-t border-border">
               <Label>Aperçu</Label>
               <div className="flex items-center gap-3 mt-2 p-4 rounded-lg bg-secondary/50">
