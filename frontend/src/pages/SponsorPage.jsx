@@ -11,7 +11,7 @@ const DONATION_PLATFORMS = [
     icon: Coffee,
     color: 'text-sky-500 bg-sky-500/10',
     description: 'Dons ponctuels ou mensuels, frais très bas, mise en place en 5 minutes.',
-    url: '', // TODO: https://ko-fi.com/votre-pseudo
+    url: 'https://ko-fi.com/sylg69',
   },
   {
     name: 'Buy Me a Coffee',
