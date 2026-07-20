@@ -111,7 +111,7 @@ export default function DashboardPage() {
       icon: FolderOpen,
       color: 'text-emerald-500',
       bgColor: 'bg-emerald-500/10',
-      to: '/categories',
+      to: '/configuration?section=categories',
     },
     {
       title: 'Emplacements',
@@ -119,7 +119,7 @@ export default function DashboardPage() {
       icon: MapPin,
       color: 'text-amber-500',
       bgColor: 'bg-amber-500/10',
-      to: '/locations',
+      to: '/configuration?section=locations',
     },
   ];
 

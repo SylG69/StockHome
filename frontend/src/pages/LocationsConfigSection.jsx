@@ -64,19 +64,26 @@ const colorOptions = [
   { value: '#14B8A6', label: 'Turquoise' },
 ];
 
-export default function LocationsPage() {
+// Section "Emplacements" de la page Configuration (voir ConfigurationPage.jsx).
+// Anciennement une page à part entière (/locations). Deux bugs corrigés au
+// passage lors de la fusion :
+// 1. handleOpenDialog ne renseignait jamais `color` dans formData (il
+//    écrasait tout l'objet au lieu de le compléter) -- la couleur choisie
+//    n'était donc jamais restaurée à l'édition, ni vraiment enregistrable.
+// 2. L'aperçu utilisait un fallback sur l'icône "Package", jamais importée
+//    dans ce fichier (aurait provoqué une erreur si jamais atteint) --
+//    remplacé par MapPin, cohérent avec le reste du fichier.
+export default function LocationsConfigSection() {
   const { api } = useAuth();
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
   const [locationToDelete, setLocationToDelete] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Form state
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -89,10 +96,9 @@ export default function LocationsPage() {
   }, []);
 
   const fetchLocations = async () => {
-    setLoading(true); // Optionnel : afficher un loader pendant le rafraîchissement
+    setLoading(true);
     try {
       const response = await api.get('/locations');
-      // On met à jour l'état avec les données fraîches de DynamoDB
       setLocations(response.data);
     } catch (error) {
       console.error('Erreur fetch:', error);
@@ -109,6 +115,7 @@ export default function LocationsPage() {
         name: location.name,
         description: location.description || '',
         icon: location.icon || 'Home',
+        color: location.color || '#3B82F6',
       });
     } else {
       setEditingLocation(null);
@@ -116,6 +123,7 @@ export default function LocationsPage() {
         name: '',
         description: '',
         icon: 'Home',
+        color: '#3B82F6',
       });
     }
     setDialogOpen(true);
@@ -130,7 +138,6 @@ export default function LocationsPage() {
     setSaving(true);
     try {
       if (editingLocation) {
-        // Utilisation de encodeURIComponent pour gérer le '#' dans l'ID
         const encodedId = encodeURIComponent(editingLocation.id);
         await api.put(`/locations/${encodedId}`, formData);
         toast.success('Emplacement mis à jour');
@@ -172,12 +179,11 @@ export default function LocationsPage() {
   }
 
   return (
-    <div className="space-y-6" data-testid="locations-page">
-      {/* Header */}
+    <div className="space-y-6" data-testid="config-locations-section">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Emplacements</h1>
-          <p className="text-muted-foreground mt-1">
+          <h2 className="text-xl font-bold">Emplacements</h2>
+          <p className="text-muted-foreground text-sm mt-1">
             Gérez les emplacements de stockage
           </p>
         </div>
@@ -187,9 +193,8 @@ export default function LocationsPage() {
         </Button>
       </div>
 
-      {/* Locations Grid */}
       {locations.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {locations.map((location, index) => {
             const IconComponent = iconMap[location.icon] || MapPin;
             return (
@@ -271,9 +276,9 @@ export default function LocationsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="name">Nom *</Label>
+              <Label htmlFor="location-name">Nom *</Label>
               <Input
-                id="name"
+                id="location-name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="bg-input border-border"
@@ -281,9 +286,9 @@ export default function LocationsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="location-description">Description</Label>
               <Input
-                id="description"
+                id="location-description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="bg-input border-border"
@@ -343,12 +348,12 @@ export default function LocationsPage() {
                   style={{ backgroundColor: `${formData.color}20` }}
                 >
                   {(() => {
-                    const Icon = iconMap[formData.icon] || Package;
+                    const Icon = iconMap[formData.icon] || MapPin;
                     return <Icon className="w-6 h-6" style={{ color: formData.color }} />;
                   })()}
                 </div>
                 <span className="font-semibold">
-                  {formData.name || 'Nom de la catégorie'}
+                  {formData.name || "Nom de l'emplacement"}
                 </span>
               </div>
             </div>
