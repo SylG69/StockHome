@@ -13,6 +13,8 @@ import ShoppingListPage from './pages/ShoppingListPage';
 import ScannerPage from './pages/ScannerPage';
 import UsersPage from './pages/UsersPage';
 import ProfilePage from './pages/ProfilePage';
+import AboutPage from './pages/AboutPage';
+import SponsorPage from './pages/SponsorPage';
 import Layout from './components/Layout';
 import './App.css';
 
@@ -106,6 +108,8 @@ function AppRoutes() {
         <Route path="products" element={<ProductsPage />} />
         <Route path="products/:id" element={<ProductDetailPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="about" element={<AboutPage />} />
+        <Route path="sponsor" element={<SponsorPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="locations" element={<LocationsPage />} />
         <Route path="shopping-list" element={<ShoppingListPage />} />
