@@ -703,17 +703,18 @@ export default function ScannerPage() {
   };
 
   return (
-    <div className="space-y-6" data-testid="scanner-page">
+    <div className="space-y-4 sm:space-y-6" data-testid="scanner-page">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
-        <p className="text-muted-foreground mt-1">Scannez un code-barres pour ajouter ou mettre à jour un produit</p>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Scanner</h1>
+        {/* Sous-titre masqué sur mobile : redondant avec le titre, prend une ligne de scroll inutile sur petit écran. */}
+        <p className="text-muted-foreground mt-1 hidden sm:block">Scannez un code-barres pour ajouter ou mettre à jour un produit</p>
       </div>
 
       {/* Mode de scan : Ajout manuel / Retour de courses / Consommation */}
       <Card className={cn("bg-card border transition-all duration-300", scanMode !== 'add' ? "border-primary/60 bg-primary/5 shadow-md" : "border-border")}>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3 mb-4">
-            <div className={cn("p-2.5 rounded-lg", scanMode !== 'add' ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground")}>
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex items-center gap-3 mb-3 sm:mb-4">
+            <div className={cn("p-2.5 rounded-lg shrink-0", scanMode !== 'add' ? "bg-primary/20 text-primary animate-pulse" : "bg-muted text-muted-foreground")}>
               {scanMode === 'consume' ? <PackageMinus className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
             </div>
             <div>
@@ -721,40 +722,44 @@ export default function ScannerPage() {
                 <h2 className="font-bold text-sm">Mode de scan</h2>
                 {scanMode !== 'add' && <Badge className="text-[9px] h-4 uppercase bg-primary">Actif</Badge>}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              {/* Descriptif détaillé masqué sur mobile pour limiter le défilement -- le libellé du bouton actif suffit à comprendre le mode. */}
+              <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
                 {scanMode === 'add' && "Chaque scan ouvre une fiche pour ajouter le produit manuellement."}
                 {scanMode === 'shopping' && "Bip sonore, incrémentation automatique (+1) et enregistrement instantané en arrière-plan."}
                 {scanMode === 'consume' && "Bip sonore, décrémentation automatique (-1) du produit scanné dans votre stock."}
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             <Button
               type="button"
               variant={scanMode === 'add' ? 'default' : 'outline'}
               size="sm"
+              className="px-1.5 sm:px-3 text-[11px] sm:text-sm"
               onClick={() => setScanMode('add')}
               data-testid="scan-mode-add"
             >
-              Ajout manuel
+              Manuel
             </Button>
             <Button
               type="button"
               variant={scanMode === 'shopping' ? 'default' : 'outline'}
               size="sm"
+              className="px-1.5 sm:px-3 text-[11px] sm:text-sm"
               onClick={() => setScanMode('shopping')}
               data-testid="scan-mode-shopping"
             >
-              <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Retour de courses
+              <ShoppingCart className="w-3.5 h-3.5 mr-1 sm:mr-1.5 shrink-0" /> Courses
             </Button>
             <Button
               type="button"
               variant={scanMode === 'consume' ? 'default' : 'outline'}
               size="sm"
+              className="px-1.5 sm:px-3 text-[11px] sm:text-sm"
               onClick={() => setScanMode('consume')}
               data-testid="scan-mode-consume"
             >
-              <PackageMinus className="w-3.5 h-3.5 mr-1.5" /> Consommation
+              <PackageMinus className="w-3.5 h-3.5 mr-1 sm:mr-1.5 shrink-0" /> Conso
             </Button>
           </div>
         </CardContent>
@@ -782,7 +787,7 @@ export default function ScannerPage() {
             <TabsContent value="camera" className="mt-0">
               <div className="scanner-container bg-black rounded-lg overflow-hidden mb-4 relative">
                 <div className={cameraActive ? 'relative' : 'hidden'}>
-                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-64 object-cover" />
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-80 sm:h-64 object-cover" />
                   <div className="scanner-overlay" />
                 </div>
                 {cameraActive && (
@@ -817,7 +822,7 @@ export default function ScannerPage() {
                   </div>
                 )}
                 {!cameraActive && (
-                  <div className="w-full h-64 flex flex-col items-center justify-center bg-secondary/20">
+                  <div className="w-full h-80 sm:h-64 flex flex-col items-center justify-center bg-secondary/20">
                     {cameraError ? (
                       <>
                         <AlertCircle className="w-12 h-12 text-destructive mb-3" />
@@ -999,11 +1004,12 @@ export default function ScannerPage() {
 
       {/* Dialog Nouveau Produit */}
       <Dialog open={resultDialogOpen && !existingProduct} onOpenChange={handleCloseDialog}>
-        <DialogContent className="bg-card border-border max-w-lg">
+        {/* Plein écran sur mobile (plus de place pour le formulaire, pas de petite fenêtre flottante à faire défiler) ; boîte centrée classique à partir de sm. */}
+        <DialogContent className="bg-card border-border flex flex-col top-0 left-0 translate-x-0 translate-y-0 w-full h-full max-w-full max-h-full rounded-none sm:top-[50%] sm:left-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:w-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] sm:rounded-lg">
           <DialogHeader>
             <DialogTitle>{openFoodFactsData ? 'Produit trouvé' : 'Nouveau produit'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="space-y-4 flex-1 overflow-y-auto pr-1 sm:flex-none sm:max-h-[60vh]">
             {openFoodFactsData ? (
               <div className="flex items-start gap-4 p-4 rounded-lg bg-secondary/30">
                 {openFoodFactsData.image_url ? (
