@@ -42,9 +42,16 @@ import {
   X,
   Pencil,
   PackageMinus,
+  ChevronDown,
 } from 'lucide-react';
 // IMPORT DES HINTS ET DES FORMATS POUR LES OPTIMISATIONS DE VITESSE
 import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '../components/ui/tabs';
 import {
   Command,
   CommandEmpty,
@@ -110,6 +117,12 @@ export default function ScannerPage() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  // Onglet actif du panneau de scan : 'camera' ou 'manual'. Quand on quitte
+  // l'onglet caméra, on coupe le flux -- sinon la caméra resterait allumée
+  // en arrière-plan inutilement (batterie, vie privée) une fois son contenu
+  // démonté par Radix Tabs.
+  const [inputTab, setInputTab] = useState('camera');
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
   // Mode de scan : 'add' (classique, ouvre une fiche à compléter),
   // 'shopping' (Retour de courses, +1 auto), 'consume' (Consommation, -1
@@ -336,6 +349,13 @@ export default function ScannerPage() {
       toast.error("Le flash n'est pas disponible sur cet appareil");
       setTorchSupported(false);
     }
+  };
+
+  const handleInputTabChange = (value) => {
+    if (value !== 'camera' && cameraActive) {
+      stopCamera();
+    }
+    setInputTab(value);
   };
 
   const switchCamera = async () => {
@@ -740,132 +760,106 @@ export default function ScannerPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Caméra */}
-        <Card className="bg-card border-border">
+      {/* Panneau de scan : un seul panneau, onglets Caméra / Manuel-USB */}
+      <Card className="bg-card border-border">
+        <Tabs value={inputTab} onValueChange={handleInputTabChange}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="w-5 h-5" /> Scanner avec la caméra
-            </CardTitle>
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <ScanLine className="w-5 h-5" /> Scanner un produit
+              </CardTitle>
+              <TabsList>
+                <TabsTrigger value="camera" data-testid="input-tab-camera">
+                  <Camera className="w-4 h-4 mr-1.5" /> Caméra
+                </TabsTrigger>
+                <TabsTrigger value="manual" data-testid="input-tab-manual">
+                  <Keyboard className="w-4 h-4 mr-1.5" /> Manuel / USB
+                </TabsTrigger>
+              </TabsList>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="scanner-container bg-black rounded-lg overflow-hidden mb-4 relative">
-              <div className={cameraActive ? 'relative' : 'hidden'}>
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-64 object-cover" />
-                <div className="scanner-overlay" />
-              </div>
-              {cameraActive && (
-                <div className="absolute top-2 right-2 flex gap-2 z-10">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="secondary"
-                    className="bg-black/50 hover:bg-black/70 text-white border-none backdrop-blur-sm"
-                    onClick={switchCamera}
-                    title="Changer de caméra"
-                    data-testid="switch-camera-btn"
-                  >
-                    <SwitchCamera className="w-4 h-4" />
-                  </Button>
-                  {torchSupported && (
+            <TabsContent value="camera" className="mt-0">
+              <div className="scanner-container bg-black rounded-lg overflow-hidden mb-4 relative">
+                <div className={cameraActive ? 'relative' : 'hidden'}>
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-64 object-cover" />
+                  <div className="scanner-overlay" />
+                </div>
+                {cameraActive && (
+                  <div className="absolute top-2 right-2 flex gap-2 z-10">
                     <Button
                       type="button"
                       size="icon"
                       variant="secondary"
-                      className={cn(
-                        "bg-black/50 hover:bg-black/70 text-white border-none backdrop-blur-sm",
-                        torchOn && "bg-amber-500/90 hover:bg-amber-500 text-black"
-                      )}
-                      onClick={toggleTorch}
-                      title={torchOn ? "Éteindre le flash" : "Allumer le flash"}
-                      data-testid="toggle-torch-btn"
+                      className="bg-black/50 hover:bg-black/70 text-white border-none backdrop-blur-sm"
+                      onClick={switchCamera}
+                      title="Changer de caméra"
+                      data-testid="switch-camera-btn"
                     >
-                      {torchOn ? <Flashlight className="w-4 h-4" /> : <FlashlightOff className="w-4 h-4" />}
+                      <SwitchCamera className="w-4 h-4" />
                     </Button>
-                  )}
+                    {torchSupported && (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="secondary"
+                        className={cn(
+                          "bg-black/50 hover:bg-black/70 text-white border-none backdrop-blur-sm",
+                          torchOn && "bg-amber-500/90 hover:bg-amber-500 text-black"
+                        )}
+                        onClick={toggleTorch}
+                        title={torchOn ? "Éteindre le flash" : "Allumer le flash"}
+                        data-testid="toggle-torch-btn"
+                      >
+                        {torchOn ? <Flashlight className="w-4 h-4" /> : <FlashlightOff className="w-4 h-4" />}
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {!cameraActive && (
+                  <div className="w-full h-64 flex flex-col items-center justify-center bg-secondary/20">
+                    {cameraError ? (
+                      <>
+                        <AlertCircle className="w-12 h-12 text-destructive mb-3" />
+                        <p className="text-sm text-muted-foreground text-center px-4">{cameraError}</p>
+                      </>
+                    ) : (
+                      <>
+                        <CameraOff className="w-12 h-12 text-muted-foreground mb-3" />
+                        <p className="text-sm text-muted-foreground">Caméra désactivée</p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Button className="w-full" variant={cameraActive ? 'destructive' : 'default'} onClick={cameraActive ? stopCamera : startCamera} data-testid="toggle-camera-btn">
+                {cameraActive ? <><CameraOff className="w-4 h-4 mr-2" /> Arrêter la caméra</> : <><Camera className="w-4 h-4 mr-2" /> Démarrer la caméra</>}
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="manual" className="mt-0">
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg bg-secondary/20 border border-dashed border-border">
+                  <div className="flex items-center gap-3 mb-2">
+                    <ScanLine className="w-5 h-5 text-primary" />
+                    <span className="font-medium">Lecteur USB</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Si vous utilisez un lecteur USB, scannez directement le produit.</p>
                 </div>
-              )}
-              {!cameraActive && (
-                <div className="w-full h-64 flex flex-col items-center justify-center bg-secondary/20">
-                  {cameraError ? (
-                    <>
-                      <AlertCircle className="w-12 h-12 text-destructive mb-3" />
-                      <p className="text-sm text-muted-foreground text-center px-4">{cameraError}</p>
-                    </>
-                  ) : (
-                    <>
-                      <CameraOff className="w-12 h-12 text-muted-foreground mb-3" />
-                      <p className="text-sm text-muted-foreground">Caméra désactivée</p>
-                    </>
-                  )}
+
+                <div>
+                  <Label htmlFor="manual-barcode">Ou saisissez le code manuellement</Label>
+                  <div className="flex gap-2 mt-2">
+                    <Input ref={manualInputRef} id="manual-barcode" value={manualBarcode} onChange={(e) => setManualBarcode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()} placeholder="Ex: 3017620422003" className="font-mono" data-testid="manual-barcode-input" />
+                    <Button onClick={handleManualSearch} disabled={searching} data-testid="search-barcode-btn">
+                      {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    </Button>
+                  </div>
                 </div>
-              )}
-            </div>
-            <Button className="w-full" variant={cameraActive ? 'destructive' : 'default'} onClick={cameraActive ? stopCamera : startCamera} data-testid="toggle-camera-btn">
-              {cameraActive ? <><CameraOff className="w-4 h-4 mr-2" /> Arrêter la caméra</> : <><Camera className="w-4 h-4 mr-2" /> Démarrer la caméra</>}
-            </Button>
+              </div>
+            </TabsContent>
           </CardContent>
-        </Card>
-
-        {/* Manuel / USB */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Keyboard className="w-5 h-5" /> Saisie manuelle / Lecteur USB
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-secondary/20 border border-dashed border-border">
-                <div className="flex items-center gap-3 mb-2">
-                  <ScanLine className="w-5 h-5 text-primary" />
-                  <span className="font-medium">Lecteur USB</span>
-                </div>
-                <p className="text-sm text-muted-foreground">Si vous utilisez un lecteur USB, scannez directement le produit.</p>
-              </div>
-
-              <div>
-                <Label htmlFor="manual-barcode">Ou saisissez le code manuellement</Label>
-                <div className="flex gap-2 mt-2">
-                  <Input ref={manualInputRef} id="manual-barcode" value={manualBarcode} onChange={(e) => setManualBarcode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()} placeholder="Ex: 3017620422003" className="font-mono" data-testid="manual-barcode-input" />
-                  <Button onClick={handleManualSearch} disabled={searching} data-testid="search-barcode-btn">
-                    {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Notice */}
-      <Card className="bg-card border-border">
-        <CardContent className="p-6">
-          <h3 className="font-semibold mb-3">Comment ça marche ?</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">1</span></div>
-              <div>
-                <p className="font-medium text-sm">Scannez le code-barres</p>
-                <p className="text-xs text-muted-foreground">Caméra optimisée, lecteur USB ou saisie manuelle.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">2</span></div>
-              <div>
-                <p className="font-medium text-sm">Vérifiez ou stockez en chaîne</p>
-                <p className="text-xs text-muted-foreground">Le mode classique affiche la fiche, le mode course automatise l'action.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">3</span></div>
-              <div>
-                <p className="font-medium text-sm">Ajoutez à votre stock</p>
-                <p className="text-xs text-muted-foreground">Définissez la quantité globale et l'emplacement.</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
+        </Tabs>
       </Card>
 
       {/* Zone tampon : scans en mode course non trouvés sur Open Food Facts */}
@@ -925,6 +919,46 @@ export default function ScannerPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Notice, repliée par défaut : utile la première fois, superflue ensuite */}
+      <Card className="bg-card border-border">
+        <button
+          type="button"
+          className="w-full flex items-center justify-between p-4 text-left"
+          onClick={() => setHowItWorksOpen((v) => !v)}
+          data-testid="how-it-works-toggle"
+        >
+          <h3 className="font-semibold text-sm">Comment ça marche ?</h3>
+          <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", howItWorksOpen && "rotate-180")} />
+        </button>
+        {howItWorksOpen && (
+          <CardContent className="pt-0 px-6 pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">1</span></div>
+                <div>
+                  <p className="font-medium text-sm">Scannez le code-barres</p>
+                  <p className="text-xs text-muted-foreground">Caméra optimisée, lecteur USB ou saisie manuelle.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">2</span></div>
+                <div>
+                  <p className="font-medium text-sm">Vérifiez ou stockez en chaîne</p>
+                  <p className="text-xs text-muted-foreground">Le mode classique affiche la fiche, le mode course automatise l'action.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">3</span></div>
+                <div>
+                  <p className="font-medium text-sm">Ajoutez à votre stock</p>
+                  <p className="text-xs text-muted-foreground">Définissez la quantité globale et l'emplacement.</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* Dialog Produit Existant */}
       <Dialog open={resultDialogOpen && existingProduct} onOpenChange={handleCloseDialog}>
