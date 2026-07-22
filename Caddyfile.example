@@ -1,0 +1,14 @@
+# Exemple de configuration Caddy pour StockHome.
+# Copiez ce fichier en Caddyfile (à la racine ou dans /etc/caddy/) et
+# remplacez le domaine ci-dessous par le vôtre.
+
+votre-domaine.tld {
+	# Redirige tout le trafic vers le conteneur "app" (frontend + API sur
+	# la même origine, aucune règle spécifique à /api/ n'est nécessaire).
+	reverse_proxy 127.0.0.1:8000
+
+	# Caddy obtient et renouvelle automatiquement le certificat Let's
+	# Encrypt pour ce domaine (nécessite que le port 443 soit accessible
+	# depuis Internet et que le DNS pointe vers ce serveur).
+	encode zstd gzip
+}
