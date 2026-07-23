@@ -205,6 +205,7 @@ export default function ProductsPage() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingSubCategory, setRenamingSubCategory] = useState(null); // { id, name, categoryId, threshold }
   const [renameValue, setRenameValue] = useState('');
+  const [renameComboOpen, setRenameComboOpen] = useState(false);
 
   // Groupes ouverts dans l'accordéon (mode groupé). null tant que non
   // initialisé -> tous ouverts par défaut (comportement précédent).
@@ -227,12 +228,19 @@ export default function ProductsPage() {
       const encodedId = encodeURIComponent(renamingSubCategory.id);
       // PUT (et non PATCH) : l'endpoint remplace tous les champs, on renvoie
       // donc category_id/min_quantity inchangés en plus du nouveau nom.
-      await api.put(`/subcategories/${encodedId}`, {
+      const response = await api.put(`/subcategories/${encodedId}`, {
         name: trimmed,
         category_id: renamingSubCategory.categoryId,
         min_quantity: renamingSubCategory.threshold,
       });
-      toast.success('Sous-catégorie renommée');
+      // Le backend fusionne automatiquement si le nom correspond à une
+      // sous-catégorie existante : l'id renvoyé diffère alors de celui
+      // qu'on renommait, et les produits ont été rattachés à l'existante.
+      if (response.data.id !== renamingSubCategory.id) {
+        toast.success(`Fusionnée avec la sous-catégorie "${response.data.name}" existante`);
+      } else {
+        toast.success('Sous-catégorie renommée');
+      }
       setRenameDialogOpen(false);
       setRenamingSubCategory(null);
       fetchData();
@@ -1030,14 +1038,52 @@ export default function ProductsPage() {
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="rename-subcategory-input">Nom</Label>
-            <Input
-              id="rename-subcategory-input"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSubCategory(); }}
-              autoFocus
-              data-testid="rename-subcategory-input"
-            />
+            <Popover open={renameComboOpen} onOpenChange={setRenameComboOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  id="rename-subcategory-input"
+                  role="combobox"
+                  aria-expanded={renameComboOpen}
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
+                  data-testid="rename-subcategory-input"
+                >
+                  {renameValue || "Tapez un nom..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                <Command>
+                  <CommandInput
+                    placeholder="Rechercher ou saisir un nom..."
+                    value={renameValue}
+                    onValueChange={setRenameValue}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { setRenameComboOpen(false); handleRenameSubCategory(); } }}
+                  />
+                  <CommandList>
+                    <CommandEmpty className="p-2 text-xs text-muted-foreground">
+                      Aucune sous-catégorie existante avec ce nom.
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {subCategories
+                        .filter((sub) => sub.id !== renamingSubCategory?.id)
+                        .map((sub) => (
+                          <CommandItem
+                            key={sub.id}
+                            value={sub.name}
+                            onSelect={() => { setRenameValue(sub.name); setRenameComboOpen(false); }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", renameValue === sub.name ? "opacity-100" : "opacity-0")} />
+                            {sub.name}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <p className="text-[10px] text-muted-foreground">
+              Choisir une sous-catégorie existante fusionnera les deux (tous les produits seront rattachés à l'existante).
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>Annuler</Button>
