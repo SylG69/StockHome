@@ -1,7 +1,7 @@
 """Points de terminaison de configuration pour StockHome."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import models
@@ -100,7 +100,13 @@ def update_subcategory(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Met à jour une sous-catégorie existante pour l'utilisateur authentifié."""
+    """Met à jour une sous-catégorie existante pour l'utilisateur authentifié.
+
+    Fusion automatique : si le nouveau nom correspond (insensible à la casse)
+    à une AUTRE sous-catégorie déjà existante, on ne crée pas de doublon --
+    tous les produits de la sous-catégorie renommée sont rattachés à la
+    sous-catégorie existante, qui est conservée (avec sa propre config), et
+    celle qu'on renommait est supprimée."""
     sub_category = db.execute(
         select(models.SubCategory).where(
             models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
@@ -108,6 +114,27 @@ def update_subcategory(
     ).scalar_one_or_none()
     if not sub_category:
         raise HTTPException(status_code=404, detail="Sous-catégorie non trouvée")
+
+    new_name = data.name.strip()
+    existing_match = db.execute(
+        select(models.SubCategory).where(
+            models.SubCategory.user_id == current_user.id,
+            models.SubCategory.id != sub_category_id,
+            func.lower(models.SubCategory.name) == new_name.lower(),
+        )
+    ).scalar_one_or_none()
+
+    if existing_match:
+        db.execute(
+            models.Product.__table__.update()
+            .where(models.Product.sub_category_id == sub_category_id)
+            .values(sub_category_id=existing_match.id)
+        )
+        db.delete(sub_category)
+        db.commit()
+        db.refresh(existing_match)
+        return existing_match
+
     for key, value in data.model_dump().items():
         setattr(sub_category, key, value)
     db.commit()
