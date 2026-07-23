@@ -8,7 +8,7 @@ def test_app_loads():
 
 
 def test_routers_are_registered():
-    paths = {route.path for route in app.routes}
+    paths = app.openapi()["paths"].keys()
     assert any(path.startswith("/api/auth") for path in paths)
     assert any(path.startswith("/api/products") for path in paths)
     assert any(path.startswith("/api/shopping-list") for path in paths)
