@@ -5,7 +5,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -128,6 +128,10 @@ class Product(Base):
     # scan et mis en cache ici pour un affichage rapide dans les listes
     # (évite un appel OFF par produit à chaque chargement de la page).
     nutriscore_grade: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    # Prix unitaire (EUR), librement modifiable par l'utilisateur. Prérempli
+    # au scan avec le prix moyen Open Prices si disponible, mais jamais
+    # écrasé automatiquement ensuite (voir refresh_product_from_off).
+    price: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     category_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True

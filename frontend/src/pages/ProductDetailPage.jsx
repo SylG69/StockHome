@@ -414,6 +414,9 @@ export default function ProductDetailPage() {
             {product.barcode && (
               <p className="text-xs text-muted-foreground font-mono pt-1">Code-barres : {product.barcode}</p>
             )}
+            {product.price != null && (
+              <p className="text-sm font-medium pt-1">Prix unitaire : {Number(product.price).toFixed(2)} €</p>
+            )}
           </div>
         </CardContent>
       </Card>
