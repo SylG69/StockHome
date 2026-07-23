@@ -8,6 +8,17 @@ updates:
     labels:
       - "dependencies"
       - "frontend"
+    groups:
+      # Une seule PR groupant TOUTES les mises à jour npm de la semaine,
+      # plutôt qu'une PR par paquet -- limite les merges et évite les
+      # conflits entre plusieurs PR touchant le même package.json/lock.
+      # Inclut de fait eslint + @eslint/js ensemble (paquets couplés : la
+      # config "recommended" de @eslint/js embarque des règles du coeur
+      # d'ESLint, qui doivent donc toujours avancer de pair -- cf. erreur
+      # "no-unassigned-vars" quand l'un des deux est resté en retrait).
+      frontend:
+        patterns:
+          - "*"
 
   - package-ecosystem: "pip"
     directory: "/backend"
@@ -17,6 +28,12 @@ updates:
     labels:
       - "dependencies"
       - "backend"
+    groups:
+      # Idem côté backend : une seule PR groupant toutes les mises à jour
+      # pip de la semaine.
+      backend:
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -25,6 +42,10 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/"
@@ -33,3 +54,7 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    groups:
+      docker:
+        patterns:
+          - "*"
