@@ -3,9 +3,24 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '../components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -15,6 +30,7 @@ import {
   Loader2,
   Info,
   RefreshCw,
+  Pencil,
 } from 'lucide-react';
 
 const NUTRISCORE_STYLES = {
@@ -282,6 +298,71 @@ export default function ProductDetailPage() {
   const [offLoading, setOffLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState(null);
+
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const [categoriesRes, subcategoriesRes, locationsRes] = await Promise.all([
+          api.get('/categories'),
+          api.get('/subcategories'),
+          api.get('/locations'),
+        ]);
+        setCategories(categoriesRes.data);
+        setSubcategories(subcategoriesRes.data);
+        setLocations(locationsRes.data);
+      } catch (error) {
+        console.error('Failed to fetch options:', error);
+      }
+    };
+    fetchOptions();
+  }, []);
+
+  const handleOpenEdit = () => {
+    setFormData({
+      name: product.name || '',
+      brand: product.brand || '',
+      description: product.description || '',
+      quantity: product.quantity ?? 0,
+      min_quantity: product.min_quantity ?? 1,
+      unit: product.unit || 'unité',
+      price: product.price ?? '',
+      expiration_date: product.expiration_date || '',
+      category_id: product.category_id || null,
+      sub_category_id: product.sub_category_id || null,
+      location_id: product.location_id || null,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!formData.name.trim()) {
+      toast.error('Le nom est requis');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        ...formData,
+        price: formData.price === '' ? null : formData.price,
+        expiration_date: formData.expiration_date === '' ? null : formData.expiration_date,
+      };
+      const response = await api.put(`/products/${encodeURIComponent(id)}`, payload);
+      setProduct(response.data);
+      toast.success('Produit mis à jour');
+      setEditDialogOpen(false);
+    } catch (error) {
+      toast.error("Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleRefreshFromOff = async () => {
     setRefreshing(true);
     try {
@@ -367,24 +448,30 @@ export default function ProductDetailPage() {
           Retour aux produits
         </Button>
 
-        {product.barcode && (
-          <div className="flex items-center gap-4 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefreshFromOff}
-              disabled={refreshing}
-              data-testid="refresh-off-btn"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Actualiser depuis OFF
-            </Button>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="full-info" className="text-sm">Information complète</Label>
-              <Switch id="full-info" checked={fullInfo} onCheckedChange={handleToggleFullInfo} data-testid="toggle-full-info" />
-            </div>
-          </div>
-        )}
+        <div className="flex items-center gap-4 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleOpenEdit} data-testid="edit-product-btn">
+            <Pencil className="w-4 h-4 mr-2" />
+            Modifier
+          </Button>
+          {product.barcode && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshFromOff}
+                disabled={refreshing}
+                data-testid="refresh-off-btn"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Actualiser depuis OFF
+              </Button>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="full-info" className="text-sm">Information complète</Label>
+                <Switch id="full-info" checked={fullInfo} onCheckedChange={handleToggleFullInfo} data-testid="toggle-full-info" />
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* En-tête produit : toujours affiché, quel que soit le mode */}
@@ -414,6 +501,20 @@ export default function ProductDetailPage() {
             {product.barcode && (
               <p className="text-xs text-muted-foreground font-mono pt-1">Code-barres : {product.barcode}</p>
             )}
+            {product.price != null && (
+              <p className="text-sm font-medium pt-1">Prix unitaire : {Number(product.price).toFixed(2)} €</p>
+            )}
+            {product.expiration_date && (() => {
+              const today = new Date(new Date().toDateString());
+              const expiry = new Date(product.expiration_date);
+              const isExpired = expiry < today;
+              const isSoon = !isExpired && (expiry - today) / 86400000 <= 7;
+              return (
+                <p className={`text-sm font-medium pt-1 ${isExpired ? 'text-destructive' : isSoon ? 'text-amber-500' : ''}`}>
+                  Date de péremption : {expiry.toLocaleDateString('fr-FR')}{isExpired ? ' (périmé)' : ''}
+                </p>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
@@ -469,6 +570,112 @@ export default function ProductDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Dialog Modifier */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent
+          className="bg-card border-border max-w-lg"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <DialogHeader><DialogTitle>Modifier le produit</DialogTitle></DialogHeader>
+          {formData && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label>Nom *</Label>
+                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+              </div>
+              <div className="col-span-2">
+                <Label>Marque</Label>
+                <Input value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
+              </div>
+              <div>
+                <Label>Quantité</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value, 10) || 0 })}
+                />
+              </div>
+              <div>
+                <Label>Prix unitaire (€)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Ex: 2.50"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>Date de péremption</Label>
+                <Input
+                  type="date"
+                  value={formData.expiration_date}
+                  onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Catégorie</Label>
+                <Select
+                  value={formData.category_id || 'none'}
+                  onValueChange={(v) => setFormData({ ...formData, category_id: v === 'none' ? null : v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucune</SelectItem>
+                    {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Sous-catégorie</Label>
+                <Select
+                  value={formData.sub_category_id || 'none'}
+                  onValueChange={(v) => setFormData({ ...formData, sub_category_id: v === 'none' ? null : v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucune</SelectItem>
+                    {subcategories.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Emplacement</Label>
+                <Select
+                  value={formData.location_id || 'none'}
+                  onValueChange={(v) => setFormData({ ...formData, location_id: v === 'none' ? null : v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Quantité minimale</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.min_quantity}
+                  onChange={(e) => setFormData({ ...formData, min_quantity: parseInt(e.target.value, 10) || 0 })}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>Description</Label>
+                <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Annuler</Button>
+            <Button onClick={handleSaveEdit} disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

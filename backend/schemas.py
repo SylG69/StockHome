@@ -1,6 +1,6 @@
 """Définitions des schémas Pydantic pour les requêtes et réponses de l'API StockHome."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
@@ -144,6 +144,8 @@ class ProductBase(BaseModel):
     image_url: Optional[str] = None
     brand: Optional[str] = None
     nutriscore_grade: Optional[str] = None  # 'a' à 'e', renseigné automatiquement via l'API OFF au scan
+    price: Optional[float] = None  # prix unitaire (EUR), librement saisi/modifié par l'utilisateur
+    expiration_date: Optional[date] = None  # DLC/DLUO, saisie manuelle uniquement
 
 class ProductCreate(ProductBase):
     """Requête de création d'un produit; peut contenir un nom de sous-catégorie."""
@@ -164,6 +166,8 @@ class ProductUpdate(BaseModel):
     image_url: Optional[str] = None
     brand: Optional[str] = None
     nutriscore_grade: Optional[str] = None
+    price: Optional[float] = None
+    expiration_date: Optional[date] = None
 
 class ProductResponse(ProductBase):
     """Réponse API pour un produit, inclut métadonnées et noms résolus."""
@@ -228,3 +232,9 @@ class OpenFoodFactsProduct(BaseModel):
     # non alimentaires venant d'Open Beauty/Pet Food Facts).
     nutriscore_grade: Optional[str] = None
     nutrient_levels: List[NutrientLevel] = []
+    # Prix moyen constaté sur Open Prices (openfoodfacts.org) pour ce
+    # code-barres, en pure indication -- None si aucune donnée disponible.
+    # Le champ prix du produit reste toujours libre à la saisie/modification.
+    suggested_price: Optional[float] = None
+    suggested_price_currency: Optional[str] = None
+    suggested_price_count: int = 0
