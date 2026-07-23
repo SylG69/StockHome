@@ -593,12 +593,13 @@ export default function ProductsPage() {
 
     setSaving(true);
     try {
+      const payload = { ...formData, price: formData.price === '' ? null : formData.price };
       if (editingProduct) {
         const encodedId = encodeURIComponent(editingProduct.id);
-        await api.put(`/products/${encodedId}`, formData);
+        await api.put(`/products/${encodedId}`, payload);
         toast.success("Produit mis à jour");
       } else {
-        await api.post('/products', formData);
+        await api.post('/products', payload);
         toast.success("Produit ajouté");
       }
       setDialogOpen(false);

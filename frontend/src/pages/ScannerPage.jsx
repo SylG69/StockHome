@@ -674,7 +674,8 @@ export default function ScannerPage() {
 
     setSaving(true);
     try {
-      await api.post('/products', formData);
+      const payload = { ...formData, price: formData.price === '' ? null : formData.price };
+      await api.post('/products', payload);
       toast.success("Produit ajouté au stock");
       // Si ce produit venait de la zone tampon (barcode non trouvé sur OFF,
       // complété manuellement), on le retire du tampon.
