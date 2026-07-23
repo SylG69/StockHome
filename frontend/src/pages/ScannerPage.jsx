@@ -993,7 +993,10 @@ export default function ScannerPage() {
 
       {/* Dialog Nouveau Produit */}
       <Dialog open={resultDialogOpen && !existingProduct} onOpenChange={handleCloseDialog}>
-        <DialogContent className="bg-card border-border max-w-lg">
+        <DialogContent
+          className="bg-card border-border max-w-lg"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>{openFoodFactsData ? 'Produit trouvé' : 'Nouveau produit'}</DialogTitle>
           </DialogHeader>

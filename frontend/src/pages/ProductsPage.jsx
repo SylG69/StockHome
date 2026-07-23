@@ -73,8 +73,34 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+// Filtres persistés par utilisateur (localStorage) pour que la page Produits
+// retrouve son état d'une session à l'autre -- clé dédiée par user.id pour
+// ne pas mélanger les préférences de plusieurs comptes sur le même navigateur.
+const DEFAULT_FILTERS = {
+  searchQuery: '',
+  filterCategory: 'all',
+  filterLocation: 'all',
+  filterLowStock: false,
+  filterNutriscore: 'all',
+  hideOutOfStock: true,
+  isGrouped: true,
+};
+
+const getFiltersStorageKey = (userId) => `stockhome_products_filters_${userId}`;
+
+function loadStoredFilters(userId) {
+  if (!userId) return DEFAULT_FILTERS;
+  try {
+    const raw = localStorage.getItem(getFiltersStorageKey(userId));
+    if (!raw) return DEFAULT_FILTERS;
+    return { ...DEFAULT_FILTERS, ...JSON.parse(raw) };
+  } catch (e) {
+    return DEFAULT_FILTERS;
+  }
+}
+
 export default function ProductsPage() {
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
@@ -83,16 +109,41 @@ export default function ProductsPage() {
   const [subCategories, setSubCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- ÉTATS PAR DÉFAUT ---
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterLocation, setFilterLocation] = useState('all');
-  const [filterLowStock, setFilterLowStock] = useState(searchParams.get('low_stock') === 'true');
+  // --- ÉTATS PAR DÉFAUT (repris du localStorage si disponibles, sinon
+  // DEFAULT_FILTERS -- les paramètres d'URL explicites, ex: lien depuis le
+  // tableau de bord, restent prioritaires sur les filtres sauvegardés) ---
+  const storedFilters = loadStoredFilters(user?.id);
+  const [searchQuery, setSearchQuery] = useState(storedFilters.searchQuery);
+  const [filterCategory, setFilterCategory] = useState(storedFilters.filterCategory);
+  const [filterLocation, setFilterLocation] = useState(storedFilters.filterLocation);
+  const [filterLowStock, setFilterLowStock] = useState(
+    searchParams.get('low_stock') === 'true' ? true : storedFilters.filterLowStock
+  );
   // Filtre Nutri-Score, utilisé notamment par le lien "cliquer sur le
   // graphique" du tableau de bord (?nutriscore=a, b, c, d, e ou unknown).
-  const [filterNutriscore, setFilterNutriscore] = useState(searchParams.get('nutriscore') || 'all');
-  const [hideOutOfStock, setHideOutOfStock] = useState(true);
-  const [isGrouped, setIsGrouped] = useState(true);
+  const [filterNutriscore, setFilterNutriscore] = useState(
+    searchParams.get('nutriscore') || storedFilters.filterNutriscore
+  );
+  const [hideOutOfStock, setHideOutOfStock] = useState(storedFilters.hideOutOfStock);
+  const [isGrouped, setIsGrouped] = useState(storedFilters.isGrouped);
+
+  // Persiste les filtres à chaque changement, par utilisateur.
+  useEffect(() => {
+    if (!user?.id) return;
+    const filters = { searchQuery, filterCategory, filterLocation, filterLowStock, filterNutriscore, hideOutOfStock, isGrouped };
+    localStorage.setItem(getFiltersStorageKey(user.id), JSON.stringify(filters));
+  }, [user?.id, searchQuery, filterCategory, filterLocation, filterLowStock, filterNutriscore, hideOutOfStock, isGrouped]);
+
+  const handleResetFilters = () => {
+    setSearchQuery(DEFAULT_FILTERS.searchQuery);
+    setFilterCategory(DEFAULT_FILTERS.filterCategory);
+    setFilterLocation(DEFAULT_FILTERS.filterLocation);
+    setFilterLowStock(DEFAULT_FILTERS.filterLowStock);
+    setFilterNutriscore(DEFAULT_FILTERS.filterNutriscore);
+    setHideOutOfStock(DEFAULT_FILTERS.hideOutOfStock);
+    setIsGrouped(DEFAULT_FILTERS.isGrouped);
+    toast.success('Filtres réinitialisés');
+  };
 
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -334,10 +385,10 @@ export default function ProductsPage() {
             </div>
           )}
         </td>
-        <td className="p-3 font-medium text-sm">{product.name}</td>
-        <td className="p-3 text-sm text-muted-foreground">{product.brand || 'Sans marque'}</td>
-        <td className="p-3 text-sm text-muted-foreground">{category?.name || '—'}</td>
-        <td className="p-3 text-sm text-muted-foreground">{location?.name || '—'}</td>
+        <td className="p-3 font-medium text-sm truncate max-w-0">{product.name}</td>
+        <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{product.brand || 'Sans marque'}</td>
+        <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{category?.name || '—'}</td>
+        <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{location?.name || '—'}</td>
         <td className="p-3"><ExpirationBadge date={product.expiration_date} /></td>
         <td className="p-3"><NutriscoreBadge grade={product.nutriscore_grade} /></td>
         <td className="p-3" onClick={(e) => e.stopPropagation()}>
@@ -487,17 +538,21 @@ export default function ProductsPage() {
 
       {/* Tablette/desktop : tableau complet */}
       <div className="hidden sm:block overflow-x-auto rounded-lg border border-border">
-      <table className="w-full">
+      {/* table-fixed + largeurs figées sur le thead : chaque groupe (mode
+          groupé) rend son propre <table>, donc avec un layout auto les
+          colonnes se recalculaient indépendamment par groupe et les lignes
+          ne s'alignaient pas verticalement d'un groupe à l'autre. */}
+      <table className="w-full table-fixed">
         <thead>
           <tr className="bg-secondary/50 text-left text-xs uppercase text-muted-foreground font-bold">
             <th className="p-3 w-16"></th>
-            <th className="p-3">Nom</th>
-            <th className="p-3">Marque</th>
-            <th className="p-3">Catégorie</th>
-            <th className="p-3">Emplacement</th>
-            <th className="p-3">Péremption</th>
-            <th className="p-3">Nutri-Score</th>
-            <th className="p-3">Quantité</th>
+            <th className="p-3 w-[18%]">Nom</th>
+            <th className="p-3 w-[14%]">Marque</th>
+            <th className="p-3 w-[13%]">Catégorie</th>
+            <th className="p-3 w-[13%]">Emplacement</th>
+            <th className="p-3 w-[11%]">Péremption</th>
+            <th className="p-3 w-24">Nutri-Score</th>
+            <th className="p-3 w-32">Quantité</th>
             <th className="p-3 w-10"></th>
           </tr>
         </thead>
@@ -751,6 +806,15 @@ export default function ProductsPage() {
                     <Label className="text-sm">Grouper l'affichage</Label>
                     <Switch checked={isGrouped} onCheckedChange={setIsGrouped} />
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-1"
+                    onClick={handleResetFilters}
+                    data-testid="reset-filters-btn"
+                  >
+                    Réinitialiser les filtres
+                  </Button>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -767,7 +831,10 @@ export default function ProductsPage() {
 
       {/* Dialog Add/Edit */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-card border-border max-w-lg">
+        <DialogContent
+          className="bg-card border-border max-w-lg"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader><DialogTitle>{editingProduct ? 'Modifier' : 'Ajouter'}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
