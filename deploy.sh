@@ -13,6 +13,7 @@ FRONTEND_DIR="${APP_DIR}/frontend"
 VENV="${BACKEND_DIR}/venv"
 APACHE_DIR="/var/www/stockhome"
 SERVICE="stockhome-api"
+SERVICE_USER="www-data"
 BRANCH="${1:-main}"
 
 # Couleurs
@@ -57,6 +58,9 @@ log "Installation des dépendances Python…"
 
 log "Application des migrations Alembic…"
 "${VENV}/bin/python" bootstrap_db.py
+
+log "Correction des permissions (${SERVICE_USER})…"
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "${BACKEND_DIR}"
 
 log "Redémarrage du service ${SERVICE}…"
 systemctl restart "${SERVICE}"
