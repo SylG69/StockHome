@@ -1,6 +1,8 @@
 """Points de terminaison du tableau de bord pour les statistiques agrégées
 utilisées par l'interface StockHome."""
 
+from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -11,6 +13,10 @@ from auth import get_current_user
 from database import get_db
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
+
+# Nombre de jours au-delà duquel un produit n'est plus considéré "bientôt
+# périmé" (inclut aussi les produits déjà périmés, date <= aujourd'hui).
+EXPIRY_SOON_DAYS = 7
 
 
 @router.get("/stats")
@@ -28,6 +34,12 @@ def get_dashboard_stats(current_user: models.User = Depends(get_current_user), d
 
     total_locations = db.execute(
         select(func.count(models.StorageLocation.id)).where(models.StorageLocation.user_id == user_id)  # pylint: disable=not-callable
+    ).scalar_one()
+
+    total_stock_value = db.execute(
+        select(func.coalesce(func.sum(models.Product.price * models.Product.quantity), 0)).where(
+            models.Product.user_id == user_id, models.Product.price.is_not(None)
+        )
     ).scalar_one()
 
     shopping_list_count = db.execute(
@@ -79,8 +91,24 @@ def get_dashboard_stats(current_user: models.User = Depends(get_current_user), d
             })
     low_stock_subcategories.sort(key=lambda s: s["name"])
 
+    # Produits bientôt périmés (ou déjà périmés) : date renseignée et
+    # inférieure ou égale à aujourd'hui + EXPIRY_SOON_DAYS jours.
+    expiry_threshold = date.today() + timedelta(days=EXPIRY_SOON_DAYS)
+    expiring_result = db.execute(
+        select(models.Product)
+        .where(
+            models.Product.user_id == user_id,
+            models.Product.expiration_date.is_not(None),
+            models.Product.expiration_date <= expiry_threshold,
+            models.Product.quantity > 0,
+        )
+        .order_by(models.Product.expiration_date.asc())
+    )
+    expiring_soon_products = [schemas.ProductResponse.model_validate(p) for p in expiring_result.scalars().all()]
+
     return {
         "total_products": total_products,
+        "total_stock_value": float(total_stock_value),
         "low_stock_count": len(low_stock_subcategories),
         "total_categories": total_categories,
         "total_locations": total_locations,
@@ -88,4 +116,6 @@ def get_dashboard_stats(current_user: models.User = Depends(get_current_user), d
         "products_by_category": products_by_category,
         "recent_products": recent_products,
         "low_stock_subcategories": low_stock_subcategories,
+        "expiring_soon_count": len(expiring_soon_products),
+        "expiring_soon_products": expiring_soon_products,
     }

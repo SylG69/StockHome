@@ -59,7 +59,13 @@ def get_products(
 def get_product_by_barcode(
     barcode: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Renvoie un produit par code-barres pour l'utilisateur authentifié."""
+    """Renvoie un produit par code-barres pour l'utilisateur authentifié.
+
+    Plusieurs lots (lignes) peuvent partager le même code-barres, chacun avec
+    sa propre date de péremption -- on renvoie systématiquement celui qui
+    périme le plus tôt (NULLS LAST : un lot sans date connue est traité comme
+    le moins urgent), pour que le mode Consommation du scanner décrémente
+    toujours en priorité le lot le plus proche de la péremption (FEFO)."""
     product = db.execute(
         select(models.Product)
         .where(models.Product.barcode == barcode, models.Product.user_id == current_user.id)
@@ -68,7 +74,8 @@ def get_product_by_barcode(
             selectinload(models.Product.location),
             selectinload(models.Product.sub_category),
         )
-    ).scalar_one_or_none()
+        .order_by(models.Product.expiration_date.asc().nulls_last())
+    ).scalars().first()
     if not product:
         raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
     return _enrich_product(product)
@@ -265,7 +272,12 @@ def update_product(
     if not product:
         raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
 
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    # exclude_unset (et non un filtre sur v is not None) : le frontend envoie
+    # toujours l'objet complet, donc un champ explicitement mis à null (ex:
+    # prix vidé, catégorie remise à "Aucune") doit bien être appliqué --
+    # l'ancien filtre sur "v is not None" l'ignorait silencieusement et
+    # empêchait de jamais effacer un champ optionnel une fois renseigné.
+    update_data = data.model_dump(exclude_unset=True)
     sub_category_name = update_data.pop("sub_category_name", None)
 
     _validate_owned_refs(
@@ -297,7 +309,14 @@ def update_product_quantity(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Incrémente ou décrémente la quantité d'un produit."""
+    """Incrémente ou décrémente la quantité d'un produit.
+
+    Cas particulier consommation (delta négatif) : si ce produit tombe à 0
+    ET qu'il existe d'autres lots (même code-barres) pour cet utilisateur, on
+    supprime ce lot désormais vide -- il ne reste que les lots encore en
+    stock, chacun avec sa propre date de péremption. S'il s'agit du seul lot
+    existant pour ce code-barres (ou d'un produit sans code-barres), on garde
+    le comportement historique : la ligne reste à 0 (rappel de réassort)."""
     product = db.execute(
         select(models.Product).where(models.Product.id == product_id, models.Product.user_id == current_user.id)
     ).scalar_one_or_none()
@@ -306,8 +325,22 @@ def update_product_quantity(
 
     product.quantity = max(0, product.quantity + delta)
     product.updated_at = datetime.now(timezone.utc)
+
+    if product.quantity == 0 and delta < 0 and product.barcode:
+        other_lot_exists = db.execute(
+            select(models.Product.id).where(
+                models.Product.barcode == product.barcode,
+                models.Product.user_id == current_user.id,
+                models.Product.id != product.id,
+            )
+        ).first() is not None
+        if other_lot_exists:
+            db.delete(product)
+            db.commit()
+            return {"quantity": 0, "deleted": True}
+
     db.commit()
-    return {"quantity": product.quantity}
+    return {"quantity": product.quantity, "deleted": False}
 
 
 @router.delete("/products/{product_id}")
@@ -397,6 +430,34 @@ async def _fetch_off_product(
                 # cette base est en timeout/injoignable : on tente la suivante
                 continue
     return None, None
+
+
+OPEN_PRICES_URL = "https://prices.openfoodfacts.org/api/v1/prices"
+
+
+async def _fetch_average_price(barcode: str) -> tuple[Optional[float], Optional[str], int]:
+    """Interroge Open Prices (prices.openfoodfacts.org) pour calculer un prix
+    moyen indicatif à partir des relevés existants pour ce code-barres.
+    Ne fait planter aucun appelant : renvoie (None, None, 0) si l'API est
+    injoignable, en timeout, ou si aucun relevé n'existe pour ce produit.
+    Purement une suggestion -- ne remplace jamais une saisie utilisateur.
+    """
+    params = {"product_code": barcode, "currency": "EUR", "size": 100}
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(OPEN_PRICES_URL, params=params, timeout=4.0)
+        if response.status_code != 200:
+            return None, None, 0
+        items = response.json().get("items", [])
+    except (httpx.TimeoutException, httpx.RequestError, ValueError):
+        return None, None, 0
+
+    prices = [item["price"] for item in items if isinstance(item.get("price"), (int, float))]
+    if not prices:
+        return None, None, 0
+
+    average = round(sum(prices) / len(prices), 2)
+    return average, "EUR", len(prices)
 
 
 def _pick_localized_name(product: dict) -> Optional[str]:
@@ -489,6 +550,10 @@ async def refresh_product_from_off(
         product.image_url = off_product.get("image_url") or off_product.get("image_front_url")
     if not product.brand:
         product.brand = off_product.get("brands")
+    if product.price is None:
+        avg_price, _currency, price_count = await _fetch_average_price(product.barcode)
+        if price_count > 0:
+            product.price = avg_price
 
     product.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -573,6 +638,8 @@ async def lookup_barcode(barcode: str):
     raw_nutriscore = (product.get("nutriscore_grade") or "").lower()
     nutriscore_grade = raw_nutriscore if raw_nutriscore in {"a", "b", "c", "d", "e"} else None
 
+    avg_price, avg_price_currency, avg_price_count = await _fetch_average_price(barcode)
+
     return schemas.OpenFoodFactsProduct(
         barcode=barcode,
         name=_pick_localized_name(product),
@@ -586,4 +653,7 @@ async def lookup_barcode(barcode: str):
         needs_refrigeration=needs_refrigeration,
         nutriscore_grade=nutriscore_grade,
         nutrient_levels=_extract_nutrient_levels(product),
+        suggested_price=avg_price,
+        suggested_price_currency=avg_price_currency,
+        suggested_price_count=avg_price_count,
     )

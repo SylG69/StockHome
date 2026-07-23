@@ -22,14 +22,27 @@ import {
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Tableau de bord', exact: true },
   { to: '/products', icon: Package, label: 'Produits' },
-  { to: '/configuration', icon: Settings, label: 'Configuration' },
   { to: '/shopping-list', icon: ShoppingCart, label: 'Liste de courses' },
   { to: '/scanner', icon: ScanLine, label: 'Scanner' },
 ];
 
+const configNavItem = { to: '/configuration', icon: Settings, label: 'Configuration' };
+
 // Entrée de menu affichée uniquement pour les administrateurs, en plus des
 // items ci-dessus (voir usage avec .filter dans le rendu de la nav).
 const adminNavItem = { to: '/users', icon: ShieldCheck, label: 'Utilisateurs' };
+
+// Construit la liste des entrées de nav avec petits séparateurs : items
+// principaux, puis Configuration (toujours), puis Utilisateurs (admin
+// seulement) -- chacun précédé d'une fine ligne de séparation.
+function buildNavEntries(isAdmin) {
+  const entries = navItems.map((item) => ({ type: 'link', item }));
+  entries.push({ type: 'separator', key: 'sep-config' }, { type: 'link', item: configNavItem });
+  if (isAdmin) {
+    entries.push({ type: 'separator', key: 'sep-admin' }, { type: 'link', item: adminNavItem });
+  }
+  return entries;
+}
 
 // Version affichée dans le menu, injectée au build via des variables Vite :
 // - VITE_APP_VERSION : nom de la branche (staging/test) ou tag git (prod)
@@ -90,7 +103,7 @@ export default function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // La page "Gestion des utilisateurs" n'est visible que pour les admins.
-  const visibleNavItems = user?.role === 'admin' ? [...navItems, adminNavItem] : navItems;
+  const navEntries = buildNavEntries(user?.role === 'admin');
 
   // Nom affiché dans le menu : "Prénom Nom" si renseignés, sinon le username.
   const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username;
@@ -115,24 +128,28 @@ export default function Layout() {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-          {visibleNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.exact}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                }`
-              }
-              data-testid={`nav-${item.to.replace('/', '') || 'dashboard'}`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
-            </NavLink>
-          ))}
+          {navEntries.map((entry) =>
+            entry.type === 'separator' ? (
+              <div key={entry.key} className="my-2 border-t border-border" />
+            ) : (
+              <NavLink
+                key={entry.item.to}
+                to={entry.item.to}
+                end={entry.item.exact}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`
+                }
+                data-testid={`nav-${entry.item.to.replace('/', '') || 'dashboard'}`}
+              >
+                <entry.item.icon className="w-5 h-5" />
+                <span className="font-medium">{entry.item.label}</span>
+              </NavLink>
+            )
+          )}
         </nav>
 
         <FooterLinks />
@@ -197,24 +214,28 @@ export default function Layout() {
         }`}
       >
         <nav className="px-4 py-6 space-y-1">
-          {visibleNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.exact}
-              onClick={() => setMobileMenuOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                }`
-              }
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
-            </NavLink>
-          ))}
+          {navEntries.map((entry) =>
+            entry.type === 'separator' ? (
+              <div key={entry.key} className="my-2 border-t border-border" />
+            ) : (
+              <NavLink
+                key={entry.item.to}
+                to={entry.item.to}
+                end={entry.item.exact}
+                onClick={() => setMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`
+                }
+              >
+                <entry.item.icon className="w-5 h-5" />
+                <span className="font-medium">{entry.item.label}</span>
+              </NavLink>
+            )
+          )}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">

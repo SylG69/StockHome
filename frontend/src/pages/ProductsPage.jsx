@@ -73,8 +73,34 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+// Filtres persistés par utilisateur (localStorage) pour que la page Produits
+// retrouve son état d'une session à l'autre -- clé dédiée par user.id pour
+// ne pas mélanger les préférences de plusieurs comptes sur le même navigateur.
+const DEFAULT_FILTERS = {
+  searchQuery: '',
+  filterCategory: 'all',
+  filterLocation: 'all',
+  filterLowStock: false,
+  filterNutriscore: 'all',
+  hideOutOfStock: true,
+  isGrouped: true,
+};
+
+const getFiltersStorageKey = (userId) => `stockhome_products_filters_${userId}`;
+
+function loadStoredFilters(userId) {
+  if (!userId) return DEFAULT_FILTERS;
+  try {
+    const raw = localStorage.getItem(getFiltersStorageKey(userId));
+    if (!raw) return DEFAULT_FILTERS;
+    return { ...DEFAULT_FILTERS, ...JSON.parse(raw) };
+  } catch (e) {
+    return DEFAULT_FILTERS;
+  }
+}
+
 export default function ProductsPage() {
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
@@ -83,16 +109,41 @@ export default function ProductsPage() {
   const [subCategories, setSubCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- ÉTATS PAR DÉFAUT ---
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterLocation, setFilterLocation] = useState('all');
-  const [filterLowStock, setFilterLowStock] = useState(searchParams.get('low_stock') === 'true');
+  // --- ÉTATS PAR DÉFAUT (repris du localStorage si disponibles, sinon
+  // DEFAULT_FILTERS -- les paramètres d'URL explicites, ex: lien depuis le
+  // tableau de bord, restent prioritaires sur les filtres sauvegardés) ---
+  const storedFilters = loadStoredFilters(user?.id);
+  const [searchQuery, setSearchQuery] = useState(storedFilters.searchQuery);
+  const [filterCategory, setFilterCategory] = useState(storedFilters.filterCategory);
+  const [filterLocation, setFilterLocation] = useState(storedFilters.filterLocation);
+  const [filterLowStock, setFilterLowStock] = useState(
+    searchParams.get('low_stock') === 'true' ? true : storedFilters.filterLowStock
+  );
   // Filtre Nutri-Score, utilisé notamment par le lien "cliquer sur le
   // graphique" du tableau de bord (?nutriscore=a, b, c, d, e ou unknown).
-  const [filterNutriscore, setFilterNutriscore] = useState(searchParams.get('nutriscore') || 'all');
-  const [hideOutOfStock, setHideOutOfStock] = useState(true);
-  const [isGrouped, setIsGrouped] = useState(true);
+  const [filterNutriscore, setFilterNutriscore] = useState(
+    searchParams.get('nutriscore') || storedFilters.filterNutriscore
+  );
+  const [hideOutOfStock, setHideOutOfStock] = useState(storedFilters.hideOutOfStock);
+  const [isGrouped, setIsGrouped] = useState(storedFilters.isGrouped);
+
+  // Persiste les filtres à chaque changement, par utilisateur.
+  useEffect(() => {
+    if (!user?.id) return;
+    const filters = { searchQuery, filterCategory, filterLocation, filterLowStock, filterNutriscore, hideOutOfStock, isGrouped };
+    localStorage.setItem(getFiltersStorageKey(user.id), JSON.stringify(filters));
+  }, [user?.id, searchQuery, filterCategory, filterLocation, filterLowStock, filterNutriscore, hideOutOfStock, isGrouped]);
+
+  const handleResetFilters = () => {
+    setSearchQuery(DEFAULT_FILTERS.searchQuery);
+    setFilterCategory(DEFAULT_FILTERS.filterCategory);
+    setFilterLocation(DEFAULT_FILTERS.filterLocation);
+    setFilterLowStock(DEFAULT_FILTERS.filterLowStock);
+    setFilterNutriscore(DEFAULT_FILTERS.filterNutriscore);
+    setHideOutOfStock(DEFAULT_FILTERS.hideOutOfStock);
+    setIsGrouped(DEFAULT_FILTERS.isGrouped);
+    toast.success('Filtres réinitialisés');
+  };
 
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -106,7 +157,7 @@ export default function ProductsPage() {
   const [formData, setFormData] = useState({
     name: '', description: '', barcode: '', quantity: 0, min_quantity: 1,
     unit: 'unité', category_id: '', sub_category_id: '', sub_category_name: '', location_id: '',
-    image_url: '', brand: '',
+    image_url: '', brand: '', price: '', expiration_date: '',
   });
 
   useEffect(() => {
@@ -154,6 +205,7 @@ export default function ProductsPage() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingSubCategory, setRenamingSubCategory] = useState(null); // { id, name, categoryId, threshold }
   const [renameValue, setRenameValue] = useState('');
+  const [renameComboOpen, setRenameComboOpen] = useState(false);
 
   // Groupes ouverts dans l'accordéon (mode groupé). null tant que non
   // initialisé -> tous ouverts par défaut (comportement précédent).
@@ -176,12 +228,19 @@ export default function ProductsPage() {
       const encodedId = encodeURIComponent(renamingSubCategory.id);
       // PUT (et non PATCH) : l'endpoint remplace tous les champs, on renvoie
       // donc category_id/min_quantity inchangés en plus du nouveau nom.
-      await api.put(`/subcategories/${encodedId}`, {
+      const response = await api.put(`/subcategories/${encodedId}`, {
         name: trimmed,
         category_id: renamingSubCategory.categoryId,
         min_quantity: renamingSubCategory.threshold,
       });
-      toast.success('Sous-catégorie renommée');
+      // Le backend fusionne automatiquement si le nom correspond à une
+      // sous-catégorie existante : l'id renvoyé diffère alors de celui
+      // qu'on renommait, et les produits ont été rattachés à l'existante.
+      if (response.data.id !== renamingSubCategory.id) {
+        toast.success(`Fusionnée avec la sous-catégorie "${response.data.name}" existante`);
+      } else {
+        toast.success('Sous-catégorie renommée');
+      }
       setRenameDialogOpen(false);
       setRenamingSubCategory(null);
       fetchData();
@@ -194,7 +253,14 @@ export default function ProductsPage() {
   const handleQuantityChange = async (product, delta) => {
     try {
       const response = await api.patch(`/products/${product.id}/quantity?delta=${delta}`);
-      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, quantity: response.data.quantity } : p));
+      if (response.data.deleted) {
+        // Lot épuisé et supprimé côté serveur (d'autres lots du même
+        // code-barres restent en stock) : on le retire simplement de la liste.
+        setProducts(prev => prev.filter(p => p.id !== product.id));
+        toast.info(`${product.name} : lot épuisé, retiré du stock`);
+      } else {
+        setProducts(prev => prev.map(p => p.id === product.id ? { ...p, quantity: response.data.quantity } : p));
+      }
     } catch (error) {
       toast.error('Erreur lors de la mise à jour');
     }
@@ -242,6 +308,16 @@ export default function ProductsPage() {
     return acc;
   }, {});
 
+  // Tri alphabétique : sous-catégories entre elles (mode groupé), et
+  // produits entre eux au sein de chaque groupe / en mode non groupé.
+  Object.values(groupedProducts).forEach((group) => {
+    group.products.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  });
+  const sortedGroupEntries = Object.entries(groupedProducts).sort(
+    ([, a], [, b]) => a.name.localeCompare(b.name, 'fr')
+  );
+  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
   const groupKeys = Object.keys(groupedProducts);
   const groupKeysSignature = groupKeys.join(',');
 
@@ -263,6 +339,20 @@ export default function ProductsPage() {
     c: 'bg-amber-400 text-black',
     d: 'bg-orange-500 text-white',
     e: 'bg-destructive text-white',
+  };
+
+  // --- AFFICHAGE DATE DE PÉREMPTION ---
+  const ExpirationBadge = ({ date }) => {
+    if (!date) return <span className="text-xs text-muted-foreground">—</span>;
+    const today = new Date(new Date().toDateString());
+    const expiry = new Date(date);
+    const isExpired = expiry < today;
+    const isSoon = !isExpired && (expiry - today) / 86400000 <= 7;
+    return (
+      <span className={`text-sm ${isExpired ? 'text-destructive font-semibold' : isSoon ? 'text-amber-500 font-semibold' : 'text-muted-foreground'}`}>
+        {expiry.toLocaleDateString('fr-FR')}
+      </span>
+    );
   };
 
   const NutriscoreBadge = ({ grade }) => {
@@ -303,10 +393,11 @@ export default function ProductsPage() {
             </div>
           )}
         </td>
-        <td className="p-3 font-medium text-sm">{product.name}</td>
-        <td className="p-3 text-sm text-muted-foreground">{product.brand || 'Sans marque'}</td>
-        <td className="p-3 text-sm text-muted-foreground">{category?.name || '—'}</td>
-        <td className="p-3 text-sm text-muted-foreground">{location?.name || '—'}</td>
+        <td className="p-3 font-medium text-sm truncate max-w-0">{product.name}</td>
+        <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{product.brand || 'Sans marque'}</td>
+        <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{category?.name || '—'}</td>
+        <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{location?.name || '—'}</td>
+        <td className="p-3"><ExpirationBadge date={product.expiration_date} /></td>
         <td className="p-3"><NutriscoreBadge grade={product.nutriscore_grade} /></td>
         <td className="p-3" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border w-fit">
@@ -387,6 +478,9 @@ export default function ProductsPage() {
             {(category || location) && ' · '}
             {[category?.name, location?.name].filter(Boolean).join(' · ')}
           </p>
+          {product.expiration_date && (
+            <div className="mt-0.5"><ExpirationBadge date={product.expiration_date} /></div>
+          )}
           {isLowStock && (
             <div className="flex items-center gap-1 text-[10px] text-destructive font-black uppercase tracking-tighter mt-0.5">
               <AlertTriangle className="w-3 h-3" /> Stock bas
@@ -452,16 +546,21 @@ export default function ProductsPage() {
 
       {/* Tablette/desktop : tableau complet */}
       <div className="hidden sm:block overflow-x-auto rounded-lg border border-border">
-      <table className="w-full">
+      {/* table-fixed + largeurs figées sur le thead : chaque groupe (mode
+          groupé) rend son propre <table>, donc avec un layout auto les
+          colonnes se recalculaient indépendamment par groupe et les lignes
+          ne s'alignaient pas verticalement d'un groupe à l'autre. */}
+      <table className="w-full table-fixed">
         <thead>
           <tr className="bg-secondary/50 text-left text-xs uppercase text-muted-foreground font-bold">
             <th className="p-3 w-16"></th>
-            <th className="p-3">Nom</th>
-            <th className="p-3">Marque</th>
-            <th className="p-3">Catégorie</th>
-            <th className="p-3">Emplacement</th>
-            <th className="p-3">Nutri-Score</th>
-            <th className="p-3">Quantité</th>
+            <th className="p-3 w-[18%]">Nom</th>
+            <th className="p-3 w-[14%]">Marque</th>
+            <th className="p-3 w-[13%]">Catégorie</th>
+            <th className="p-3 w-[13%]">Emplacement</th>
+            <th className="p-3 w-[11%]">Péremption</th>
+            <th className="p-3 w-24">Nutri-Score</th>
+            <th className="p-3 w-32">Quantité</th>
             <th className="p-3 w-10"></th>
           </tr>
         </thead>
@@ -483,7 +582,7 @@ export default function ProductsPage() {
   // --- VUES CONDITIONNELLES ---
   const productsView = isGrouped ? (
     <Accordion type="multiple" value={openGroups ?? groupKeys} onValueChange={setOpenGroups} className="space-y-4">
-      {Object.entries(groupedProducts).map(([subCatId, group]) => {
+      {sortedGroupEntries.map(([subCatId, group]) => {
         const isGroupLowStock = group.totalStock < group.threshold;
         return (
           <AccordionItem key={subCatId} value={subCatId} className="border-none">
@@ -560,7 +659,7 @@ export default function ProductsPage() {
     </Accordion>
   ) : (
   // ... reste du code inchangé
-    <ProductsTable products={filteredProducts} />
+    <ProductsTable products={sortedFilteredProducts} />
   );
 
   const handleOpenDialog = (product = null) => {
@@ -572,13 +671,15 @@ export default function ProductsPage() {
         barcode: product.barcode || '',
         brand: product.brand || '',
         sub_category_name: product.sub_category_name || '',
+        price: product.price ?? '',
+        expiration_date: product.expiration_date || '',
       });
     } else {
       setEditingProduct(null);
       setFormData({
         name: '', description: '', barcode: '', quantity: 0, min_quantity: 1,
         unit: 'unité', category_id: '', sub_category_id: '', sub_category_name: '', location_id: '',
-        image_url: '', brand: '',
+        image_url: '', brand: '', price: '', expiration_date: '',
       });
     }
     setDialogOpen(true);
@@ -592,12 +693,17 @@ export default function ProductsPage() {
 
     setSaving(true);
     try {
+      const payload = {
+        ...formData,
+        price: formData.price === '' ? null : formData.price,
+        expiration_date: formData.expiration_date === '' ? null : formData.expiration_date,
+      };
       if (editingProduct) {
         const encodedId = encodeURIComponent(editingProduct.id);
-        await api.put(`/products/${encodedId}`, formData);
+        await api.put(`/products/${encodedId}`, payload);
         toast.success("Produit mis à jour");
       } else {
-        await api.post('/products', formData);
+        await api.post('/products', payload);
         toast.success("Produit ajouté");
       }
       setDialogOpen(false);
@@ -671,6 +777,14 @@ export default function ProductsPage() {
               </SelectContent>
             </Select>
 
+            <Select value={filterLocation} onValueChange={setFilterLocation}>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Emplacement" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les emplacements</SelectItem>
+                {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
             {isGrouped && (
               <div className="flex gap-1">
                 <Button variant="outline" size="sm" onClick={handleExpandAll} data-testid="expand-all-groups">
@@ -700,6 +814,15 @@ export default function ProductsPage() {
                     <Label className="text-sm">Grouper l'affichage</Label>
                     <Switch checked={isGrouped} onCheckedChange={setIsGrouped} />
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-1"
+                    onClick={handleResetFilters}
+                    data-testid="reset-filters-btn"
+                  >
+                    Réinitialiser les filtres
+                  </Button>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -716,7 +839,10 @@ export default function ProductsPage() {
 
       {/* Dialog Add/Edit */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-card border-border max-w-lg">
+        <DialogContent
+          className="bg-card border-border max-w-lg"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader><DialogTitle>{editingProduct ? 'Modifier' : 'Ajouter'}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
@@ -747,6 +873,32 @@ export default function ProductsPage() {
                   ...formData,
                   quantity: parseInt(e.target.value, 10) || 0
                 })}
+                className="bg-input border-border"
+              />
+            </div>
+
+            <div>
+              <Label>Prix unitaire (€)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Ex: 2.50"
+                value={formData.price}
+                onChange={e => setFormData({
+                  ...formData,
+                  price: e.target.value === '' ? '' : parseFloat(e.target.value)
+                })}
+                className="bg-input border-border"
+              />
+            </div>
+
+            <div>
+              <Label>Date de péremption</Label>
+              <Input
+                type="date"
+                value={formData.expiration_date}
+                onChange={e => setFormData({ ...formData, expiration_date: e.target.value })}
                 className="bg-input border-border"
               />
             </div>
@@ -886,14 +1038,52 @@ export default function ProductsPage() {
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="rename-subcategory-input">Nom</Label>
-            <Input
-              id="rename-subcategory-input"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSubCategory(); }}
-              autoFocus
-              data-testid="rename-subcategory-input"
-            />
+            <Popover open={renameComboOpen} onOpenChange={setRenameComboOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  id="rename-subcategory-input"
+                  role="combobox"
+                  aria-expanded={renameComboOpen}
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
+                  data-testid="rename-subcategory-input"
+                >
+                  {renameValue || "Tapez un nom..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                <Command>
+                  <CommandInput
+                    placeholder="Rechercher ou saisir un nom..."
+                    value={renameValue}
+                    onValueChange={setRenameValue}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { setRenameComboOpen(false); handleRenameSubCategory(); } }}
+                  />
+                  <CommandList>
+                    <CommandEmpty className="p-2 text-xs text-muted-foreground">
+                      Aucune sous-catégorie existante avec ce nom.
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {subCategories
+                        .filter((sub) => sub.id !== renamingSubCategory?.id)
+                        .map((sub) => (
+                          <CommandItem
+                            key={sub.id}
+                            value={sub.name}
+                            onSelect={() => { setRenameValue(sub.name); setRenameComboOpen(false); }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", renameValue === sub.name ? "opacity-100" : "opacity-0")} />
+                            {sub.name}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <p className="text-[10px] text-muted-foreground">
+              Choisir une sous-catégorie existante fusionnera les deux (tous les produits seront rattachés à l'existante).
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>Annuler</Button>
