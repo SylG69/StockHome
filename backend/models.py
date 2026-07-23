@@ -3,9 +3,9 @@
 # pylint: disable=too-few-public-methods, missing-class-docstring
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -132,6 +132,10 @@ class Product(Base):
     # au scan avec le prix moyen Open Prices si disponible, mais jamais
     # écrasé automatiquement ensuite (voir refresh_product_from_off).
     price: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    # Date de péremption (DLC/DLUO), saisie manuellement par l'utilisateur --
+    # propre à l'exemplaire acheté, jamais déduite d'Open Food Facts (la base
+    # décrit le produit générique, pas le lot précis en stock chez soi).
+    expiration_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     category_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True

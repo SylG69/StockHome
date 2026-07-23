@@ -194,7 +194,14 @@ export default function ProductsPage() {
   const handleQuantityChange = async (product, delta) => {
     try {
       const response = await api.patch(`/products/${product.id}/quantity?delta=${delta}`);
-      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, quantity: response.data.quantity } : p));
+      if (response.data.deleted) {
+        // Lot épuisé et supprimé côté serveur (d'autres lots du même
+        // code-barres restent en stock) : on le retire simplement de la liste.
+        setProducts(prev => prev.filter(p => p.id !== product.id));
+        toast.info(`${product.name} : lot épuisé, retiré du stock`);
+      } else {
+        setProducts(prev => prev.map(p => p.id === product.id ? { ...p, quantity: response.data.quantity } : p));
+      }
     } catch (error) {
       toast.error('Erreur lors de la mise à jour');
     }
@@ -670,6 +677,14 @@ export default function ProductsPage() {
               <SelectContent>
                 <SelectItem value="all">Toutes</SelectItem>
                 {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterLocation} onValueChange={setFilterLocation}>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Emplacement" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les emplacements</SelectItem>
+                {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
               </SelectContent>
             </Select>
 
