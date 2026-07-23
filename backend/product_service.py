@@ -399,6 +399,34 @@ async def _fetch_off_product(
     return None, None
 
 
+OPEN_PRICES_URL = "https://prices.openfoodfacts.org/api/v1/prices"
+
+
+async def _fetch_average_price(barcode: str) -> tuple[Optional[float], Optional[str], int]:
+    """Interroge Open Prices (prices.openfoodfacts.org) pour calculer un prix
+    moyen indicatif à partir des relevés existants pour ce code-barres.
+    Ne fait planter aucun appelant : renvoie (None, None, 0) si l'API est
+    injoignable, en timeout, ou si aucun relevé n'existe pour ce produit.
+    Purement une suggestion -- ne remplace jamais une saisie utilisateur.
+    """
+    params = {"product_code": barcode, "currency": "EUR", "size": 100}
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(OPEN_PRICES_URL, params=params, timeout=4.0)
+        if response.status_code != 200:
+            return None, None, 0
+        items = response.json().get("items", [])
+    except (httpx.TimeoutException, httpx.RequestError, ValueError):
+        return None, None, 0
+
+    prices = [item["price"] for item in items if isinstance(item.get("price"), (int, float))]
+    if not prices:
+        return None, None, 0
+
+    average = round(sum(prices) / len(prices), 2)
+    return average, "EUR", len(prices)
+
+
 def _pick_localized_name(product: dict) -> Optional[str]:
     """Choisit le nom du produit en priorisant le français.
 
@@ -573,6 +601,8 @@ async def lookup_barcode(barcode: str):
     raw_nutriscore = (product.get("nutriscore_grade") or "").lower()
     nutriscore_grade = raw_nutriscore if raw_nutriscore in {"a", "b", "c", "d", "e"} else None
 
+    avg_price, avg_price_currency, avg_price_count = await _fetch_average_price(barcode)
+
     return schemas.OpenFoodFactsProduct(
         barcode=barcode,
         name=_pick_localized_name(product),
@@ -586,4 +616,7 @@ async def lookup_barcode(barcode: str):
         needs_refrigeration=needs_refrigeration,
         nutriscore_grade=nutriscore_grade,
         nutrient_levels=_extract_nutrient_levels(product),
+        suggested_price=avg_price,
+        suggested_price_currency=avg_price_currency,
+        suggested_price_count=avg_price_count,
     )

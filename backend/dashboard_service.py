@@ -30,6 +30,12 @@ def get_dashboard_stats(current_user: models.User = Depends(get_current_user), d
         select(func.count(models.StorageLocation.id)).where(models.StorageLocation.user_id == user_id)  # pylint: disable=not-callable
     ).scalar_one()
 
+    total_stock_value = db.execute(
+        select(func.coalesce(func.sum(models.Product.price * models.Product.quantity), 0)).where(
+            models.Product.user_id == user_id, models.Product.price.is_not(None)
+        )
+    ).scalar_one()
+
     shopping_list_count = db.execute(
         select(func.count(models.ShoppingListItem.id)).where(  # pylint: disable=not-callable
             models.ShoppingListItem.user_id == user_id, models.ShoppingListItem.is_checked.is_(False)
@@ -81,6 +87,7 @@ def get_dashboard_stats(current_user: models.User = Depends(get_current_user), d
 
     return {
         "total_products": total_products,
+        "total_stock_value": float(total_stock_value),
         "low_stock_count": len(low_stock_subcategories),
         "total_categories": total_categories,
         "total_locations": total_locations,

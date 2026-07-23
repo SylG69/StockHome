@@ -106,7 +106,7 @@ export default function ProductsPage() {
   const [formData, setFormData] = useState({
     name: '', description: '', barcode: '', quantity: 0, min_quantity: 1,
     unit: 'unité', category_id: '', sub_category_id: '', sub_category_name: '', location_id: '',
-    image_url: '', brand: '',
+    image_url: '', brand: '', price: '',
   });
 
   useEffect(() => {
@@ -572,13 +572,14 @@ export default function ProductsPage() {
         barcode: product.barcode || '',
         brand: product.brand || '',
         sub_category_name: product.sub_category_name || '',
+        price: product.price ?? '',
       });
     } else {
       setEditingProduct(null);
       setFormData({
         name: '', description: '', barcode: '', quantity: 0, min_quantity: 1,
         unit: 'unité', category_id: '', sub_category_id: '', sub_category_name: '', location_id: '',
-        image_url: '', brand: '',
+        image_url: '', brand: '', price: '',
       });
     }
     setDialogOpen(true);
@@ -746,6 +747,22 @@ export default function ProductsPage() {
                 onChange={e => setFormData({
                   ...formData,
                   quantity: parseInt(e.target.value, 10) || 0
+                })}
+                className="bg-input border-border"
+              />
+            </div>
+
+            <div>
+              <Label>Prix unitaire (€)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Ex: 2.50"
+                value={formData.price}
+                onChange={e => setFormData({
+                  ...formData,
+                  price: e.target.value === '' ? '' : parseFloat(e.target.value)
                 })}
                 className="bg-input border-border"
               />

@@ -158,7 +158,12 @@ export default function ScannerPage() {
     image_url: '',
     description: '',
     nutriscore_grade: null,
+    price: '',
   });
+  // Prix moyen indicatif (Open Prices) pour le produit en cours de scan --
+  // affiché à titre informatif uniquement, jamais imposé : formData.price
+  // reste la valeur réellement enregistrée et librement modifiable.
+  const [suggestedPrice, setSuggestedPrice] = useState(null);
 
   useEffect(() => {
     // --- OPTIMISATION : RESTREINDRE LES FORMATS RECHERCHÉS ---
@@ -504,6 +509,7 @@ export default function ScannerPage() {
     setScannedProduct({ barcode });
     setOpenFoodFactsData(null);
     setExistingProduct(null);
+    setSuggestedPrice(null);
 
     try {
       try {
@@ -534,6 +540,12 @@ export default function ScannerPage() {
           ? locations.find(l => /r[ée]frig[ée]rateur|frigo/i.test(l.name))
           : null;
 
+        setSuggestedPrice(
+          offRes.data.suggested_price != null
+            ? { value: offRes.data.suggested_price, currency: offRes.data.suggested_price_currency, count: offRes.data.suggested_price_count }
+            : null
+        );
+
         setFormData({
           name: offRes.data.name || '',
           brand: offRes.data.brand || '',
@@ -548,12 +560,13 @@ export default function ScannerPage() {
           sub_category_name: offSuggestions.length > 0 ? offSuggestions[0] : '',
           description: offRes.data.categories || '',
           nutriscore_grade: offRes.data.nutriscore_grade || null,
+          price: offRes.data.suggested_price != null ? offRes.data.suggested_price : '',
         });
       } catch (error) {
         setFormData({
           name: '', brand: '', barcode: barcode, quantity: 1, min_quantity: 1, unit: 'unité',
           category_id: null, location_id: null, image_url: '', sub_category_id: null, sub_category_name: '', description: '',
-          nutriscore_grade: null,
+          nutriscore_grade: null, price: '',
         });
       }
 
@@ -616,11 +629,12 @@ export default function ScannerPage() {
   const handleCompleteFromBuffer = (barcode) => {
     setExistingProduct(null);
     setOpenFoodFactsData(null);
+    setSuggestedPrice(null);
     setScannedProduct({ barcode });
     setFormData({
       name: '', brand: '', barcode, quantity: 1, min_quantity: 1, unit: 'unité',
       category_id: null, location_id: null, image_url: '', sub_category_id: null, sub_category_name: '', description: '',
-      nutriscore_grade: null,
+      nutriscore_grade: null, price: '',
     });
     setResultDialogOpen(true);
   };
@@ -1001,6 +1015,22 @@ export default function ScannerPage() {
               <div>
                 <Label>Quantité *</Label>
                 <Input type="number" min="0" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })} />
+              </div>
+              <div>
+                <Label>Prix unitaire (€)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Ex: 2.50"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                />
+                {suggestedPrice && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Prix moyen constaté (Open Prices, {suggestedPrice.count} relevé{suggestedPrice.count > 1 ? 's' : ''}) : {suggestedPrice.value.toFixed(2)} {suggestedPrice.currency}
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Catégorie *</Label>

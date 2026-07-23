@@ -16,6 +16,7 @@ import {
   Tag,
   Apple,
   BarChart3,
+  Euro,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -121,6 +122,14 @@ export default function DashboardPage() {
       bgColor: 'bg-amber-500/10',
       to: '/configuration?section=locations',
     },
+    {
+      title: 'Valeur du Stock',
+      value: `${(stats?.total_stock_value || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+      icon: Euro,
+      color: 'text-violet-500',
+      bgColor: 'bg-violet-500/10',
+      to: '/products',
+    },
   ];
 
   return (
@@ -152,7 +161,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {statCards.map((stat, index) => (
           <Link
             key={stat.title}
