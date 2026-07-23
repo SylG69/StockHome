@@ -654,6 +654,13 @@ export default function ScannerPage() {
     if (!existingProduct) return;
     try {
       const response = await api.patch(`/products/${existingProduct.id}/quantity?delta=${delta}`);
+      if (response.data.deleted) {
+        // Lot épuisé et supprimé côté serveur (d'autres lots du même
+        // code-barres restent en stock).
+        toast.info('Lot épuisé, retiré du stock');
+        handleCloseDialog();
+        return;
+      }
       setExistingProduct({ ...existingProduct, quantity: response.data.quantity });
       toast.success(`Quantité mise à jour : ${response.data.quantity}`);
     } catch (error) {

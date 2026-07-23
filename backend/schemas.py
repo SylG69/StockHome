@@ -1,6 +1,6 @@
 """Définitions des schémas Pydantic pour les requêtes et réponses de l'API StockHome."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
@@ -145,6 +145,7 @@ class ProductBase(BaseModel):
     brand: Optional[str] = None
     nutriscore_grade: Optional[str] = None  # 'a' à 'e', renseigné automatiquement via l'API OFF au scan
     price: Optional[float] = None  # prix unitaire (EUR), librement saisi/modifié par l'utilisateur
+    expiration_date: Optional[date] = None  # DLC/DLUO, saisie manuelle uniquement
 
 class ProductCreate(ProductBase):
     """Requête de création d'un produit; peut contenir un nom de sous-catégorie."""
@@ -166,6 +167,7 @@ class ProductUpdate(BaseModel):
     brand: Optional[str] = None
     nutriscore_grade: Optional[str] = None
     price: Optional[float] = None
+    expiration_date: Optional[date] = None
 
 class ProductResponse(ProductBase):
     """Réponse API pour un produit, inclut métadonnées et noms résolus."""

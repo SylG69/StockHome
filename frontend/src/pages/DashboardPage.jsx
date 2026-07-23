@@ -17,6 +17,7 @@ import {
   Apple,
   BarChart3,
   Euro,
+  CalendarClock,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -197,8 +198,9 @@ export default function DashboardPage() {
       {/* Quick Actions & Low Stock */}
       {/* Actions Rapides étant masqué, la grille repasse en 1 colonne pour
           que la carte Stock Bas occupe toute la largeur. Repasser en
-          lg:grid-cols-2 si Actions Rapides est réactivé. */}
-      <div className="grid grid-cols-1 gap-6">
+          lg:grid-cols-2 si Actions Rapides est réactivé -- entre-temps la
+          carte "Bientôt périmés" occupe la seconde colonne. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Actions Rapides -- masqué temporairement à la demande, code
             conservé pour réactivation future si besoin. */}
         {/*
@@ -282,6 +284,54 @@ export default function DashboardPage() {
                   <Package className="w-8 h-8 text-emerald-500" />
                 </div>
                 <p className="text-muted-foreground">Tous vos produits sont en stock !</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Produits bientôt périmés */}
+        <Card className="bg-card border-border">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <CalendarClock className="w-5 h-5 text-amber-500" />
+              Bientôt Périmés
+            </CardTitle>
+            {stats?.expiring_soon_count > 0 && (
+              <Badge className="bg-amber-500 text-black">{stats.expiring_soon_count}</Badge>
+            )}
+          </CardHeader>
+          <CardContent>
+            {stats?.expiring_soon_products?.length > 0 ? (
+              <div className="space-y-3">
+                {stats.expiring_soon_products.slice(0, 5).map((product) => {
+                  const isExpired = new Date(product.expiration_date) < new Date(new Date().toDateString());
+                  return (
+                    <Link
+                      key={product.id}
+                      to={`/products/${encodeURIComponent(product.id)}`}
+                      className={`flex items-center justify-between p-3 rounded-lg border transition-colors duration-200 ${
+                        isExpired ? 'bg-destructive/5 border-destructive/20 hover:border-destructive/40' : 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                          <Package className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <p className="font-medium text-sm truncate">{product.name}</p>
+                      </div>
+                      <p className={`text-sm font-semibold shrink-0 ${isExpired ? 'text-destructive' : 'text-amber-500'}`}>
+                        {isExpired ? 'Périmé' : new Date(product.expiration_date).toLocaleDateString('fr-FR')}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+                  <CalendarClock className="w-8 h-8 text-emerald-500" />
+                </div>
+                <p className="text-muted-foreground">Aucun produit bientôt périmé</p>
               </div>
             )}
           </CardContent>

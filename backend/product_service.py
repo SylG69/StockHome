@@ -59,7 +59,13 @@ def get_products(
 def get_product_by_barcode(
     barcode: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Renvoie un produit par code-barres pour l'utilisateur authentifié."""
+    """Renvoie un produit par code-barres pour l'utilisateur authentifié.
+
+    Plusieurs lots (lignes) peuvent partager le même code-barres, chacun avec
+    sa propre date de péremption -- on renvoie systématiquement celui qui
+    périme le plus tôt (NULLS LAST : un lot sans date connue est traité comme
+    le moins urgent), pour que le mode Consommation du scanner décrémente
+    toujours en priorité le lot le plus proche de la péremption (FEFO)."""
     product = db.execute(
         select(models.Product)
         .where(models.Product.barcode == barcode, models.Product.user_id == current_user.id)
@@ -68,7 +74,8 @@ def get_product_by_barcode(
             selectinload(models.Product.location),
             selectinload(models.Product.sub_category),
         )
-    ).scalar_one_or_none()
+        .order_by(models.Product.expiration_date.asc().nulls_last())
+    ).scalars().first()
     if not product:
         raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
     return _enrich_product(product)
@@ -297,7 +304,14 @@ def update_product_quantity(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Incrémente ou décrémente la quantité d'un produit."""
+    """Incrémente ou décrémente la quantité d'un produit.
+
+    Cas particulier consommation (delta négatif) : si ce produit tombe à 0
+    ET qu'il existe d'autres lots (même code-barres) pour cet utilisateur, on
+    supprime ce lot désormais vide -- il ne reste que les lots encore en
+    stock, chacun avec sa propre date de péremption. S'il s'agit du seul lot
+    existant pour ce code-barres (ou d'un produit sans code-barres), on garde
+    le comportement historique : la ligne reste à 0 (rappel de réassort)."""
     product = db.execute(
         select(models.Product).where(models.Product.id == product_id, models.Product.user_id == current_user.id)
     ).scalar_one_or_none()
@@ -306,8 +320,22 @@ def update_product_quantity(
 
     product.quantity = max(0, product.quantity + delta)
     product.updated_at = datetime.now(timezone.utc)
+
+    if product.quantity == 0 and delta < 0 and product.barcode:
+        other_lot_exists = db.execute(
+            select(models.Product.id).where(
+                models.Product.barcode == product.barcode,
+                models.Product.user_id == current_user.id,
+                models.Product.id != product.id,
+            )
+        ).first() is not None
+        if other_lot_exists:
+            db.delete(product)
+            db.commit()
+            return {"quantity": 0, "deleted": True}
+
     db.commit()
-    return {"quantity": product.quantity}
+    return {"quantity": product.quantity, "deleted": False}
 
 
 @router.delete("/products/{product_id}")
