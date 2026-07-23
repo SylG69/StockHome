@@ -106,7 +106,7 @@ export default function ProductsPage() {
   const [formData, setFormData] = useState({
     name: '', description: '', barcode: '', quantity: 0, min_quantity: 1,
     unit: 'unité', category_id: '', sub_category_id: '', sub_category_name: '', location_id: '',
-    image_url: '', brand: '', price: '',
+    image_url: '', brand: '', price: '', expiration_date: '',
   });
 
   useEffect(() => {
@@ -249,6 +249,16 @@ export default function ProductsPage() {
     return acc;
   }, {});
 
+  // Tri alphabétique : sous-catégories entre elles (mode groupé), et
+  // produits entre eux au sein de chaque groupe / en mode non groupé.
+  Object.values(groupedProducts).forEach((group) => {
+    group.products.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  });
+  const sortedGroupEntries = Object.entries(groupedProducts).sort(
+    ([, a], [, b]) => a.name.localeCompare(b.name, 'fr')
+  );
+  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
   const groupKeys = Object.keys(groupedProducts);
   const groupKeysSignature = groupKeys.join(',');
 
@@ -270,6 +280,20 @@ export default function ProductsPage() {
     c: 'bg-amber-400 text-black',
     d: 'bg-orange-500 text-white',
     e: 'bg-destructive text-white',
+  };
+
+  // --- AFFICHAGE DATE DE PÉREMPTION ---
+  const ExpirationBadge = ({ date }) => {
+    if (!date) return <span className="text-xs text-muted-foreground">—</span>;
+    const today = new Date(new Date().toDateString());
+    const expiry = new Date(date);
+    const isExpired = expiry < today;
+    const isSoon = !isExpired && (expiry - today) / 86400000 <= 7;
+    return (
+      <span className={`text-sm ${isExpired ? 'text-destructive font-semibold' : isSoon ? 'text-amber-500 font-semibold' : 'text-muted-foreground'}`}>
+        {expiry.toLocaleDateString('fr-FR')}
+      </span>
+    );
   };
 
   const NutriscoreBadge = ({ grade }) => {
@@ -314,6 +338,7 @@ export default function ProductsPage() {
         <td className="p-3 text-sm text-muted-foreground">{product.brand || 'Sans marque'}</td>
         <td className="p-3 text-sm text-muted-foreground">{category?.name || '—'}</td>
         <td className="p-3 text-sm text-muted-foreground">{location?.name || '—'}</td>
+        <td className="p-3"><ExpirationBadge date={product.expiration_date} /></td>
         <td className="p-3"><NutriscoreBadge grade={product.nutriscore_grade} /></td>
         <td className="p-3" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border w-fit">
@@ -394,6 +419,9 @@ export default function ProductsPage() {
             {(category || location) && ' · '}
             {[category?.name, location?.name].filter(Boolean).join(' · ')}
           </p>
+          {product.expiration_date && (
+            <div className="mt-0.5"><ExpirationBadge date={product.expiration_date} /></div>
+          )}
           {isLowStock && (
             <div className="flex items-center gap-1 text-[10px] text-destructive font-black uppercase tracking-tighter mt-0.5">
               <AlertTriangle className="w-3 h-3" /> Stock bas
@@ -467,6 +495,7 @@ export default function ProductsPage() {
             <th className="p-3">Marque</th>
             <th className="p-3">Catégorie</th>
             <th className="p-3">Emplacement</th>
+            <th className="p-3">Péremption</th>
             <th className="p-3">Nutri-Score</th>
             <th className="p-3">Quantité</th>
             <th className="p-3 w-10"></th>
@@ -490,7 +519,7 @@ export default function ProductsPage() {
   // --- VUES CONDITIONNELLES ---
   const productsView = isGrouped ? (
     <Accordion type="multiple" value={openGroups ?? groupKeys} onValueChange={setOpenGroups} className="space-y-4">
-      {Object.entries(groupedProducts).map(([subCatId, group]) => {
+      {sortedGroupEntries.map(([subCatId, group]) => {
         const isGroupLowStock = group.totalStock < group.threshold;
         return (
           <AccordionItem key={subCatId} value={subCatId} className="border-none">
@@ -567,7 +596,7 @@ export default function ProductsPage() {
     </Accordion>
   ) : (
   // ... reste du code inchangé
-    <ProductsTable products={filteredProducts} />
+    <ProductsTable products={sortedFilteredProducts} />
   );
 
   const handleOpenDialog = (product = null) => {
@@ -580,13 +609,14 @@ export default function ProductsPage() {
         brand: product.brand || '',
         sub_category_name: product.sub_category_name || '',
         price: product.price ?? '',
+        expiration_date: product.expiration_date || '',
       });
     } else {
       setEditingProduct(null);
       setFormData({
         name: '', description: '', barcode: '', quantity: 0, min_quantity: 1,
         unit: 'unité', category_id: '', sub_category_id: '', sub_category_name: '', location_id: '',
-        image_url: '', brand: '', price: '',
+        image_url: '', brand: '', price: '', expiration_date: '',
       });
     }
     setDialogOpen(true);
@@ -600,7 +630,11 @@ export default function ProductsPage() {
 
     setSaving(true);
     try {
-      const payload = { ...formData, price: formData.price === '' ? null : formData.price };
+      const payload = {
+        ...formData,
+        price: formData.price === '' ? null : formData.price,
+        expiration_date: formData.expiration_date === '' ? null : formData.expiration_date,
+      };
       if (editingProduct) {
         const encodedId = encodeURIComponent(editingProduct.id);
         await api.put(`/products/${encodedId}`, payload);
@@ -780,6 +814,16 @@ export default function ProductsPage() {
                   ...formData,
                   price: e.target.value === '' ? '' : parseFloat(e.target.value)
                 })}
+                className="bg-input border-border"
+              />
+            </div>
+
+            <div>
+              <Label>Date de péremption</Label>
+              <Input
+                type="date"
+                value={formData.expiration_date}
+                onChange={e => setFormData({ ...formData, expiration_date: e.target.value })}
                 className="bg-input border-border"
               />
             </div>

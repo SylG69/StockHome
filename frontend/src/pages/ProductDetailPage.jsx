@@ -332,6 +332,7 @@ export default function ProductDetailPage() {
       min_quantity: product.min_quantity ?? 1,
       unit: product.unit || 'unité',
       price: product.price ?? '',
+      expiration_date: product.expiration_date || '',
       category_id: product.category_id || null,
       sub_category_id: product.sub_category_id || null,
       location_id: product.location_id || null,
@@ -346,7 +347,11 @@ export default function ProductDetailPage() {
     }
     setSaving(true);
     try {
-      const payload = { ...formData, price: formData.price === '' ? null : formData.price };
+      const payload = {
+        ...formData,
+        price: formData.price === '' ? null : formData.price,
+        expiration_date: formData.expiration_date === '' ? null : formData.expiration_date,
+      };
       const response = await api.put(`/products/${encodeURIComponent(id)}`, payload);
       setProduct(response.data);
       toast.success('Produit mis à jour');
@@ -499,6 +504,17 @@ export default function ProductDetailPage() {
             {product.price != null && (
               <p className="text-sm font-medium pt-1">Prix unitaire : {Number(product.price).toFixed(2)} €</p>
             )}
+            {product.expiration_date && (() => {
+              const today = new Date(new Date().toDateString());
+              const expiry = new Date(product.expiration_date);
+              const isExpired = expiry < today;
+              const isSoon = !isExpired && (expiry - today) / 86400000 <= 7;
+              return (
+                <p className={`text-sm font-medium pt-1 ${isExpired ? 'text-destructive' : isSoon ? 'text-amber-500' : ''}`}>
+                  Date de péremption : {expiry.toLocaleDateString('fr-FR')}{isExpired ? ' (périmé)' : ''}
+                </p>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
@@ -587,6 +603,14 @@ export default function ProductDetailPage() {
                   placeholder="Ex: 2.50"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>Date de péremption</Label>
+                <Input
+                  type="date"
+                  value={formData.expiration_date}
+                  onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
                 />
               </div>
               <div>

@@ -272,7 +272,12 @@ def update_product(
     if not product:
         raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
 
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    # exclude_unset (et non un filtre sur v is not None) : le frontend envoie
+    # toujours l'objet complet, donc un champ explicitement mis à null (ex:
+    # prix vidé, catégorie remise à "Aucune") doit bien être appliqué --
+    # l'ancien filtre sur "v is not None" l'ignorait silencieusement et
+    # empêchait de jamais effacer un champ optionnel une fois renseigné.
+    update_data = data.model_dump(exclude_unset=True)
     sub_category_name = update_data.pop("sub_category_name", None)
 
     _validate_owned_refs(

@@ -159,6 +159,7 @@ export default function ScannerPage() {
     description: '',
     nutriscore_grade: null,
     price: '',
+    expiration_date: '',
   });
   // Prix moyen indicatif (Open Prices) pour le produit en cours de scan --
   // affiché à titre informatif uniquement, jamais imposé : formData.price
@@ -561,12 +562,13 @@ export default function ScannerPage() {
           description: offRes.data.categories || '',
           nutriscore_grade: offRes.data.nutriscore_grade || null,
           price: offRes.data.suggested_price != null ? offRes.data.suggested_price : '',
+          expiration_date: '',
         });
       } catch (error) {
         setFormData({
           name: '', brand: '', barcode: barcode, quantity: 1, min_quantity: 1, unit: 'unité',
           category_id: null, location_id: null, image_url: '', sub_category_id: null, sub_category_name: '', description: '',
-          nutriscore_grade: null, price: '',
+          nutriscore_grade: null, price: '', expiration_date: '',
         });
       }
 
@@ -634,7 +636,7 @@ export default function ScannerPage() {
     setFormData({
       name: '', brand: '', barcode, quantity: 1, min_quantity: 1, unit: 'unité',
       category_id: null, location_id: null, image_url: '', sub_category_id: null, sub_category_name: '', description: '',
-      nutriscore_grade: null, price: '',
+      nutriscore_grade: null, price: '', expiration_date: '',
     });
     setResultDialogOpen(true);
   };
@@ -681,7 +683,11 @@ export default function ScannerPage() {
 
     setSaving(true);
     try {
-      const payload = { ...formData, price: formData.price === '' ? null : formData.price };
+      const payload = {
+        ...formData,
+        price: formData.price === '' ? null : formData.price,
+        expiration_date: formData.expiration_date === '' ? null : formData.expiration_date,
+      };
       await api.post('/products', payload);
       toast.success("Produit ajouté au stock");
       // Si ce produit venait de la zone tampon (barcode non trouvé sur OFF,
@@ -1039,6 +1045,14 @@ export default function ScannerPage() {
                     Prix moyen constaté (Open Prices, {suggestedPrice.count} relevé{suggestedPrice.count > 1 ? 's' : ''}) : {suggestedPrice.value.toFixed(2)} {suggestedPrice.currency}
                   </p>
                 )}
+              </div>
+              <div>
+                <Label>Date de péremption</Label>
+                <Input
+                  type="date"
+                  value={formData.expiration_date}
+                  onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
+                />
               </div>
               <div>
                 <Label>Catégorie *</Label>
