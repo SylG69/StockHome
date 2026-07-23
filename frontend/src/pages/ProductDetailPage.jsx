@@ -573,7 +573,10 @@ export default function ProductDetailPage() {
 
       {/* Dialog Modifier */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="bg-card border-border max-w-lg">
+        <DialogContent
+          className="bg-card border-border max-w-lg"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader><DialogTitle>Modifier le produit</DialogTitle></DialogHeader>
           {formData && (
             <div className="grid grid-cols-2 gap-4">
