@@ -128,7 +128,7 @@ jobs:
     name: Determine App Version
     runs-on: ubuntu-latest
     needs: [pylint, eslint, ci-testing]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     outputs:
       app_version: ${{ steps.version.outputs.app_version }}
       app_env: ${{ steps.version.outputs.app_env }}
