@@ -1,12 +1,12 @@
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-sqlalchemy==2.0.35
+fastapi==0.139.2
+uvicorn[standard]==0.51.0
+sqlalchemy==2.0.51
 psycopg2-binary>=2.9.12
 pydantic[email]==2.13.4
 python-jose[cryptography]==3.5.0
-bcrypt==4.2.0
+bcrypt==5.0.0
 httpx==0.28.1
 python-dotenv==1.2.2
-google-auth>=2.0.0
+google-auth>=2.56.2
 requests
 alembic
