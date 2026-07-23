@@ -117,33 +117,27 @@ jobs:
         run: npm test
 
   # ----------------------------------------------------
-  # STAGE 3 : BUILD & PUSH DOCKER IMAGE
+  # STAGE 3 : DÉTERMINATION DE LA VERSION
   # ----------------------------------------------------
-  build-and-push:
-    name: Build & Push Docker Image
+  # Calcule le tag une seule fois pour toute la pipeline : consommé à la fois
+  # par build-and-push (build-args de l'image Docker) et par update_release
+  # (création du tag Git + de la release), qui recalculaient auparavant
+  # chacun leur propre valeur de façon redondante (et potentiellement
+  # incohérente si l'historique des tags changeait entre les deux).
+  determine-version:
+    name: Determine App Version
     runs-on: ubuntu-latest
     needs: [pylint, eslint, ci-testing]
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
-
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      app_version: ${{ steps.version.outputs.app_version }}
+      app_env: ${{ steps.version.outputs.app_env }}
+      previous_tag: ${{ steps.version.outputs.previous_tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # fetch-depth: 0 nécessaire pour lire l'historique des tags
-          # (utilisé ci-dessous pour prédire le prochain tag sur main).
           fetch-depth: 0
-
-      # Connexion au registre d'images GitHub (GHCR)
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Configuration du builder Docker (gère le cache pour accélérer les builds)
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Determine app version
         id: version
@@ -163,10 +157,37 @@ jobs:
             PATCH=$((PATCH + 1))
             echo "app_version=${PREFIX}${MAJ}.${MIN}.${PATCH}" >> "$GITHUB_OUTPUT"
             echo "app_env=production" >> "$GITHUB_OUTPUT"
+            echo "previous_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
           else
             echo "app_version=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
             echo "app_env=staging" >> "$GITHUB_OUTPUT"
+            echo "previous_tag=" >> "$GITHUB_OUTPUT"
           fi
+
+  # ----------------------------------------------------
+  # STAGE 4 : BUILD & PUSH DOCKER IMAGE
+  # ----------------------------------------------------
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [pylint, eslint, ci-testing, determine-version]
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Connexion au registre d'images GitHub (GHCR)
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Configuration du builder Docker (gère le cache pour accélérer les builds)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       # Extraction des métadonnées (tags, labels)
       - name: Extract metadata for Docker
@@ -188,13 +209,13 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            APP_VERSION=${{ steps.version.outputs.app_version }}
-            APP_ENV=${{ steps.version.outputs.app_env }}
+            APP_VERSION=${{ needs.determine-version.outputs.app_version }}
+            APP_ENV=${{ needs.determine-version.outputs.app_env }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   # ----------------------------------------------------
-  # STAGE 4 : DEPLOY
+  # STAGE 5 : DEPLOY
   # ----------------------------------------------------
   deploy-staging:
     name: Deploy to Staging (develop)
@@ -239,11 +260,11 @@ jobs:
          sudo /appli/stockhome/deploy.sh "${{ github.ref_name }}"
 
   # -------------------------------------------------------
-  # STAGE 5 : MAJ RELEASE (après déploiement en production)
+  # STAGE 6 : MAJ RELEASE (après déploiement en production)
   # -------------------------------------------------------
 
   update_release:
-    needs: deploy-production
+    needs: [deploy-production, determine-version]
     runs-on: ubuntu-latest
     # Accorde explicitement les droits d'écriture pour pousser le tag et créer la release
     permissions:
@@ -254,43 +275,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get current branch & short sha
-        id: meta
-        run: |
-          echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-          echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
-
-      - name: Bump patch, push tag and create release with changelog
+      - name: Push tag and create release with changelog
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
           ACTOR: ${{ github.actor }}
+          # Tag déjà calculé une seule fois par le job determine-version --
+          # on ne relit plus l'historique des tags ici, juste besoin de
+          # LATEST_TAG (le tag précédent) pour générer le changelog.
+          NEW_TAG: ${{ needs.determine-version.outputs.app_version }}
+          LATEST_TAG: ${{ needs.determine-version.outputs.previous_tag }}
         run: |
           set -euo pipefail
 
-          # --- find latest semver tag (v?X.Y.Z)
-          LATEST_TAG=$(git tag --list --sort=-v:refname | grep -E '^[v]?[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)
-          echo "Latest tag: '${LATEST_TAG:-<none>}'"
-
-          if [ -z "$LATEST_TAG" ]; then
-            PREFIX=""
-            MAJ=0; MIN=0; PATCH=0
-          else
-            if [[ "$LATEST_TAG" =~ ^v ]]; then
-              PREFIX="v"
-              VERSION="${LATEST_TAG#v}"
-            else
-              PREFIX=""
-              VERSION="$LATEST_TAG"
-            fi
-            IFS='.' read -r MAJ MIN PATCH <<< "$VERSION"
-          fi
-
-          # --- increment patch
-          PATCH=$((PATCH + 1))
-          NEW_TAG="${PREFIX}${MAJ}.${MIN}.${PATCH}"
-          echo "New tag: $NEW_TAG"
+          echo "New tag: $NEW_TAG (previous: '${LATEST_TAG:-<none>}')"
 
           # --- generate changelog: commits since latest tag (or full history if none)
           if [ -n "$LATEST_TAG" ]; then
@@ -328,8 +327,8 @@ jobs:
           Deployed by: ${ACTOR}
           Workflow: ${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER}"
 
-          # /!\ CORRECTION : Export des variables pour qu'elles soient visibles par Python
-          export NEW_TAG
+          # Export pour que RELEASE_BODY soit visible par Python (NEW_TAG
+          # est déjà exportée automatiquement via le "env:" du step).
           export RELEASE_BODY
 
           JSON_PAYLOAD=$(python3 - <<PY
