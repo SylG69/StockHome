@@ -517,6 +517,10 @@ async def refresh_product_from_off(
         product.image_url = off_product.get("image_url") or off_product.get("image_front_url")
     if not product.brand:
         product.brand = off_product.get("brands")
+    if product.price is None:
+        avg_price, _currency, price_count = await _fetch_average_price(product.barcode)
+        if price_count > 0:
+            product.price = avg_price
 
     product.updated_at = datetime.now(timezone.utc)
     db.commit()
