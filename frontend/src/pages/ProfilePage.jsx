@@ -6,7 +6,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
-import { Lock, Save, ShieldCheck, User as UserIcon, Mail, Github, Apple, KeyRound } from 'lucide-react';
+import { Lock, Save, ShieldCheck, User as UserIcon, Mail, Apple, KeyRound } from 'lucide-react';
+import Github from '../components/icons/GithubIcon';
 
 // lucide-react n'a pas d'icône de marque Google : petit logo officiel en SVG.
 function GoogleIcon(props) {
