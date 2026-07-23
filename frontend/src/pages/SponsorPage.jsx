@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Heart, Coffee, Gift, Github, Wallet, ExternalLink } from 'lucide-react';
+import { Heart, Coffee, Gift, Wallet, ExternalLink } from 'lucide-react';
+import Github from '../components/icons/GithubIcon';
 
 // Plateformes de dons suggérées. Renseignez `url` une fois vos comptes
 // créés sur chacune de ces plateformes -- tant qu'une URL est vide, son
