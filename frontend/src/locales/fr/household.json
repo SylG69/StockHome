@@ -1,1 +1,62 @@
-{}
+{
+  "switcher": {
+    "placeholder": "Foyer actif",
+    "personal": "Personnel"
+  },
+  "page": {
+    "title": "Mon foyer",
+    "subtitle": "Partagez votre stock avec d'autres comptes en les invitant dans votre foyer.",
+    "refresh": "Actualiser"
+  },
+  "card": {
+    "personalHousehold": "Foyer personnel",
+    "roleAdmin": "Administrateur",
+    "roleMember": "Membre",
+    "inviteCodeLabel": "Code d'invitation :",
+    "copy": "Copier",
+    "regenerate": "Régénérer",
+    "membersTitle": "Membres ({{count}})",
+    "self": "Moi",
+    "roleAdminShort": "Admin",
+    "roleMemberShort": "Membre",
+    "remove": "Retirer",
+    "leave": "Quitter ce foyer"
+  },
+  "create": {
+    "title": "Créer un nouveau foyer",
+    "description": "Créez un foyer partagé et invitez d'autres comptes à le rejoindre.",
+    "namePlaceholder": "Nom du foyer (ex: Maison)",
+    "submit": "Créer"
+  },
+  "join": {
+    "title": "Rejoindre un foyer",
+    "description": "Saisissez le code d'invitation fourni par l'administrateur du foyer.",
+    "codePlaceholder": "Code d'invitation",
+    "submit": "Rejoindre"
+  },
+  "transferDialog": {
+    "title": "Transférer votre stock vers ce nouveau foyer ?",
+    "descriptionBefore": "Vos produits, catégories, emplacements et liste de courses actuellement dans",
+    "descriptionAfter": "peuvent être déplacés vers le foyer que vous venez de créer. Cette action est réversible en créant un nouveau transfert plus tard, mais déplace immédiatement tout le stock actuel.",
+    "targetPersonal": "votre foyer personnel",
+    "targetNamed": "le foyer « {{name}} »",
+    "cancel": "Non, laisser vide",
+    "confirm": "Oui, transférer"
+  },
+  "toast": {
+    "loadError": "Erreur lors du chargement du foyer",
+    "created": "Foyer créé",
+    "transferSuccess": "Stock transféré : basculez vers ce foyer pour le retrouver",
+    "transferError": "Erreur lors du transfert du stock",
+    "joined": "Vous avez rejoint le foyer",
+    "joinError": "Code d'invitation invalide",
+    "codeRegenerated": "Code régénéré",
+    "regenerateError": "Erreur lors de la régénération du code",
+    "codeCopied": "Code copié",
+    "memberRemoved": "Membre retiré",
+    "removeError": "Erreur lors du retrait",
+    "left": "Vous avez quitté le foyer",
+    "leaveError": "Erreur lors de la sortie du foyer",
+    "createError": "Erreur lors de la création du foyer"
+  }
+}

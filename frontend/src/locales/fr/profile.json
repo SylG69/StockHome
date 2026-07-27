@@ -47,5 +47,12 @@
   "saveChanges": "Enregistrer les modifications",
   "languageSection": {
     "title": "Langue"
+  },
+  "preferredHousehold": {
+    "title": "Foyer préféré",
+    "householdLabel": "Foyer",
+    "placeholder": "Aucun foyer préféré",
+    "none": "Aucun",
+    "autoSwitchLabel": "Se connecter automatiquement à ce foyer"
   }
 }

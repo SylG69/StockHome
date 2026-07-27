@@ -858,7 +858,7 @@ export default function ScannerPage() {
               <div>
                 <Label htmlFor="manual-barcode">{t('scanner:manual.inputLabel')}</Label>
                 <div className="flex gap-2 mt-2">
-                  <Input ref={manualInputRef} id="manual-barcode" value={manualBarcode} onChange={(e) => setManualBarcode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()} placeholder={t('scanner:manual.inputPlaceholder')} className="font-mono" data-testid="manual-barcode-input" />
+                  <Input ref={manualInputRef} id="manual-barcode" inputMode="numeric" pattern="[0-9]*" value={manualBarcode} onChange={(e) => setManualBarcode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()} placeholder={t('scanner:manual.inputPlaceholder')} className="font-mono" data-testid="manual-barcode-input" />
                   <Button onClick={handleManualSearch} disabled={searching} data-testid="search-barcode-btn">
                     {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   </Button>
@@ -1033,7 +1033,7 @@ export default function ScannerPage() {
               </div>
               <div>
                 <Label>{t('scanner:dialog.quantity')}</Label>
-                <Input type="number" min="0" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })} />
+                <Input type="number" min="0" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value === '' ? '' : parseInt(e.target.value) || 0 })} />
               </div>
               <div>
                 <Label>{t('scanner:dialog.unitPrice')}</Label>

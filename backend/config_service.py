@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 import models
 import schemas
-from auth import get_current_user
+from auth import get_active_household, get_current_user
 from database import get_db
 
 router = APIRouter(prefix="/api", tags=["config"])
@@ -15,9 +15,9 @@ router = APIRouter(prefix="/api", tags=["config"])
 # ==================== CATEGORIES ====================
 
 @router.get("/categories", response_model=list[schemas.CategoryResponse])
-def get_categories(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Renvoie toutes les catégories appartenant à l'utilisateur authentifié."""
-    result = db.execute(select(models.Category).where(models.Category.user_id == current_user.id))
+def get_categories(active_household: models.Household = Depends(get_active_household), db: Session = Depends(get_db)):
+    """Renvoie toutes les catégories du foyer actif de l'utilisateur authentifié."""
+    result = db.execute(select(models.Category).where(models.Category.household_id == active_household.id))
     return result.scalars().all()
 
 
@@ -25,10 +25,11 @@ def get_categories(current_user: models.User = Depends(get_current_user), db: Se
 def create_category(
     data: schemas.CategoryCreate,
     current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Crée une nouvelle catégorie pour l'utilisateur authentifié."""
-    category = models.Category(**data.model_dump(), user_id=current_user.id)
+    """Crée une nouvelle catégorie pour le foyer actif de l'utilisateur authentifié."""
+    category = models.Category(**data.model_dump(), user_id=current_user.id, household_id=active_household.id)
     db.add(category)
     db.commit()
     db.refresh(category)
@@ -39,12 +40,12 @@ def create_category(
 def update_category(
     category_id: str,
     data: schemas.CategoryCreate,
-    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Met à jour une catégorie existante appartenant à l'utilisateur authentifié."""
+    """Met à jour une catégorie existante du foyer actif de l'utilisateur authentifié."""
     category = db.execute(
-        select(models.Category).where(models.Category.id == category_id, models.Category.user_id == current_user.id)
+        select(models.Category).where(models.Category.id == category_id, models.Category.household_id == active_household.id)
     ).scalar_one_or_none()
     if not category:
         raise HTTPException(status_code=404, detail="Catégorie non trouvée")
@@ -57,11 +58,11 @@ def update_category(
 
 @router.delete("/categories/{category_id}")
 def delete_category(
-    category_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    category_id: str, active_household: models.Household = Depends(get_active_household), db: Session = Depends(get_db)
 ):
-    """Supprime une catégorie appartenant à l'utilisateur authentifié."""
+    """Supprime une catégorie du foyer actif de l'utilisateur authentifié."""
     category = db.execute(
-        select(models.Category).where(models.Category.id == category_id, models.Category.user_id == current_user.id)
+        select(models.Category).where(models.Category.id == category_id, models.Category.household_id == active_household.id)
     ).scalar_one_or_none()
     if not category:
         raise HTTPException(status_code=404, detail="Catégorie non trouvée")
@@ -73,9 +74,9 @@ def delete_category(
 # ==================== SUB-CATEGORIES ====================
 
 @router.get("/subcategories", response_model=list[schemas.SubCategoryResponse])
-def get_subcategories(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Renvoie toutes les sous-catégories pour l'utilisateur authentifié."""
-    result = db.execute(select(models.SubCategory).where(models.SubCategory.user_id == current_user.id))
+def get_subcategories(active_household: models.Household = Depends(get_active_household), db: Session = Depends(get_db)):
+    """Renvoie toutes les sous-catégories du foyer actif de l'utilisateur authentifié."""
+    result = db.execute(select(models.SubCategory).where(models.SubCategory.household_id == active_household.id))
     return result.scalars().all()
 
 
@@ -83,10 +84,11 @@ def get_subcategories(current_user: models.User = Depends(get_current_user), db:
 def create_subcategory(
     data: schemas.SubCategoryCreate,
     current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Crée une nouvelle sous-catégorie pour l'utilisateur authentifié."""
-    sub_category = models.SubCategory(**data.model_dump(), user_id=current_user.id)
+    """Crée une nouvelle sous-catégorie pour le foyer actif de l'utilisateur authentifié."""
+    sub_category = models.SubCategory(**data.model_dump(), user_id=current_user.id, household_id=active_household.id)
     db.add(sub_category)
     db.commit()
     db.refresh(sub_category)
@@ -97,10 +99,10 @@ def create_subcategory(
 def update_subcategory(
     sub_category_id: str,
     data: schemas.SubCategoryCreate,
-    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Met à jour une sous-catégorie existante pour l'utilisateur authentifié.
+    """Met à jour une sous-catégorie existante du foyer actif de l'utilisateur authentifié.
 
     Fusion automatique : si le nouveau nom correspond (insensible à la casse)
     à une AUTRE sous-catégorie déjà existante, on ne crée pas de doublon --
@@ -109,7 +111,7 @@ def update_subcategory(
     celle qu'on renommait est supprimée."""
     sub_category = db.execute(
         select(models.SubCategory).where(
-            models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
+            models.SubCategory.id == sub_category_id, models.SubCategory.household_id == active_household.id
         )
     ).scalar_one_or_none()
     if not sub_category:
@@ -118,7 +120,7 @@ def update_subcategory(
     new_name = data.name.strip()
     existing_match = db.execute(
         select(models.SubCategory).where(
-            models.SubCategory.user_id == current_user.id,
+            models.SubCategory.household_id == active_household.id,
             models.SubCategory.id != sub_category_id,
             func.lower(models.SubCategory.name) == new_name.lower(),
         )
@@ -146,13 +148,13 @@ def update_subcategory(
 def update_subcategory_threshold(
     sub_category_id: str,
     data: schemas.SubCategoryUpdate,
-    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Met à jour uniquement le seuil d'une sous-catégorie pour l'utilisateur authentifié."""
+    """Met à jour uniquement le seuil d'une sous-catégorie du foyer actif de l'utilisateur authentifié."""
     sub_category = db.execute(
         select(models.SubCategory).where(
-            models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
+            models.SubCategory.id == sub_category_id, models.SubCategory.household_id == active_household.id
         )
     ).scalar_one_or_none()
     if not sub_category:
@@ -166,12 +168,12 @@ def update_subcategory_threshold(
 
 @router.delete("/subcategories/{sub_category_id}")
 def delete_subcategory(
-    sub_category_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    sub_category_id: str, active_household: models.Household = Depends(get_active_household), db: Session = Depends(get_db)
 ):
-    """Supprime une sous-catégorie appartenant à l'utilisateur authentifié."""
+    """Supprime une sous-catégorie du foyer actif de l'utilisateur authentifié."""
     sub_category = db.execute(
         select(models.SubCategory).where(
-            models.SubCategory.id == sub_category_id, models.SubCategory.user_id == current_user.id
+            models.SubCategory.id == sub_category_id, models.SubCategory.household_id == active_household.id
         )
     ).scalar_one_or_none()
     if not sub_category:
@@ -184,9 +186,9 @@ def delete_subcategory(
 # ==================== STORAGE LOCATIONS ====================
 
 @router.get("/locations", response_model=list[schemas.StorageLocationResponse])
-def get_locations(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Renvoie tous les emplacements de stockage pour l'utilisateur authentifié."""
-    result = db.execute(select(models.StorageLocation).where(models.StorageLocation.user_id == current_user.id))
+def get_locations(active_household: models.Household = Depends(get_active_household), db: Session = Depends(get_db)):
+    """Renvoie tous les emplacements de stockage du foyer actif de l'utilisateur authentifié."""
+    result = db.execute(select(models.StorageLocation).where(models.StorageLocation.household_id == active_household.id))
     return result.scalars().all()
 
 
@@ -194,10 +196,11 @@ def get_locations(current_user: models.User = Depends(get_current_user), db: Ses
 def create_location(
     data: schemas.StorageLocationCreate,
     current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Crée un nouvel emplacement de stockage pour l'utilisateur authentifié."""
-    location = models.StorageLocation(**data.model_dump(), user_id=current_user.id)
+    """Crée un nouvel emplacement de stockage pour le foyer actif de l'utilisateur authentifié."""
+    location = models.StorageLocation(**data.model_dump(), user_id=current_user.id, household_id=active_household.id)
     db.add(location)
     db.commit()
     db.refresh(location)
@@ -208,13 +211,13 @@ def create_location(
 def update_location(
     location_id: str,
     data: schemas.StorageLocationCreate,
-    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Met à jour un emplacement de stockage existant pour l'utilisateur authentifié."""
+    """Met à jour un emplacement de stockage existant du foyer actif de l'utilisateur authentifié."""
     location = db.execute(
         select(models.StorageLocation).where(
-            models.StorageLocation.id == location_id, models.StorageLocation.user_id == current_user.id
+            models.StorageLocation.id == location_id, models.StorageLocation.household_id == active_household.id
         )
     ).scalar_one_or_none()
     if not location:
@@ -228,12 +231,12 @@ def update_location(
 
 @router.delete("/locations/{location_id}")
 def delete_location(
-    location_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    location_id: str, active_household: models.Household = Depends(get_active_household), db: Session = Depends(get_db)
 ):
-    """Supprime un emplacement de stockage appartenant à l'utilisateur authentifié."""
+    """Supprime un emplacement de stockage du foyer actif de l'utilisateur authentifié."""
     location = db.execute(
         select(models.StorageLocation).where(
-            models.StorageLocation.id == location_id, models.StorageLocation.user_id == current_user.id
+            models.StorageLocation.id == location_id, models.StorageLocation.household_id == active_household.id
         )
     ).scalar_one_or_none()
     if not location:

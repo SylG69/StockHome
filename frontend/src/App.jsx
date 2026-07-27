@@ -13,6 +13,7 @@ import ConfigurationPage from './pages/ConfigurationPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import ScannerPage from './pages/ScannerPage';
 import UsersPage from './pages/UsersPage';
+import HouseholdPage from './pages/HouseholdPage';
 import ProfilePage from './pages/ProfilePage';
 import AboutPage from './pages/AboutPage';
 import SponsorPage from './pages/SponsorPage';
@@ -112,6 +113,7 @@ function AppRoutes() {
         <Route path="about" element={<AboutPage />} />
         <Route path="sponsor" element={<SponsorPage />} />
         <Route path="configuration" element={<ConfigurationPage />} />
+        <Route path="household" element={<HouseholdPage />} />
         {/* Redirections pour ne pas casser d'anciens liens/favoris vers les
             pages fusionnées. */}
         <Route path="categories" element={<Navigate to="/configuration?section=categories" replace />} />
