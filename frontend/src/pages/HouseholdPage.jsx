@@ -4,6 +4,16 @@ import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { RefreshCw, Copy, UserMinus, LogOut, Plus, KeyRound, Home, Users } from 'lucide-react';
 
@@ -14,6 +24,7 @@ export default function HouseholdPage() {
   const [busy, setBusy] = useState(false);
   const [newHouseholdName, setNewHouseholdName] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [transferTargetId, setTransferTargetId] = useState(null);
 
   const fetchDetail = useCallback(async () => {
     if (!activeHousehold) return;
@@ -40,14 +51,29 @@ export default function HouseholdPage() {
     if (!newHouseholdName.trim()) return;
     setBusy(true);
     try {
-      await api.post('/households', { name: newHouseholdName.trim() });
+      const response = await api.post('/households', { name: newHouseholdName.trim() });
       setNewHouseholdName('');
       await fetchHouseholds();
       toast.success('Foyer créé');
+      setTransferTargetId(response.data.id);
     } catch (error) {
       toast.error(error?.response?.data?.detail || 'Erreur lors de la création du foyer');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleTransferStock = async () => {
+    if (!transferTargetId) return;
+    setBusy(true);
+    try {
+      await api.post(`/households/${transferTargetId}/transfer-stock`);
+      toast.success('Stock transféré : basculez vers ce foyer pour le retrouver');
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || 'Erreur lors du transfert du stock');
+    } finally {
+      setBusy(false);
+      setTransferTargetId(null);
     }
   };
 
@@ -247,6 +273,26 @@ export default function HouseholdPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={!!transferTargetId} onOpenChange={(open) => !open && setTransferTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Transférer votre stock vers ce nouveau foyer ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vos produits, catégories, emplacements et liste de courses actuellement dans{' '}
+              {activeHousehold?.is_personal ? 'votre foyer personnel' : `le foyer « ${activeHousehold?.name} »`}{' '}
+              peuvent être déplacés vers le foyer que vous venez de créer. Cette action est réversible en créant un
+              nouveau transfert plus tard, mais déplace immédiatement tout le stock actuel.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Non, laisser vide</AlertDialogCancel>
+            <AlertDialogAction onClick={handleTransferStock} disabled={busy}>
+              Oui, transférer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

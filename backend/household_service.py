@@ -9,8 +9,18 @@ from sqlalchemy.orm import Session
 
 import models
 import schemas
-from auth import get_current_user
+from auth import get_active_household, get_current_user
 from database import get_db
+
+# Tables dont le stock peut être transféré d'un foyer à un autre (voir
+# transfer_stock) : tout ce qui est actuellement scopé par household_id.
+STOCK_MODELS = (
+    models.Category,
+    models.SubCategory,
+    models.StorageLocation,
+    models.Product,
+    models.ShoppingListItem,
+)
 
 router = APIRouter(prefix="/api/households", tags=["households"])
 
@@ -147,6 +157,32 @@ def join_household(
     db.commit()
     db.refresh(membership)
     return _build_household_detail(db, household, membership, current_user)
+
+
+@router.post("/{household_id}/transfer-stock")
+def transfer_stock(
+    household_id: str,
+    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
+):
+    """Transfère tout le stock (catégories, sous-catégories, emplacements,
+    produits, liste de courses) du foyer actuellement actif vers le foyer
+    ciblé. Utilisé juste après la création d'un foyer, pour proposer à
+    l'utilisateur d'y déplacer son stock existant plutôt que de repartir de
+    zéro -- ne modifie que household_id, user_id (créateur d'origine) est
+    conservé tel quel."""
+    _require_membership(db, household_id, current_user.id)
+    source_id = active_household.id
+    if source_id == household_id:
+        raise HTTPException(status_code=400, detail="Le foyer source et le foyer cible sont identiques")
+
+    for model in STOCK_MODELS:
+        db.execute(
+            model.__table__.update().where(model.household_id == source_id).values(household_id=household_id)
+        )
+    db.commit()
+    return {"message": "Stock transféré vers le nouveau foyer"}
 
 
 @router.get("/{household_id}", response_model=schemas.HouseholdDetailResponse)
