@@ -5,8 +5,10 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
-import { Lock, Save, ShieldCheck, User as UserIcon, Mail, Github, Apple, KeyRound } from 'lucide-react';
+import { Lock, Save, ShieldCheck, User as UserIcon, Mail, Github, Apple, KeyRound, Home } from 'lucide-react';
 
 // lucide-react n'a pas d'icône de marque Google : petit logo officiel en SVG.
 function GoogleIcon(props) {
@@ -42,7 +44,7 @@ const ROLE_INFO = {
 };
 
 export default function ProfilePage() {
-  const { api, user, updateUser } = useAuth();
+  const { api, user, updateUser, households } = useAuth();
 
   const [username, setUsername] = useState(user?.username || '');
   const [firstName, setFirstName] = useState(user?.first_name || '');
@@ -50,6 +52,8 @@ export default function ProfilePage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [preferredHouseholdId, setPreferredHouseholdId] = useState(user?.preferred_household_id || '');
+  const [autoSwitchToPreferred, setAutoSwitchToPreferred] = useState(user?.auto_switch_to_preferred || false);
   const [saving, setSaving] = useState(false);
 
   const roleInfo = ROLE_INFO[user?.role] || ROLE_INFO.user;
@@ -79,6 +83,12 @@ export default function ProfilePage() {
     if (newPassword) {
       payload.new_password = newPassword;
       payload.current_password = currentPassword;
+    }
+    if (preferredHouseholdId !== (user?.preferred_household_id || '')) {
+      payload.preferred_household_id = preferredHouseholdId;
+    }
+    if (autoSwitchToPreferred !== (user?.auto_switch_to_preferred || false)) {
+      payload.auto_switch_to_preferred = autoSwitchToPreferred;
     }
 
     if (Object.keys(payload).length === 0) {
@@ -229,6 +239,48 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {households.length > 0 && (
+            <div className="border-t border-border pt-6">
+              <h3 className="font-semibold flex items-center gap-2 mb-4">
+                <Home className="w-4 h-4" />
+                Foyer préféré
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <Label>Foyer</Label>
+                  <Select
+                    value={preferredHouseholdId || 'none'}
+                    onValueChange={(value) => setPreferredHouseholdId(value === 'none' ? '' : value)}
+                  >
+                    <SelectTrigger data-testid="preferred-household-select">
+                      <SelectValue placeholder="Aucun foyer préféré" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucun</SelectItem>
+                      {households.map((household) => (
+                        <SelectItem key={household.id} value={household.id}>
+                          {household.is_personal ? 'Personnel' : household.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="auto-switch-preferred"
+                    checked={autoSwitchToPreferred}
+                    onCheckedChange={(checked) => setAutoSwitchToPreferred(checked === true)}
+                    disabled={!preferredHouseholdId}
+                    data-testid="auto-switch-preferred-checkbox"
+                  />
+                  <Label htmlFor="auto-switch-preferred" className="font-normal cursor-pointer">
+                    Se connecter automatiquement à ce foyer
+                  </Label>
+                </div>
+              </div>
+            </div>
+          )}
 
           <Button className="w-full btn-glow" onClick={handleSave} disabled={saving} data-testid="save-profile-btn">
             <Save className="w-4 h-4 mr-2" />

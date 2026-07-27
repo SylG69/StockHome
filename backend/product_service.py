@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 import models
 import schemas
-from auth import get_current_user
+from auth import get_active_household, get_current_user
 from database import get_db
 
 router = APIRouter(prefix="/api", tags=["products"])
@@ -30,11 +30,11 @@ def get_products(
     location_id: Optional[str] = None,
     low_stock: Optional[bool] = None,
     search: Optional[str] = None,
-    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Renvoie une liste filtrée de produits pour l'utilisateur authentifié."""
-    query = select(models.Product).where(models.Product.user_id == current_user.id).options(
+    """Renvoie une liste filtrée de produits pour le foyer actif de l'utilisateur authentifié."""
+    query = select(models.Product).where(models.Product.household_id == active_household.id).options(
         selectinload(models.Product.category),
         selectinload(models.Product.location),
         selectinload(models.Product.sub_category),
@@ -57,9 +57,11 @@ def get_products(
 
 @router.get("/products/barcode/{barcode}", response_model=schemas.ProductResponse)
 def get_product_by_barcode(
-    barcode: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    barcode: str,
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
 ):
-    """Renvoie un produit par code-barres pour l'utilisateur authentifié.
+    """Renvoie un produit par code-barres pour le foyer actif de l'utilisateur authentifié.
 
     Plusieurs lots (lignes) peuvent partager le même code-barres, chacun avec
     sa propre date de péremption -- on renvoie systématiquement celui qui
@@ -68,7 +70,7 @@ def get_product_by_barcode(
     toujours en priorité le lot le plus proche de la péremption (FEFO)."""
     product = db.execute(
         select(models.Product)
-        .where(models.Product.barcode == barcode, models.Product.user_id == current_user.id)
+        .where(models.Product.barcode == barcode, models.Product.household_id == active_household.id)
         .options(
             selectinload(models.Product.category),
             selectinload(models.Product.location),
@@ -89,7 +91,7 @@ NUTRISCORE_FROM_VALUE = {v: k for k, v in NUTRISCORE_VALUES.items()}
 
 @router.get("/products/nutriscore-stats")
 def get_nutriscore_stats(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    active_household: models.Household = Depends(get_active_household), db: Session = Depends(get_db)
 ):
     """
     Statistiques Nutri-Score, calculées UNIQUEMENT sur les produits de la
@@ -102,7 +104,7 @@ def get_nutriscore_stats(
         select(models.Product.nutriscore_grade)
         .join(models.Category, models.Product.category_id == models.Category.id)
         .where(
-            models.Product.user_id == current_user.id,
+            models.Product.household_id == active_household.id,
             func.lower(models.Category.name) == "alimentaire",
         )
     ).scalars().all()
@@ -134,12 +136,14 @@ def get_nutriscore_stats(
 
 @router.get("/products/{product_id}", response_model=schemas.ProductResponse)
 def get_product(
-    product_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    product_id: str,
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
 ):
-    """Renvoie un produit par identifiant pour l'utilisateur authentifié."""
+    """Renvoie un produit par identifiant pour le foyer actif de l'utilisateur authentifié."""
     product = db.execute(
         select(models.Product)
-        .where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+        .where(models.Product.id == product_id, models.Product.household_id == active_household.id)
         .options(
             selectinload(models.Product.category),
             selectinload(models.Product.location),
@@ -153,14 +157,14 @@ def get_product(
 
 def _validate_owned_refs(
     db: Session,
-    user_id: str,
+    household_id: str,
     category_id: Optional[str] = None,
     sub_category_id: Optional[str] = None,
     location_id: Optional[str] = None,
 ) -> None:
     """
     Vérifie que les identifiants fournis (catégorie, sous-catégorie,
-    emplacement) existent bien et appartiennent à l'utilisateur courant.
+    emplacement) existent bien et appartiennent au foyer courant.
     Évite qu'une valeur invalide (bug frontend, appel API direct, etc.)
     ne remonte comme une IntegrityError PostgreSQL brute (500) au lieu
     d'une erreur 400 claire.
@@ -174,7 +178,7 @@ def _validate_owned_refs(
         if not value:
             continue
         exists = db.execute(
-            select(model.id).where(model.id == value, model.user_id == user_id)
+            select(model.id).where(model.id == value, model.household_id == household_id)
         ).scalar_one_or_none()
         if exists is None:
             raise HTTPException(status_code=400, detail=f"{field_name} invalide ou introuvable : {value}")
@@ -183,6 +187,7 @@ def _validate_owned_refs(
 def _resolve_sub_category_id(
     db: Session,
     user_id: str,
+    household_id: str,
     sub_category_name: Optional[str],
     sub_category_id: Optional[str],
     category_id: Optional[str],
@@ -202,14 +207,16 @@ def _resolve_sub_category_id(
 
     existing_sub = db.execute(
         select(models.SubCategory).where(
-            models.SubCategory.user_id == user_id,
+            models.SubCategory.household_id == household_id,
             func.lower(models.SubCategory.name) == sub_category_name.lower(),
         )
     ).scalar_one_or_none()
     if existing_sub:
         return existing_sub.id
 
-    new_sub = models.SubCategory(name=sub_category_name, user_id=user_id, category_id=category_id)
+    new_sub = models.SubCategory(
+        name=sub_category_name, user_id=user_id, household_id=household_id, category_id=category_id
+    )
     db.add(new_sub)
     db.flush()
     return new_sub.id
@@ -219,24 +226,26 @@ def _resolve_sub_category_id(
 def create_product(
     data: schemas.ProductCreate,
     current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Crée un nouveau produit pour l'utilisateur authentifié."""
+    """Crée un nouveau produit dans le foyer actif de l'utilisateur authentifié."""
     payload = data.model_dump()
     sub_category_name = payload.pop("sub_category_name", None)
 
     _validate_owned_refs(
-        db, current_user.id,
+        db, active_household.id,
         category_id=payload.get("category_id"),
         sub_category_id=payload.get("sub_category_id"),
         location_id=payload.get("location_id"),
     )
 
     payload["sub_category_id"] = _resolve_sub_category_id(
-        db, current_user.id, sub_category_name, payload.get("sub_category_id"), payload.get("category_id"),
+        db, current_user.id, active_household.id, sub_category_name,
+        payload.get("sub_category_id"), payload.get("category_id"),
     )
 
-    product = models.Product(**payload, user_id=current_user.id)
+    product = models.Product(**payload, user_id=current_user.id, household_id=active_household.id)
     db.add(product)
     db.commit()
 
@@ -257,12 +266,13 @@ def update_product(
     product_id: str,
     data: schemas.ProductUpdate,
     current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
-    """Met à jour un produit existant pour l'utilisateur authentifié."""
+    """Met à jour un produit existant du foyer actif de l'utilisateur authentifié."""
     product = db.execute(
         select(models.Product)
-        .where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+        .where(models.Product.id == product_id, models.Product.household_id == active_household.id)
         .options(
             selectinload(models.Product.category),
             selectinload(models.Product.location),
@@ -281,7 +291,7 @@ def update_product(
     sub_category_name = update_data.pop("sub_category_name", None)
 
     _validate_owned_refs(
-        db, current_user.id,
+        db, active_household.id,
         category_id=update_data.get("category_id"),
         sub_category_id=update_data.get("sub_category_id"),
         location_id=update_data.get("location_id"),
@@ -289,7 +299,7 @@ def update_product(
 
     if sub_category_name and not update_data.get("sub_category_id"):
         update_data["sub_category_id"] = _resolve_sub_category_id(
-            db, current_user.id, sub_category_name, None,
+            db, current_user.id, active_household.id, sub_category_name, None,
             update_data.get("category_id", product.category_id),
         )
 
@@ -306,19 +316,19 @@ def update_product(
 def update_product_quantity(
     product_id: str,
     delta: int,
-    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
     """Incrémente ou décrémente la quantité d'un produit.
 
     Cas particulier consommation (delta négatif) : si ce produit tombe à 0
-    ET qu'il existe d'autres lots (même code-barres) pour cet utilisateur, on
+    ET qu'il existe d'autres lots (même code-barres) pour ce foyer, on
     supprime ce lot désormais vide -- il ne reste que les lots encore en
     stock, chacun avec sa propre date de péremption. S'il s'agit du seul lot
     existant pour ce code-barres (ou d'un produit sans code-barres), on garde
     le comportement historique : la ligne reste à 0 (rappel de réassort)."""
     product = db.execute(
-        select(models.Product).where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+        select(models.Product).where(models.Product.id == product_id, models.Product.household_id == active_household.id)
     ).scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
@@ -330,7 +340,7 @@ def update_product_quantity(
         other_lot_exists = db.execute(
             select(models.Product.id).where(
                 models.Product.barcode == product.barcode,
-                models.Product.user_id == current_user.id,
+                models.Product.household_id == active_household.id,
                 models.Product.id != product.id,
             )
         ).first() is not None
@@ -345,11 +355,13 @@ def update_product_quantity(
 
 @router.delete("/products/{product_id}")
 def delete_product(
-    product_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    product_id: str,
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
 ):
-    """Supprime un produit appartenant à l'utilisateur authentifié."""
+    """Supprime un produit appartenant au foyer actif de l'utilisateur authentifié."""
     product = db.execute(
-        select(models.Product).where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+        select(models.Product).where(models.Product.id == product_id, models.Product.household_id == active_household.id)
     ).scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail=PRODUCT_NOT_FOUND)
@@ -513,7 +525,7 @@ VALID_NUTRISCORE = {"a", "b", "c", "d", "e"}
 @router.post("/products/{product_id}/refresh-off", response_model=schemas.ProductResponse)
 async def refresh_product_from_off(
     product_id: str,
-    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
     """Rafraîchit les données Open*Facts d'un produit existant (rattrapage
@@ -522,7 +534,7 @@ async def refresh_product_from_off(
     Nécessite que le produit ait un code-barres."""
     product = db.execute(
         select(models.Product)
-        .where(models.Product.id == product_id, models.Product.user_id == current_user.id)
+        .where(models.Product.id == product_id, models.Product.household_id == active_household.id)
         .options(
             selectinload(models.Product.category),
             selectinload(models.Product.location),

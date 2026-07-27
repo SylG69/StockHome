@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/button';
+import HouseholdSwitcher from './HouseholdSwitcher';
 import {
   LayoutDashboard,
   Package,
@@ -13,6 +14,7 @@ import {
   X,
   Home,
   ShieldCheck,
+  Users,
   Tag,
   GitBranch,
   Info,
@@ -27,6 +29,7 @@ const navItems = [
 ];
 
 const configNavItem = { to: '/configuration', icon: Settings, label: 'Configuration' };
+const householdNavItem = { to: '/household', icon: Users, label: 'Mon foyer' };
 
 // Entrée de menu affichée uniquement pour les administrateurs, en plus des
 // items ci-dessus (voir usage avec .filter dans le rendu de la nav).
@@ -37,7 +40,11 @@ const adminNavItem = { to: '/users', icon: ShieldCheck, label: 'Utilisateurs' };
 // seulement) -- chacun précédé d'une fine ligne de séparation.
 function buildNavEntries(isAdmin) {
   const entries = navItems.map((item) => ({ type: 'link', item }));
-  entries.push({ type: 'separator', key: 'sep-config' }, { type: 'link', item: configNavItem });
+  entries.push(
+    { type: 'separator', key: 'sep-config' },
+    { type: 'link', item: configNavItem },
+    { type: 'link', item: householdNavItem }
+  );
   if (isAdmin) {
     entries.push({ type: 'separator', key: 'sep-admin' }, { type: 'link', item: adminNavItem });
   }
@@ -154,6 +161,7 @@ export default function Layout() {
 
         <FooterLinks />
         <VersionBadge />
+        <HouseholdSwitcher />
         <div className="p-4 border-t border-border">
           <Link
             to="/profile"
@@ -241,6 +249,7 @@ export default function Layout() {
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
           <FooterLinks onNavigate={() => setMobileMenuOpen(false)} />
           <VersionBadge />
+          <HouseholdSwitcher />
           <Link
             to="/profile"
             onClick={() => setMobileMenuOpen(false)}
