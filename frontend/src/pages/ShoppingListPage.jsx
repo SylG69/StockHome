@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react';
 
 export default function ShoppingListPage() {
+  const { t } = useTranslation('shoppingList');
   const { api } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,7 @@ export default function ShoppingListPage() {
       const response = await api.get('/shopping-list');
       setItems(response.data);
     } catch (error) {
-      toast.error('Erreur lors du chargement');
+      toast.error(t('errors.loadError'));
     } finally {
       setLoading(false);
     }
@@ -60,7 +62,7 @@ export default function ShoppingListPage() {
   // --- CORRECTION NOM DE FONCTION ---
   const handleExport = () => {
     const activeItems = items.filter(i => !i.is_checked);
-    if (activeItems.length === 0) return toast.error("Liste vide");
+    if (activeItems.length === 0) return toast.error(t('errors.emptyList'));
 
     const listString = activeItems
       .map(i => `${i.name} (${i.quantity} ${i.unit})`)
@@ -68,13 +70,13 @@ export default function ShoppingListPage() {
 
     navigator.clipboard.writeText(listString).then(() => {
       if (isApple) {
-        toast.success("Copié ! Collez dans Notes.");
+        toast.success(t('export.copiedApple'));
         window.location.href = "mobilenotes://";
       } else if (isAndroid) {
-        toast.success("Copié ! Collez dans Google Keep.");
+        toast.success(t('export.copiedAndroid'));
         window.open("https://keep.google.com/#create", "_blank");
       } else {
-        toast.success("Liste copiée !");
+        toast.success(t('export.copiedGeneric'));
       }
     });
   };
@@ -115,17 +117,17 @@ export default function ShoppingListPage() {
         .filter(newItem => !items.find(ex => ex.name === newItem.name && !ex.is_checked));
 
       if (missingItems.length === 0) {
-        toast.info('Stock suffisant selon vos réglages.');
+        toast.info(t('sufficientStock'));
         return;
       }
 
       await api.post('/shopping-list/bulk', missingItems);
       await fetchItems();
-      toast.success(`${missingItems.length} groupe(s) ajouté(s)`);
+      toast.success(t('groupsAdded', { count: missingItems.length }));
 
     } catch (error) {
       console.error("Erreur détaillée:", error);
-      toast.error('Erreur de génération');
+      toast.error(t('errors.generationError'));
     } finally {
       setGenerating(false);
     }
@@ -135,14 +137,14 @@ export default function ShoppingListPage() {
     try {
       const response = await api.patch(`/shopping-list/${item.id}/toggle`);
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_checked: response.data.is_checked } : i));
-    } catch (error) { toast.error('Erreur'); }
+    } catch (error) { toast.error(t('errors.generic')); }
   };
 
   const handleDeleteItem = async (itemId) => {
     try {
       await api.delete(`/shopping-list/${itemId}`);
       setItems(prev => prev.filter(i => i.id !== itemId));
-    } catch (error) { toast.error('Erreur'); }
+    } catch (error) { toast.error(t('errors.generic')); }
   };
 
   const handleClearChecked = async () => {
@@ -150,7 +152,7 @@ export default function ShoppingListPage() {
     try {
       await api.delete('/shopping-list?checked_only=true');
       setItems(prev => prev.filter(i => !i.is_checked));
-    } catch (error) { toast.error('Erreur'); } finally { setClearing(false); }
+    } catch (error) { toast.error(t('errors.generic')); } finally { setClearing(false); }
   };
 
   const handleAddItem = async () => {
@@ -161,7 +163,7 @@ export default function ShoppingListPage() {
       setItems(prev => [...prev, response.data]);
       setAddDialogOpen(false);
       setNewItemName('');
-    } catch (error) { toast.error('Erreur'); } finally { setSaving(false); }
+    } catch (error) { toast.error(t('errors.generic')); } finally { setSaving(false); }
   };
 
   const uncheckedItems = items.filter((i) => !i.is_checked);
@@ -177,8 +179,8 @@ export default function ShoppingListPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Liste de Courses</h1>
-          <p className="text-muted-foreground mt-1 text-sm italic">Basé sur les stocks de groupes</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('page.title')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm italic">{t('page.subtitle')}</p>
         </div>
 
         <div className="flex gap-2">
@@ -189,7 +191,7 @@ export default function ShoppingListPage() {
               onClick={handleExport}
               className="bg-[#FFF9E6] border-[#E6B800] text-[#856404] hover:bg-[#FFF4A3]"
             >
-              <Share className="w-4 h-4 mr-2" /> Notes
+              <Share className="w-4 h-4 mr-2" /> {t('export.notes')}
             </Button>
           )}
 
@@ -199,25 +201,25 @@ export default function ShoppingListPage() {
               onClick={handleExport}
               className="bg-[#F2F2F2] border-[#5F6368] text-[#3C4043] hover:bg-[#E8EAED]"
             >
-              <NotebookTabs className="w-4 h-4 mr-2 text-[#F4B400]" /> Keep
+              <NotebookTabs className="w-4 h-4 mr-2 text-[#F4B400]" /> {t('export.keep')}
             </Button>
           )}
 
           <Button variant="outline" onClick={handleGenerate} disabled={generating}>
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-            Générer
+            {t('generate')}
           </Button>
 
           <Button onClick={() => setAddDialogOpen(true)} className="btn-glow">
-            <Plus className="w-4 h-4 mr-2" /> Ajouter
+            <Plus className="w-4 h-4 mr-2" /> {t('add')}
           </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4">
-        <Card className="bg-card border-border"><CardContent className="p-4 flex items-center gap-4"><div className="p-3 rounded-xl bg-primary/10"><ShoppingCart className="w-6 h-6 text-primary" /></div><div><p className="text-2xl font-bold">{uncheckedItems.length}</p><p className="text-sm text-muted-foreground">À acheter</p></div></CardContent></Card>
-        <Card className="bg-card border-border"><CardContent className="p-4 flex items-center gap-4"><div className="p-3 rounded-xl bg-emerald-500/10"><Check className="w-6 h-6 text-emerald-500" /></div><div><p className="text-2xl font-bold">{checkedItems.length}</p><p className="text-sm text-muted-foreground">Panier</p></div></CardContent></Card>
+        <Card className="bg-card border-border"><CardContent className="p-4 flex items-center gap-4"><div className="p-3 rounded-xl bg-primary/10"><ShoppingCart className="w-6 h-6 text-primary" /></div><div><p className="text-2xl font-bold">{uncheckedItems.length}</p><p className="text-sm text-muted-foreground">{t('stats.toBuy')}</p></div></CardContent></Card>
+        <Card className="bg-card border-border"><CardContent className="p-4 flex items-center gap-4"><div className="p-3 rounded-xl bg-emerald-500/10"><Check className="w-6 h-6 text-emerald-500" /></div><div><p className="text-2xl font-bold">{checkedItems.length}</p><p className="text-sm text-muted-foreground">{t('stats.inCart')}</p></div></CardContent></Card>
       </div>
 
       {/* List content */}
@@ -225,7 +227,7 @@ export default function ShoppingListPage() {
         <div className="space-y-6">
           {uncheckedItems.length > 0 && (
             <Card className="bg-card border-border">
-              <CardHeader><CardTitle className="text-lg font-semibold">Besoins identifiés</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-lg font-semibold">{t('identifiedNeeds')}</CardTitle></CardHeader>
               <CardContent className="space-y-2">
                 {uncheckedItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
@@ -233,7 +235,7 @@ export default function ShoppingListPage() {
                       <Checkbox checked={item.is_checked} onCheckedChange={() => handleToggleItem(item)} />
                       <div className="flex items-center gap-2">
                         <span className="font-bold">{item.name}</span>
-                        <Badge variant="secondary" className="text-[9px] uppercase"><Layers className="w-2 h-2 mr-1" /> Groupe</Badge>
+                        <Badge variant="secondary" className="text-[9px] uppercase"><Layers className="w-2 h-2 mr-1" /> {t('group')}</Badge>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -249,8 +251,8 @@ export default function ShoppingListPage() {
           {checkedItems.length > 0 && (
             <Card className="bg-card border-border opacity-60">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-semibold">Dans le panier</CardTitle>
-                <Button variant="ghost" size="sm" onClick={handleClearChecked} disabled={clearing} className="text-xs">Vider le panier</Button>
+                <CardTitle className="text-sm font-semibold">{t('inCartTitle')}</CardTitle>
+                <Button variant="ghost" size="sm" onClick={handleClearChecked} disabled={clearing} className="text-xs">{t('emptyCart')}</Button>
               </CardHeader>
               <CardContent className="space-y-2">
                 {checkedItems.map((item) => (
@@ -269,23 +271,23 @@ export default function ShoppingListPage() {
       ) : (
         <Card className="bg-card border-border border-dashed py-16 text-center">
             <ShoppingCart className="w-16 h-16 mx-auto text-muted-foreground/20 mb-4" />
-            <p className="text-muted-foreground">Tout est en stock !</p>
+            <p className="text-muted-foreground">{t('allInStock')}</p>
         </Card>
       )}
 
       {/* Add Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle>Ajouter manuellement</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('addDialog.title')}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <Input value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder="Nom de l'article..." />
+            <Input value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder={t('addDialog.namePlaceholder')} />
             <div className="grid grid-cols-2 gap-4">
               <Input type="number" value={newItemQuantity} onChange={e => setNewItemQuantity(parseInt(e.target.value) || 1)} />
-              <Input value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)} placeholder="Unité" />
+              <Input value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)} placeholder={t('addDialog.unitPlaceholder')} />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleAddItem} disabled={saving}>Ajouter</Button>
+            <Button onClick={handleAddItem} disabled={saving}>{t('add')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

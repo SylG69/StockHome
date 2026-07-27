@@ -1,0 +1,107 @@
+{
+  "page": {
+    "title": "Configuration",
+    "subtitle": "Gérez les paramètres de votre stock domestique",
+    "categories": "Catégories",
+    "locations": "Emplacements"
+  },
+  "categories": {
+    "title": "Catégories",
+    "subtitle": "Organisez vos produits par catégories",
+    "addButton": "Ajouter une catégorie",
+    "empty": {
+      "title": "Aucune catégorie"
+    },
+    "toast": {
+      "loadError": "Erreur lors du chargement des catégories",
+      "nameRequired": "Le nom de la catégorie est requis",
+      "updated": "Catégorie mise à jour",
+      "created": "Catégorie créée",
+      "deleted": "Catégorie supprimée",
+      "deleteError": "Erreur lors de la suppression"
+    },
+    "dialog": {
+      "editTitle": "Modifier la catégorie",
+      "addTitle": "Ajouter une catégorie",
+      "nameLabel": "Nom *",
+      "iconLabel": "Icône",
+      "colorLabel": "Couleur",
+      "previewLabel": "Aperçu",
+      "previewPlaceholder": "Nom de la catégorie"
+    },
+    "deleteDialog": {
+      "title": "Confirmer la suppression",
+      "message": "Êtes-vous sûr de vouloir supprimer la catégorie \"{{name}}\" ?"
+    },
+    "icons": {
+      "food": "Alimentaire",
+      "beverages": "Boissons",
+      "hygiene": "Hygiène",
+      "cleaning": "Entretien",
+      "general": "Général",
+      "animals": "Animaux",
+      "folder": "Dossier"
+    },
+    "colors": {
+      "green": "Vert",
+      "blue": "Bleu",
+      "purple": "Violet",
+      "orange": "Orange",
+      "red": "Rouge",
+      "gray": "Gris",
+      "pink": "Rose",
+      "turquoise": "Turquoise"
+    }
+  },
+  "locations": {
+    "title": "Emplacements",
+    "subtitle": "Gérez les emplacements de stockage",
+    "addButton": "Ajouter un emplacement",
+    "empty": {
+      "title": "Aucun emplacement",
+      "description": "Créez des emplacements pour organiser vos produits"
+    },
+    "toast": {
+      "loadError": "Erreur lors du chargement des emplacements",
+      "nameRequired": "Le nom de l'emplacement est requis",
+      "updated": "Emplacement mis à jour",
+      "created": "Emplacement créé",
+      "deleted": "Emplacement supprimé",
+      "deleteError": "Erreur lors de la suppression"
+    },
+    "dialog": {
+      "editTitle": "Modifier l'emplacement",
+      "addTitle": "Ajouter un emplacement",
+      "nameLabel": "Nom *",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Description optionnelle",
+      "iconLabel": "Icône",
+      "colorLabel": "Couleur",
+      "previewLabel": "Aperçu",
+      "previewPlaceholder": "Nom de l'emplacement"
+    },
+    "deleteDialog": {
+      "title": "Confirmer la suppression",
+      "message": "Êtes-vous sûr de vouloir supprimer l'emplacement \"{{name}}\" ? Les produits associés ne seront pas supprimés mais n'auront plus d'emplacement."
+    },
+    "icons": {
+      "home": "Maison",
+      "kitchen": "Cuisine",
+      "fridge": "Réfrigérateur",
+      "bathroom": "Salle de bain",
+      "garage": "Garage",
+      "car": "Voiture",
+      "other": "Autre"
+    },
+    "colors": {
+      "green": "Vert",
+      "blue": "Bleu",
+      "purple": "Violet",
+      "orange": "Orange",
+      "red": "Rouge",
+      "gray": "Gris",
+      "pink": "Rose",
+      "turquoise": "Turquoise"
+    }
+  }
+}

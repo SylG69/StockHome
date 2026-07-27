@@ -55,8 +55,11 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useTranslation } from 'react-i18next';
+import { formatTime } from '../lib/formatters';
 
 export default function ScannerPage() {
+  const { t } = useTranslation(['scanner', 'common']);
   const { api } = useAuth();
   const navigate = useNavigate();
   const videoRef = useRef(null);
@@ -304,7 +307,7 @@ export default function ScannerPage() {
       }
     } catch (error) {
       console.error('Camera error:', error);
-      setCameraError("Impossible d'accéder à la caméra. Vérifiez les permissions.");
+      setCameraError(t('scanner:camera.accessError'));
       setCameraActive(false);
     }
   };
@@ -339,7 +342,7 @@ export default function ScannerPage() {
       await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
       setTorchOn((v) => !v);
     } catch (e) {
-      toast.error("Le flash n'est pas disponible sur cet appareil");
+      toast.error(t('scanner:toast.torchUnavailable'));
       setTorchSupported(false);
     }
   };
@@ -404,14 +407,14 @@ export default function ScannerPage() {
         const existingRes = await api.get(`/products/barcode/${barcode}`);
         const prod = existingRes.data;
         if (prod.quantity <= 0) {
-          toast.warning(`${prod.name} : stock déjà à 0`);
+          toast.warning(t('scanner:toast.consumeAlreadyZero', { name: prod.name }));
         } else {
           await api.patch(`/products/${prod.id}/quantity?delta=-1`);
           const remaining = prod.quantity - 1;
-          toast.success(`-1 : ${prod.name} (${remaining} ${prod.unit || ''} restant${remaining > 1 ? 's' : ''})`);
+          toast.success(t('scanner:toast.consumeSuccess', { count: remaining, name: prod.name, remaining, unit: prod.unit || '' }));
         }
       } catch (error) {
-        toast.error(`Produit non trouvé dans votre stock (code ${barcode})`);
+        toast.error(t('scanner:toast.consumeNotFound', { barcode }));
       } finally {
         setSearching(false);
       }
@@ -450,7 +453,7 @@ export default function ScannerPage() {
               if (prev.some((entry) => entry.barcode === barcode)) return prev; // déjà en tampon
               return [{ barcode, scannedAt: new Date().toISOString() }, ...prev].slice(0, 50);
             });
-            toast.warning(`Code ${barcode} non trouvé — mis de côté dans la zone tampon`);
+            toast.warning(t('scanner:toast.bufferedNotFound', { barcode }));
             setManualBarcode('');
             return;
           }
@@ -474,7 +477,7 @@ export default function ScannerPage() {
           }
 
           const newProductData = {
-            name: offData.name || `Produit inconnu (${barcode})`,
+            name: offData.name || t('scanner:toast.unknownProductWithBarcode', { barcode }),
             brand: offData.brand || '',
             barcode: barcode,
             quantity: 1,
@@ -493,10 +496,10 @@ export default function ScannerPage() {
           productName = newProductData.name;
         }
 
-        toast.success(`+1 ajouté : ${productName}`);
+        toast.success(t('scanner:toast.shoppingAdded', { name: productName }));
         setManualBarcode('');
       } catch (err) {
-        toast.error("Erreur lors de l'ajout automatique");
+        toast.error(t('scanner:toast.shoppingError'));
       } finally {
         setSearching(false);
       }
@@ -574,11 +577,11 @@ export default function ScannerPage() {
 
       setResultDialogOpen(true);
     } catch (error) {
-      toast.error('Erreur lors de la recherche');
+      toast.error(t('scanner:toast.searchError'));
     } finally {
       setSearching(false);
     }
-  }, [searching, scanMode, categories, subcategories, locations, api]);
+  }, [searching, scanMode, categories, subcategories, locations, api, t]);
 
   // Garde handleBarcodeDetectedRef pointé vers la dernière version à chaque
   // changement de dépendance (notamment scanMode) -- voir le commentaire sur
@@ -589,7 +592,7 @@ export default function ScannerPage() {
 
   const handleManualSearch = () => {
     if (!manualBarcode.trim()) {
-      toast.error('Entrez un code-barres');
+      toast.error(t('scanner:toast.enterBarcode'));
       return;
     }
     handleBarcodeDetected(manualBarcode.trim());
@@ -659,25 +662,25 @@ export default function ScannerPage() {
       if (response.data.deleted) {
         // Lot épuisé et supprimé côté serveur (d'autres lots du même
         // code-barres restent en stock).
-        toast.info('Lot épuisé, retiré du stock');
+        toast.info(t('scanner:toast.lotDepleted'));
         handleCloseDialog();
         return;
       }
       setExistingProduct({ ...existingProduct, quantity: response.data.quantity });
-      toast.success(`Quantité mise à jour : ${response.data.quantity}`);
+      toast.success(t('scanner:toast.quantityUpdated', { quantity: response.data.quantity }));
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour');
+      toast.error(t('scanner:toast.updateError'));
     }
   };
 
   const handleSaveNewProduct = async () => {
     const missing = [];
-    if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) missing.push('Quantité');
-    if (!formData.category_id) missing.push('Catégorie');
-    if (!formData.location_id || formData.location_id === 'none') missing.push('Emplacement');
+    if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) missing.push(t('scanner:toast.fieldQuantity'));
+    if (!formData.category_id) missing.push(t('scanner:toast.fieldCategory'));
+    if (!formData.location_id || formData.location_id === 'none') missing.push(t('scanner:toast.fieldLocation'));
 
     if (missing.length > 0) {
-      toast.error(`Champs obligatoires manquants : ${missing.join(', ')}`);
+      toast.error(t('scanner:toast.missingFields', { fields: missing.join(', ') }));
       return;
     }
 
@@ -689,7 +692,7 @@ export default function ScannerPage() {
         expiration_date: formData.expiration_date === '' ? null : formData.expiration_date,
       };
       await api.post('/products', payload);
-      toast.success("Produit ajouté au stock");
+      toast.success(t('scanner:toast.productAdded'));
       // Si ce produit venait de la zone tampon (barcode non trouvé sur OFF,
       // complété manuellement), on le retire du tampon.
       if (formData.barcode) {
@@ -704,7 +707,7 @@ export default function ScannerPage() {
       setManualBarcode('');
       setTimeout(() => startCamera(), 200);
     } catch (error) {
-      toast.error("Erreur lors de l'enregistrement");
+      toast.error(t('scanner:toast.saveError'));
     } finally {
       setSaving(false);
     }
@@ -713,8 +716,8 @@ export default function ScannerPage() {
   return (
     <div className="space-y-6" data-testid="scanner-page">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Scanner</h1>
-        <p className="text-muted-foreground mt-1">Scannez un code-barres pour ajouter ou mettre à jour un produit</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t('scanner:page.title')}</h1>
+        <p className="text-muted-foreground mt-1">{t('scanner:page.subtitle')}</p>
       </div>
 
       {/* Mode de scan : Ajout manuel / Retour de courses / Consommation */}
@@ -726,13 +729,13 @@ export default function ScannerPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-sm">Mode de scan</h2>
-                {scanMode !== 'add' && <Badge className="text-[9px] h-4 uppercase bg-primary">Actif</Badge>}
+                <h2 className="font-bold text-sm">{t('scanner:mode.title')}</h2>
+                {scanMode !== 'add' && <Badge className="text-[9px] h-4 uppercase bg-primary">{t('scanner:mode.active')}</Badge>}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {scanMode === 'add' && "Chaque scan ouvre une fiche pour ajouter le produit manuellement."}
-                {scanMode === 'shopping' && "Bip sonore, incrémentation automatique (+1) et enregistrement instantané en arrière-plan."}
-                {scanMode === 'consume' && "Bip sonore, décrémentation automatique (-1) du produit scanné dans votre stock."}
+                {scanMode === 'add' && t('scanner:mode.descriptionAdd')}
+                {scanMode === 'shopping' && t('scanner:mode.descriptionShopping')}
+                {scanMode === 'consume' && t('scanner:mode.descriptionConsume')}
               </p>
             </div>
           </div>
@@ -744,7 +747,7 @@ export default function ScannerPage() {
               onClick={() => setScanMode('add')}
               data-testid="scan-mode-add"
             >
-              Ajout manuel
+              {t('scanner:mode.add')}
             </Button>
             <Button
               type="button"
@@ -753,7 +756,7 @@ export default function ScannerPage() {
               onClick={() => setScanMode('shopping')}
               data-testid="scan-mode-shopping"
             >
-              <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Retour de courses
+              <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> {t('scanner:mode.shopping')}
             </Button>
             <Button
               type="button"
@@ -762,7 +765,7 @@ export default function ScannerPage() {
               onClick={() => setScanMode('consume')}
               data-testid="scan-mode-consume"
             >
-              <PackageMinus className="w-3.5 h-3.5 mr-1.5" /> Consommation
+              <PackageMinus className="w-3.5 h-3.5 mr-1.5" /> {t('scanner:mode.consume')}
             </Button>
           </div>
         </CardContent>
@@ -773,7 +776,7 @@ export default function ScannerPage() {
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Camera className="w-5 h-5" /> Scanner avec la caméra
+              <Camera className="w-5 h-5" /> {t('scanner:camera.title')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -790,7 +793,7 @@ export default function ScannerPage() {
                     variant="secondary"
                     className="bg-black/50 hover:bg-black/70 text-white border-none backdrop-blur-sm"
                     onClick={switchCamera}
-                    title="Changer de caméra"
+                    title={t('scanner:camera.switchCamera')}
                     data-testid="switch-camera-btn"
                   >
                     <SwitchCamera className="w-4 h-4" />
@@ -805,7 +808,7 @@ export default function ScannerPage() {
                         torchOn && "bg-amber-500/90 hover:bg-amber-500 text-black"
                       )}
                       onClick={toggleTorch}
-                      title={torchOn ? "Éteindre le flash" : "Allumer le flash"}
+                      title={torchOn ? t('scanner:camera.torchOn') : t('scanner:camera.torchOff')}
                       data-testid="toggle-torch-btn"
                     >
                       {torchOn ? <Flashlight className="w-4 h-4" /> : <FlashlightOff className="w-4 h-4" />}
@@ -823,14 +826,14 @@ export default function ScannerPage() {
                   ) : (
                     <>
                       <CameraOff className="w-12 h-12 text-muted-foreground mb-3" />
-                      <p className="text-sm text-muted-foreground">Caméra désactivée</p>
+                      <p className="text-sm text-muted-foreground">{t('scanner:camera.disabled')}</p>
                     </>
                   )}
                 </div>
               )}
             </div>
             <Button className="w-full" variant={cameraActive ? 'destructive' : 'default'} onClick={cameraActive ? stopCamera : startCamera} data-testid="toggle-camera-btn">
-              {cameraActive ? <><CameraOff className="w-4 h-4 mr-2" /> Arrêter la caméra</> : <><Camera className="w-4 h-4 mr-2" /> Démarrer la caméra</>}
+              {cameraActive ? <><CameraOff className="w-4 h-4 mr-2" /> {t('scanner:camera.stop')}</> : <><Camera className="w-4 h-4 mr-2" /> {t('scanner:camera.start')}</>}
             </Button>
           </CardContent>
         </Card>
@@ -839,7 +842,7 @@ export default function ScannerPage() {
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Keyboard className="w-5 h-5" /> Saisie manuelle / Lecteur USB
+              <Keyboard className="w-5 h-5" /> {t('scanner:manual.title')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -847,15 +850,15 @@ export default function ScannerPage() {
               <div className="p-4 rounded-lg bg-secondary/20 border border-dashed border-border">
                 <div className="flex items-center gap-3 mb-2">
                   <ScanLine className="w-5 h-5 text-primary" />
-                  <span className="font-medium">Lecteur USB</span>
+                  <span className="font-medium">{t('scanner:manual.usbLabel')}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">Si vous utilisez un lecteur USB, scannez directement le produit.</p>
+                <p className="text-sm text-muted-foreground">{t('scanner:manual.usbHint')}</p>
               </div>
 
               <div>
-                <Label htmlFor="manual-barcode">Ou saisissez le code manuellement</Label>
+                <Label htmlFor="manual-barcode">{t('scanner:manual.inputLabel')}</Label>
                 <div className="flex gap-2 mt-2">
-                  <Input ref={manualInputRef} id="manual-barcode" value={manualBarcode} onChange={(e) => setManualBarcode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()} placeholder="Ex: 3017620422003" className="font-mono" data-testid="manual-barcode-input" />
+                  <Input ref={manualInputRef} id="manual-barcode" value={manualBarcode} onChange={(e) => setManualBarcode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()} placeholder={t('scanner:manual.inputPlaceholder')} className="font-mono" data-testid="manual-barcode-input" />
                   <Button onClick={handleManualSearch} disabled={searching} data-testid="search-barcode-btn">
                     {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   </Button>
@@ -869,27 +872,27 @@ export default function ScannerPage() {
       {/* Notice */}
       <Card className="bg-card border-border">
         <CardContent className="p-6">
-          <h3 className="font-semibold mb-3">Comment ça marche ?</h3>
+          <h3 className="font-semibold mb-3">{t('scanner:howItWorks.title')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">1</span></div>
               <div>
-                <p className="font-medium text-sm">Scannez le code-barres</p>
-                <p className="text-xs text-muted-foreground">Caméra optimisée, lecteur USB ou saisie manuelle.</p>
+                <p className="font-medium text-sm">{t('scanner:howItWorks.step1Title')}</p>
+                <p className="text-xs text-muted-foreground">{t('scanner:howItWorks.step1Text')}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">2</span></div>
               <div>
-                <p className="font-medium text-sm">Vérifiez ou stockez en chaîne</p>
-                <p className="text-xs text-muted-foreground">Le mode classique affiche la fiche, le mode course automatise l'action.</p>
+                <p className="font-medium text-sm">{t('scanner:howItWorks.step2Title')}</p>
+                <p className="text-xs text-muted-foreground">{t('scanner:howItWorks.step2Text')}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-sm font-bold text-primary">3</span></div>
               <div>
-                <p className="font-medium text-sm">Ajoutez à votre stock</p>
-                <p className="text-xs text-muted-foreground">Définissez la quantité globale et l'emplacement.</p>
+                <p className="font-medium text-sm">{t('scanner:howItWorks.step3Title')}</p>
+                <p className="text-xs text-muted-foreground">{t('scanner:howItWorks.step3Text')}</p>
               </div>
             </div>
           </div>
@@ -902,17 +905,16 @@ export default function ScannerPage() {
           <CardHeader className="flex flex-row items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2 text-base">
               <Inbox className="w-5 h-5 text-amber-500" />
-              Zone tampon — codes non trouvés
+              {t('scanner:buffer.title')}
               <Badge variant="outline" className="ml-1">{unmatchedBuffer.length}</Badge>
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={handleClearBuffer} data-testid="clear-buffer-btn">
-              Vider
+              {t('scanner:buffer.clear')}
             </Button>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Ces codes-barres scannés en mode course n'ont été trouvés ni dans votre stock, ni sur Open Food Facts.
-              Ils n'ont donc pas été ajoutés automatiquement. Complétez-les manuellement ou retirez-les.
+              {t('scanner:buffer.description')}
             </p>
             <div className="space-y-2">
               {unmatchedBuffer.map((entry) => (
@@ -924,7 +926,7 @@ export default function ScannerPage() {
                   <div className="min-w-0">
                     <p className="font-mono text-sm truncate">{entry.barcode}</p>
                     <p className="text-xs text-muted-foreground">
-                      Scanné à {new Date(entry.scannedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      {t('scanner:buffer.scannedAt', { time: formatTime(entry.scannedAt, { hour: '2-digit', minute: '2-digit' }) })}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -934,14 +936,14 @@ export default function ScannerPage() {
                       onClick={() => handleCompleteFromBuffer(entry.barcode)}
                       data-testid={`complete-buffer-${entry.barcode}`}
                     >
-                      <Pencil className="w-3.5 h-3.5 mr-1.5" /> Compléter
+                      <Pencil className="w-3.5 h-3.5 mr-1.5" /> {t('scanner:buffer.complete')}
                     </Button>
                     <Button
                       size="icon"
                       variant="ghost"
                       className="text-muted-foreground hover:text-destructive"
                       onClick={() => handleRemoveFromBuffer(entry.barcode)}
-                      title="Retirer de la zone tampon"
+                      title={t('scanner:buffer.remove')}
                       data-testid={`remove-buffer-${entry.barcode}`}
                     >
                       <X className="w-4 h-4" />
@@ -958,7 +960,7 @@ export default function ScannerPage() {
       <Dialog open={resultDialogOpen && existingProduct} onOpenChange={handleCloseDialog}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Check className="w-5 h-5 text-emerald-500" /> Produit trouvé dans votre stock</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><Check className="w-5 h-5 text-emerald-500" /> {t('scanner:dialog.foundInStock')}</DialogTitle>
           </DialogHeader>
           {existingProduct && (
             <div className="space-y-4">
@@ -970,12 +972,12 @@ export default function ScannerPage() {
                 )}
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">{existingProduct.name}</h3>
-                  <p className="text-sm text-muted-foreground">{existingProduct.brand || 'Sans marque'}</p>
+                  <p className="text-sm text-muted-foreground">{existingProduct.brand || t('scanner:dialog.noBrand')}</p>
                   <p className="text-xs text-muted-foreground font-mono mt-1">{existingProduct.barcode}</p>
                 </div>
               </div>
               <div className="p-4 rounded-lg bg-secondary/30">
-                <p className="text-sm text-muted-foreground mb-2 text-center">Quantité en stock</p>
+                <p className="text-sm text-muted-foreground mb-2 text-center">{t('scanner:dialog.stockQuantity')}</p>
                 <div className="flex items-center justify-center gap-4">
                   <Button variant="outline" size="icon" onClick={() => handleUpdateQuantity(-1)} disabled={existingProduct.quantity <= 0}><Minus className="w-4 h-4" /></Button>
                   <span className={`text-3xl font-bold ${existingProduct.quantity < existingProduct.min_quantity ? 'text-destructive' : 'text-emerald-500'}`}>{existingProduct.quantity}</span>
@@ -985,8 +987,8 @@ export default function ScannerPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>Fermer</Button>
-            <Button onClick={() => navigate('/products')}>Voir les produits</Button>
+            <Button variant="outline" onClick={handleCloseDialog}>{t('scanner:dialog.close')}</Button>
+            <Button onClick={() => navigate('/products')}>{t('scanner:dialog.viewProducts')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -998,7 +1000,7 @@ export default function ScannerPage() {
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle>{openFoodFactsData ? 'Produit trouvé' : 'Nouveau produit'}</DialogTitle>
+            <DialogTitle>{openFoodFactsData ? t('scanner:dialog.productFound') : t('scanner:dialog.newProduct')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
             {openFoodFactsData ? (
@@ -1009,48 +1011,48 @@ export default function ScannerPage() {
                   <div className="w-20 h-20 rounded-lg bg-secondary flex items-center justify-center"><Package className="w-10 h-10 text-muted-foreground" /></div>
                 )}
                 <div className="flex-1">
-                  <Badge className="mb-2">{openFoodFactsData.source || 'Base partenaire'}</Badge>
-                  <h3 className="font-semibold">{openFoodFactsData.name || 'Produit inconnu'}</h3>
-                  <p className="text-sm text-muted-foreground">{openFoodFactsData.brand || 'Sans marque'}</p>
+                  <Badge className="mb-2">{openFoodFactsData.source || t('scanner:dialog.source')}</Badge>
+                  <h3 className="font-semibold">{openFoodFactsData.name || t('scanner:dialog.unknownProduct')}</h3>
+                  <p className="text-sm text-muted-foreground">{openFoodFactsData.brand || t('scanner:dialog.noBrand')}</p>
                 </div>
               </div>
             ) : (
               <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <p className="text-sm text-amber-500">Produit non répertorié. Saisie manuelle possible.</p>
+                <p className="text-sm text-amber-500">{t('scanner:dialog.unlisted')}</p>
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label>Nom *</Label>
+                <Label>{t('scanner:dialog.name')}</Label>
                 <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
               </div>
               <div className="col-span-2">
-                <Label>Marque</Label>
+                <Label>{t('scanner:dialog.brand')}</Label>
                 <Input value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
               </div>
               <div>
-                <Label>Quantité *</Label>
+                <Label>{t('scanner:dialog.quantity')}</Label>
                 <Input type="number" min="0" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })} />
               </div>
               <div>
-                <Label>Prix unitaire (€)</Label>
+                <Label>{t('scanner:dialog.unitPrice')}</Label>
                 <Input
                   type="number"
                   min="0"
                   step="0.01"
-                  placeholder="Ex: 2.50"
+                  placeholder={t('scanner:dialog.unitPricePlaceholder')}
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
                 />
                 {suggestedPrice && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Prix moyen constaté (Open Prices, {suggestedPrice.count} relevé{suggestedPrice.count > 1 ? 's' : ''}) : {suggestedPrice.value.toFixed(2)} {suggestedPrice.currency}
+                    {t('scanner:dialog.averagePrice', { count: suggestedPrice.count, price: suggestedPrice.value.toFixed(2), currency: suggestedPrice.currency })}
                   </p>
                 )}
               </div>
               <div>
-                <Label>Date de péremption</Label>
+                <Label>{t('scanner:dialog.expirationDate')}</Label>
                 <Input
                   type="date"
                   value={formData.expiration_date}
@@ -1058,27 +1060,27 @@ export default function ScannerPage() {
                 />
               </div>
               <div>
-                <Label>Catégorie *</Label>
+                <Label>{t('scanner:dialog.category')}</Label>
                 <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
-                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('scanner:dialog.categoryPlaceholder')} /></SelectTrigger>
                   <SelectContent>{categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Sous-catégorie</Label>
+                <Label>{t('scanner:dialog.subCategory')}</Label>
                 <Popover open={open} onOpenChange={setOpen}>
                   <PopoverTrigger asChild>
                     <button role="combobox" aria-expanded={open} className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm">
-                      {formData.sub_category_name || "Chercher..."}
+                      {formData.sub_category_name || t('scanner:dialog.subCategorySearchPlaceholder')}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                     <Command>
-                      <CommandInput placeholder="Rechercher..." onValueChange={(t) => setFormData({ ...formData, sub_category_name: t.charAt(0).toUpperCase() + t.slice(1) })} />
+                      <CommandInput placeholder={t('scanner:dialog.subCategoryCommandPlaceholder')} onValueChange={(val) => setFormData({ ...formData, sub_category_name: val.charAt(0).toUpperCase() + val.slice(1) })} />
                       <CommandList>
                         <CommandEmpty className="p-2">
-                          <Button variant="ghost" size="sm" className="w-full justify-start text-primary" onClick={() => setOpen(false)}><Plus className="mr-2 h-4 w-4" />Créer "{formData.sub_category_name}"</Button>
+                          <Button variant="ghost" size="sm" className="w-full justify-start text-primary" onClick={() => setOpen(false)}><Plus className="mr-2 h-4 w-4" />{t('scanner:dialog.createSubCategory', { name: formData.sub_category_name })}</Button>
                         </CommandEmpty>
                         <CommandGroup>
                           {subcategories.map((sub) => (
@@ -1093,17 +1095,17 @@ export default function ScannerPage() {
                 </Popover>
               </div>
               <div>
-                <Label>Emplacement *</Label>
+                <Label>{t('scanner:dialog.location')}</Label>
                 <Select value={formData.location_id} onValueChange={(value) => setFormData({ ...formData, location_id: value })}>
-                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('scanner:dialog.locationPlaceholder')} /></SelectTrigger>
                   <SelectContent>{locations.map((loc) => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>Annuler</Button>
-            <Button onClick={handleSaveNewProduct} disabled={saving}>{saving ? 'Enregistrement...' : 'Ajouter au stock'}</Button>
+            <Button variant="outline" onClick={handleCloseDialog}>{t('common:actions.cancel')}</Button>
+            <Button onClick={handleSaveNewProduct} disabled={saving}>{saving ? t('scanner:dialog.saving') : t('scanner:dialog.addToStock')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

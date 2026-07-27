@@ -1,0 +1,38 @@
+{
+  "errors": {
+    "loadError": "Erreur lors du chargement",
+    "emptyList": "Liste vide",
+    "generic": "Erreur",
+    "generationError": "Erreur de génération"
+  },
+  "export": {
+    "copiedApple": "Copié ! Collez dans Notes.",
+    "copiedAndroid": "Copié ! Collez dans Google Keep.",
+    "copiedGeneric": "Liste copiée !",
+    "notes": "Notes",
+    "keep": "Keep"
+  },
+  "sufficientStock": "Stock suffisant selon vos réglages.",
+  "groupsAdded_one": "{{count}} groupe ajouté",
+  "groupsAdded_other": "{{count}} groupes ajoutés",
+  "generate": "Générer",
+  "add": "Ajouter",
+  "page": {
+    "title": "Liste de Courses",
+    "subtitle": "Basé sur les stocks de groupes"
+  },
+  "stats": {
+    "toBuy": "À acheter",
+    "inCart": "Panier"
+  },
+  "identifiedNeeds": "Besoins identifiés",
+  "group": "Groupe",
+  "inCartTitle": "Dans le panier",
+  "emptyCart": "Vider le panier",
+  "allInStock": "Tout est en stock !",
+  "addDialog": {
+    "title": "Ajouter manuellement",
+    "namePlaceholder": "Nom de l'article...",
+    "unitPlaceholder": "Unité"
+  }
+}

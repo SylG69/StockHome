@@ -1,0 +1,33 @@
+{
+  "status": {
+    "active": "Actif",
+    "pending": "En attente",
+    "disabled": "Désactivé"
+  },
+  "errors": {
+    "loadError": "Erreur lors du chargement des utilisateurs",
+    "updateStatusError": "Erreur lors de la mise à jour",
+    "rejectError": "Erreur lors du refus",
+    "updateRoleError": "Erreur lors de la mise à jour du rôle"
+  },
+  "statusUpdated": "Statut mis à jour",
+  "registrationRejected": "Inscription refusée",
+  "roleUpdated": "Rôle mis à jour",
+  "page": {
+    "title": "Gestion des utilisateurs",
+    "pendingCount_one": "{{count}} compte en attente de validation",
+    "pendingCount_other": "{{count}} comptes en attente de validation",
+    "allProcessed": "Tous les comptes sont traités",
+    "refresh": "Actualiser"
+  },
+  "self": "Moi",
+  "loginLine": "Login : {{username}} · Inscrit le {{date}}",
+  "approve": "Approuver",
+  "reject": "Refuser",
+  "roles": {
+    "user": "Utilisateur",
+    "admin": "Administrateur"
+  },
+  "reactivate": "Réactiver",
+  "deactivate": "Désactiver"
+}

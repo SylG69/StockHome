@@ -1,0 +1,51 @@
+{
+  "authMethods": {
+    "email": "Email et mot de passe",
+    "google": "Google",
+    "github": "GitHub",
+    "apple": "Apple"
+  },
+  "roles": {
+    "admin": {
+      "label": "Administrateur",
+      "description": "Accès complet : lecture, modification et gestion des utilisateurs."
+    },
+    "user": {
+      "label": "Utilisateur",
+      "description": "Accès standard : gestion de votre propre stock."
+    }
+  },
+  "errors": {
+    "usernameRequired": "Le nom d'utilisateur ne peut pas être vide",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "passwordTooShort": "Le nouveau mot de passe doit contenir au moins 6 caractères",
+    "saveError": "Erreur lors de l'enregistrement"
+  },
+  "noChanges": "Aucune modification à enregistrer",
+  "updated": "Profil mis à jour",
+  "page": {
+    "title": "Mon profil",
+    "subtitle": "Gérez vos informations personnelles"
+  },
+  "loginLabel": "Login : {{username}}",
+  "editSection": {
+    "title": "Modifier mes informations",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "username": "Nom d'utilisateur (login)"
+  },
+  "passwordSection": {
+    "changeTitle": "Changer le mot de passe",
+    "setTitle": "Définir un mot de passe",
+    "optional": "(facultatif)",
+    "noPasswordHint": "Votre compte est connecté via Google et n'a pas encore de mot de passe. Vous pouvez en définir un ici pour pouvoir aussi vous connecter avec votre email.",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "confirmPassword": "Confirmer"
+  },
+  "saving": "Enregistrement...",
+  "saveChanges": "Enregistrer les modifications",
+  "languageSection": {
+    "title": "Langue"
+  }
+}
