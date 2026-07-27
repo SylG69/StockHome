@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { RefreshCw, Copy, UserMinus, LogOut, Plus, KeyRound, Home, Users } from 'lucide-react';
+import { RefreshCw, Copy, UserMinus, LogOut, Plus, KeyRound, Home, Users, Trash2 } from 'lucide-react';
 
 export default function HouseholdPage() {
   const { t } = useTranslation('household');
@@ -27,6 +27,8 @@ export default function HouseholdPage() {
   const [newHouseholdName, setNewHouseholdName] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [transferTargetId, setTransferTargetId] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingHouseholdName, setPendingHouseholdName] = useState(null);
 
   const fetchDetail = useCallback(async () => {
     if (!activeHousehold) return;
@@ -48,12 +50,19 @@ export default function HouseholdPage() {
 
   const isAdmin = detail?.role === 'admin';
 
-  const handleCreateHousehold = async (event) => {
+  const handleCreateHousehold = (event) => {
     event.preventDefault();
     if (!newHouseholdName.trim()) return;
+    // Demande d'abord si les catégories/emplacements par défaut doivent être
+    // créés avant d'appeler l'API (voir handleConfirmCreateHousehold).
+    setPendingHouseholdName(newHouseholdName.trim());
+  };
+
+  const handleConfirmCreateHousehold = async (createDefaults) => {
+    if (!pendingHouseholdName) return;
     setBusy(true);
     try {
-      const response = await api.post('/households', { name: newHouseholdName.trim() });
+      const response = await api.post('/households', { name: pendingHouseholdName, create_defaults: createDefaults });
       setNewHouseholdName('');
       await fetchHouseholds();
       toast.success(t('toast.created'));
@@ -62,6 +71,7 @@ export default function HouseholdPage() {
       toast.error(error?.response?.data?.detail || t('toast.createError'));
     } finally {
       setBusy(false);
+      setPendingHouseholdName(null);
     }
   };
 
@@ -143,6 +153,21 @@ export default function HouseholdPage() {
     }
   };
 
+  const handleDeleteHousehold = async () => {
+    if (!activeHousehold) return;
+    setBusy(true);
+    try {
+      await api.delete(`/households/${activeHousehold.id}`);
+      toast.success(t('toast.deleted'));
+      window.location.reload();
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || t('toast.deleteError'));
+    } finally {
+      setBusy(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -218,16 +243,31 @@ export default function HouseholdPage() {
             </div>
 
             {!detail.is_personal && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive hover:text-destructive"
-                onClick={handleLeaveHousehold}
-                disabled={busy}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                {t('card.leave')}
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  onClick={handleLeaveHousehold}
+                  disabled={busy}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  {t('card.leave')}
+                </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeleteDialogOpen(true)}
+                    disabled={busy}
+                    data-testid="delete-household-btn"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {t('card.delete')}
+                  </Button>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -290,6 +330,57 @@ export default function HouseholdPage() {
             <AlertDialogCancel disabled={busy}>{t('transferDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleTransferStock} disabled={busy}>
               {t('transferDialog.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('deleteDialog.description', { name: activeHousehold?.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>{t('deleteDialog.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteHousehold}
+              disabled={busy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="confirm-delete-household-btn"
+            >
+              {t('deleteDialog.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!pendingHouseholdName} onOpenChange={(open) => !open && setPendingHouseholdName(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('defaultsDialog.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('defaultsDialog.description')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>{t('defaultsDialog.cancel')}</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => handleConfirmCreateHousehold(false)}
+              disabled={busy}
+              data-testid="create-household-empty-btn"
+            >
+              {t('defaultsDialog.skip')}
+            </Button>
+            <AlertDialogAction
+              onClick={() => handleConfirmCreateHousehold(true)}
+              disabled={busy}
+              data-testid="create-household-with-defaults-btn"
+            >
+              {t('defaultsDialog.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

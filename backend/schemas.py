@@ -74,6 +74,9 @@ class GithubTokenBody(BaseModel):
 class HouseholdCreate(BaseModel):
     """Requête de création d'un foyer partagé."""
     name: str
+    # Si True, précrée les catégories et emplacements par défaut (les mêmes
+    # que ceux proposés à l'inscription) pour éviter de repartir de zéro.
+    create_defaults: bool = False
 
 class HouseholdJoinRequest(BaseModel):
     """Requête pour rejoindre un foyer via son code d'invitation."""

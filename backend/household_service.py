@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 import models
 import schemas
 from auth import get_active_household, get_current_user
+from auth_service import add_default_categories_and_locations
 from database import get_db
 
 # Tables dont le stock peut être transféré d'un foyer à un autre (voir
@@ -133,6 +134,10 @@ def create_household(
     db.commit()
     db.refresh(household)
     db.refresh(membership)
+
+    if data.create_defaults:
+        add_default_categories_and_locations(db, current_user.id, household.id)
+
     return _build_household_detail(db, household, membership, current_user)
 
 
@@ -305,6 +310,25 @@ def leave_household(
     _reset_active_household_if_needed(db, current_user.id, household_id)
     db.commit()
     return {"message": "Vous avez quitté le foyer"}
+
+
+@router.delete("/{household_id}")
+def delete_household(
+    household_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """Supprime définitivement un foyer partagé, tout son contenu (stock,
+    catégories, emplacements, liste de courses) et retire tous ses membres
+    (admin uniquement). Les utilisateurs ayant ce foyer comme actif/préféré
+    basculent automatiquement sur leur foyer personnel (ON DELETE SET NULL +
+    repli de get_active_household)."""
+    _require_household_admin(db, household_id, current_user.id)
+    household = db.get(models.Household, household_id)
+    if household.is_personal:
+        raise HTTPException(status_code=400, detail="Le foyer personnel ne peut pas être supprimé")
+
+    db.delete(household)
+    db.commit()
+    return {"message": "Foyer supprimé"}
 
 
 @router.post("/switch", response_model=schemas.UserResponse)

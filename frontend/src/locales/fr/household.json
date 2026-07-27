@@ -20,7 +20,8 @@
     "roleAdminShort": "Admin",
     "roleMemberShort": "Membre",
     "remove": "Retirer",
-    "leave": "Quitter ce foyer"
+    "leave": "Quitter ce foyer",
+    "delete": "Supprimer le foyer"
   },
   "create": {
     "title": "Créer un nouveau foyer",
@@ -43,6 +44,19 @@
     "cancel": "Non, laisser vide",
     "confirm": "Oui, transférer"
   },
+  "deleteDialog": {
+    "title": "Supprimer ce foyer ?",
+    "description": "Cette action supprimera définitivement le foyer « {{name}} », tout son stock (produits, catégories, emplacements, liste de courses) et retirera tous ses membres. Cette action est irréversible.",
+    "cancel": "Annuler",
+    "confirm": "Supprimer définitivement"
+  },
+  "defaultsDialog": {
+    "title": "Créer les catégories et emplacements par défaut ?",
+    "description": "Vous pouvez démarrer ce foyer avec un jeu de catégories (Alimentaire, Boissons, Hygiène...) et d'emplacements (Cuisine, Réfrigérateur...) prêts à l'emploi, ou partir d'un foyer vide.",
+    "cancel": "Annuler",
+    "skip": "Non, foyer vide",
+    "confirm": "Oui, créer les valeurs par défaut"
+  },
   "toast": {
     "loadError": "Erreur lors du chargement du foyer",
     "created": "Foyer créé",
@@ -57,6 +71,8 @@
     "removeError": "Erreur lors du retrait",
     "left": "Vous avez quitté le foyer",
     "leaveError": "Erreur lors de la sortie du foyer",
-    "createError": "Erreur lors de la création du foyer"
+    "createError": "Erreur lors de la création du foyer",
+    "deleted": "Foyer supprimé",
+    "deleteError": "Erreur lors de la suppression du foyer"
   }
 }
