@@ -1,0 +1,38 @@
+{
+  "errors": {
+    "loadError": "Error while loading",
+    "emptyList": "Empty list",
+    "generic": "Error",
+    "generationError": "Generation error"
+  },
+  "export": {
+    "copiedApple": "Copied! Paste it into Notes.",
+    "copiedAndroid": "Copied! Paste it into Google Keep.",
+    "copiedGeneric": "List copied!",
+    "notes": "Notes",
+    "keep": "Keep"
+  },
+  "sufficientStock": "Stock is sufficient based on your settings.",
+  "groupsAdded_one": "{{count}} group added",
+  "groupsAdded_other": "{{count}} groups added",
+  "generate": "Generate",
+  "add": "Add",
+  "page": {
+    "title": "Shopping List",
+    "subtitle": "Based on group stock levels"
+  },
+  "stats": {
+    "toBuy": "To buy",
+    "inCart": "In cart"
+  },
+  "identifiedNeeds": "Identified needs",
+  "group": "Group",
+  "inCartTitle": "In the cart",
+  "emptyCart": "Empty the cart",
+  "allInStock": "Everything is in stock!",
+  "addDialog": {
+    "title": "Add manually",
+    "namePlaceholder": "Item name...",
+    "unitPlaceholder": "Unit"
+  }
+}

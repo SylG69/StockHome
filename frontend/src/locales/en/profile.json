@@ -1,0 +1,58 @@
+{
+  "authMethods": {
+    "email": "Email and password",
+    "google": "Google",
+    "github": "GitHub",
+    "apple": "Apple"
+  },
+  "roles": {
+    "admin": {
+      "label": "Administrator",
+      "description": "Full access: read, edit and manage users."
+    },
+    "user": {
+      "label": "User",
+      "description": "Standard access: manage your own stock."
+    }
+  },
+  "errors": {
+    "usernameRequired": "Username cannot be empty",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "The new password must be at least 6 characters",
+    "saveError": "Error while saving"
+  },
+  "noChanges": "No changes to save",
+  "updated": "Profile updated",
+  "page": {
+    "title": "My profile",
+    "subtitle": "Manage your personal information"
+  },
+  "loginLabel": "Login: {{username}}",
+  "editSection": {
+    "title": "Edit my information",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "username": "Username (login)"
+  },
+  "passwordSection": {
+    "changeTitle": "Change password",
+    "setTitle": "Set a password",
+    "optional": "(optional)",
+    "noPasswordHint": "Your account is signed in via Google and doesn't have a password yet. You can set one here to also be able to sign in with your email.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm"
+  },
+  "saving": "Saving...",
+  "saveChanges": "Save changes",
+  "languageSection": {
+    "title": "Language"
+  },
+  "preferredHousehold": {
+    "title": "Preferred household",
+    "householdLabel": "Household",
+    "placeholder": "No preferred household",
+    "none": "None",
+    "autoSwitchLabel": "Automatically switch to this household on sign-in"
+  }
+}

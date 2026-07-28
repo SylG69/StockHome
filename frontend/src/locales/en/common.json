@@ -1,0 +1,39 @@
+{
+  "appName": "StockHome",
+  "appTagline": "Stock management",
+  "nav": {
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "shoppingList": "Shopping list",
+    "scanner": "Scanner",
+    "configuration": "Configuration",
+    "household": "My household",
+    "users": "Users",
+    "about": "About",
+    "sponsor": "Support the app"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "logout": "Log out"
+  },
+  "status": {
+    "loading": "Loading...",
+    "saving": "Saving..."
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "loadError": "Error loading data",
+    "saveError": "Error while saving"
+  },
+  "language": {
+    "label": "Language"
+  }
+}

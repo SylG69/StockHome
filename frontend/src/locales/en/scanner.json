@@ -1,0 +1,102 @@
+{
+  "page": {
+    "title": "Scanner",
+    "subtitle": "Scan a barcode to add or update a product"
+  },
+  "mode": {
+    "title": "Scan mode",
+    "active": "Active",
+    "add": "Manual add",
+    "shopping": "Shopping trip",
+    "consume": "Consumption",
+    "descriptionAdd": "Each scan opens a form to add the product manually.",
+    "descriptionShopping": "Beep sound, automatic increment (+1), and instant background save.",
+    "descriptionConsume": "Beep sound, automatic decrement (-1) of the scanned product in your stock."
+  },
+  "camera": {
+    "title": "Scan with camera",
+    "switchCamera": "Switch camera",
+    "torchOn": "Turn off flash",
+    "torchOff": "Turn on flash",
+    "disabled": "Camera disabled",
+    "start": "Start camera",
+    "stop": "Stop camera",
+    "accessError": "Unable to access the camera. Check your permissions."
+  },
+  "manual": {
+    "title": "Manual entry / USB scanner",
+    "usbLabel": "USB scanner",
+    "usbHint": "If you're using a USB scanner, scan the product directly.",
+    "inputLabel": "Or enter the code manually",
+    "inputPlaceholder": "e.g. 3017620422003"
+  },
+  "howItWorks": {
+    "title": "How it works",
+    "step1Title": "Scan the barcode",
+    "step1Text": "Optimized camera, USB scanner, or manual entry.",
+    "step2Title": "Check or chain-store",
+    "step2Text": "Classic mode shows the product form, shopping mode automates the action.",
+    "step3Title": "Add to your stock",
+    "step3Text": "Set the overall quantity and location."
+  },
+  "buffer": {
+    "title": "Buffer zone — codes not found",
+    "clear": "Clear",
+    "description": "These barcodes scanned in shopping mode weren't found in your stock or on Open Food Facts. They haven't been added automatically. Complete them manually or remove them.",
+    "scannedAt": "Scanned at {{time}}",
+    "complete": "Complete",
+    "remove": "Remove from buffer"
+  },
+  "dialog": {
+    "foundInStock": "Product found in your stock",
+    "noBrand": "No brand",
+    "stockQuantity": "Quantity in stock",
+    "close": "Close",
+    "viewProducts": "View products",
+    "productFound": "Product found",
+    "newProduct": "New product",
+    "source": "Partner database",
+    "unknownProduct": "Unknown product",
+    "unlisted": "Unlisted product. Manual entry is possible.",
+    "name": "Name *",
+    "brand": "Brand",
+    "quantity": "Quantity *",
+    "unitPrice": "Unit price (€)",
+    "unitPricePlaceholder": "e.g. 2.50",
+    "averagePrice_one": "Average price observed (Open Prices, {{count}} report): {{price}} {{currency}}",
+    "averagePrice_other": "Average price observed (Open Prices, {{count}} reports): {{price}} {{currency}}",
+    "expirationDate": "Expiration date",
+    "category": "Category *",
+    "categoryPlaceholder": "Select",
+    "subCategory": "Sub-category",
+    "subCategorySearchPlaceholder": "Search...",
+    "subCategoryCommandPlaceholder": "Search...",
+    "createSubCategory": "Create \"{{name}}\"",
+    "location": "Location *",
+    "locationPlaceholder": "Select",
+    "addToStock": "Add to stock",
+    "saving": "Saving..."
+  },
+  "toast": {
+    "torchUnavailable": "Flash is not available on this device",
+    "consumeAlreadyZero": "{{name}}: stock already at 0",
+    "consumeSuccess_one": "-1: {{name}} ({{remaining}} {{unit}} left)",
+    "consumeSuccess_other": "-1: {{name}} ({{remaining}} {{unit}} left)",
+    "consumeNotFound": "Product not found in your stock (code {{barcode}})",
+    "bufferedNotFound": "Code {{barcode}} not found — set aside in the buffer zone",
+    "shoppingAdded": "+1 added: {{name}}",
+    "shoppingError": "Error during automatic add",
+    "enterBarcode": "Enter a barcode",
+    "lotDepleted": "Batch depleted, removed from stock",
+    "quantityUpdated": "Quantity updated: {{quantity}}",
+    "updateError": "Error while updating",
+    "searchError": "Error while searching",
+    "missingFields": "Missing required fields: {{fields}}",
+    "fieldQuantity": "Quantity",
+    "fieldCategory": "Category",
+    "fieldLocation": "Location",
+    "productAdded": "Product added to stock",
+    "saveError": "Error while saving",
+    "unknownProductWithBarcode": "Unknown product ({{barcode}})"
+  }
+}

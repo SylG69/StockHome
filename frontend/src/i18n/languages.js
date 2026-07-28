@@ -3,4 +3,5 @@
 // imports dans i18n/index.js.
 export const AVAILABLE_LANGUAGES = [
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
 ];
