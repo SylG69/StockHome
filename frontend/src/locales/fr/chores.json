@@ -1,0 +1,86 @@
+{
+  "page": {
+    "title": "Corvées",
+    "subtitle": "Tâches ménagères récurrentes du foyer"
+  },
+  "add": "Ajouter",
+  "edit": "Modifier",
+  "save": "Enregistrer",
+  "created": "Corvée créée",
+  "saved": "Corvée mise à jour",
+  "deleted": "Corvée supprimée",
+  "markDone": "Marquer fait",
+  "markedDone": "Corvée marquée comme faite",
+  "undone": "Exécution annulée",
+  "empty": "Aucune corvée pour le moment",
+  "stats": {
+    "overdue": "En retard",
+    "dueToday": "Aujourd'hui",
+    "dueSoon": "Bientôt"
+  },
+  "list": {
+    "title": "Toutes les corvées"
+  },
+  "status": {
+    "overdue": "En retard",
+    "due_today": "Aujourd'hui",
+    "due_soon": "Bientôt",
+    "upcoming": "À venir",
+    "no_schedule": "Manuel"
+  },
+  "addDialog": {
+    "title": "Nouvelle corvée"
+  },
+  "editDialog": {
+    "title": "Modifier la corvée"
+  },
+  "form": {
+    "name": "Nom",
+    "namePlaceholder": "ex: Sortir les poubelles",
+    "description": "Description",
+    "periodType": "Type de périodicité",
+    "periodHours": "Toutes les X heures",
+    "periodDays": "Tous les X jours",
+    "weekdays": "Jours de la semaine",
+    "monthDays": "Jours du mois (séparés par des virgules)",
+    "yearlyMonth": "Mois",
+    "yearlyDay": "Jour",
+    "assignmentType": "Règle d'attribution",
+    "initialAssignee": "Assigné initial",
+    "noInitialAssignee": "Aucun"
+  },
+  "periodType": {
+    "manually": "Manuel (aucune planification)",
+    "hourly": "Toutes les X heures",
+    "daily": "Tous les X jours",
+    "weekly": "Hebdomadaire",
+    "monthly": "Mensuel",
+    "yearly": "Annuel"
+  },
+  "assignmentType": {
+    "no-assignment": "Aucune attribution",
+    "in-alphabetical-order": "Tour de rôle alphabétique",
+    "random": "Aléatoire",
+    "who-least-did-first": "Celui qui l'a le moins fait"
+  },
+  "weekday": {
+    "1": "Lun",
+    "2": "Mar",
+    "3": "Mer",
+    "4": "Jeu",
+    "5": "Ven",
+    "6": "Sam",
+    "7": "Dim"
+  },
+  "journal": {
+    "title": "Journal",
+    "titleFor": "Journal de « {{name}} »",
+    "empty": "Aucune exécution enregistrée",
+    "unknownUser": "Utilisateur inconnu",
+    "undo": "Annuler"
+  },
+  "errors": {
+    "loadError": "Erreur lors du chargement",
+    "generic": "Une erreur est survenue"
+  }
+}

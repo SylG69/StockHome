@@ -241,3 +241,63 @@ class ShoppingListItem(Base):
 
     user: Mapped["User"] = relationship(back_populates="shopping_items")
     household: Mapped["Household"] = relationship(back_populates="shopping_items")
+
+
+class Chore(Base):
+    __tablename__ = "chores"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    household_id: Mapped[str] = mapped_column(String(36), ForeignKey("households.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+
+    # "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "manually".
+    period_type: Mapped[str] = mapped_column(String(20), default="manually", nullable=False)
+    period_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)  # hourly
+    period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # daily (recalculé depuis last_done_at : "sans dérive")
+    weekdays: Mapped[str | None] = mapped_column(String(20), nullable=True)  # weekly, ex "1,3,5" (ISO 1=lundi..7=dimanche)
+    month_days: Mapped[str | None] = mapped_column(String(100), nullable=True)  # monthly, ex "1,15,28"
+    yearly_month: Mapped[int | None] = mapped_column(Integer, nullable=True)  # yearly, 1-12
+    yearly_day: Mapped[int | None] = mapped_column(Integer, nullable=True)  # yearly, 1-31
+
+    # "no-assignment" | "in-alphabetical-order" | "random" | "who-least-did-first".
+    assignment_type: Mapped[str] = mapped_column(String(30), default="no-assignment", nullable=False)
+    assigned_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    last_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
+    household: Mapped["Household"] = relationship()
+    assigned_user: Mapped["User | None"] = relationship(foreign_keys=[assigned_user_id])
+    logs: Mapped[list["ChoreLog"]] = relationship(back_populates="chore", cascade="all, delete-orphan")
+
+
+class ChoreLog(Base):
+    __tablename__ = "chore_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    chore_id: Mapped[str] = mapped_column(String(36), ForeignKey("chores.id", ondelete="CASCADE"), index=True)
+    household_id: Mapped[str] = mapped_column(String(36), ForeignKey("households.id", ondelete="CASCADE"), index=True)
+    executed_by_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    # État avant/après exécution, capturé au moment du "marquer fait" -- permet
+    # un undo exact depuis le journal sans avoir à recalculer/deviner l'état
+    # précédent (voir chore_service.undo_chore_log).
+    previous_due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    previous_assigned_user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    new_due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    chore: Mapped["Chore"] = relationship(back_populates="logs")
+    executed_by: Mapped["User | None"] = relationship(foreign_keys=[executed_by_user_id])

@@ -1,0 +1,86 @@
+{
+  "page": {
+    "title": "Chores",
+    "subtitle": "Recurring household tasks"
+  },
+  "add": "Add",
+  "edit": "Edit",
+  "save": "Save",
+  "created": "Chore created",
+  "saved": "Chore updated",
+  "deleted": "Chore deleted",
+  "markDone": "Mark done",
+  "markedDone": "Chore marked as done",
+  "undone": "Execution undone",
+  "empty": "No chores yet",
+  "stats": {
+    "overdue": "Overdue",
+    "dueToday": "Due today",
+    "dueSoon": "Due soon"
+  },
+  "list": {
+    "title": "All chores"
+  },
+  "status": {
+    "overdue": "Overdue",
+    "due_today": "Due today",
+    "due_soon": "Due soon",
+    "upcoming": "Upcoming",
+    "no_schedule": "Manual"
+  },
+  "addDialog": {
+    "title": "New chore"
+  },
+  "editDialog": {
+    "title": "Edit chore"
+  },
+  "form": {
+    "name": "Name",
+    "namePlaceholder": "e.g. Take out the trash",
+    "description": "Description",
+    "periodType": "Period type",
+    "periodHours": "Every X hours",
+    "periodDays": "Every X days",
+    "weekdays": "Weekdays",
+    "monthDays": "Days of month (comma-separated)",
+    "yearlyMonth": "Month",
+    "yearlyDay": "Day",
+    "assignmentType": "Assignment rule",
+    "initialAssignee": "Initial assignee",
+    "noInitialAssignee": "None"
+  },
+  "periodType": {
+    "manually": "Manual (no scheduling)",
+    "hourly": "Every X hours",
+    "daily": "Every X days",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "yearly": "Yearly"
+  },
+  "assignmentType": {
+    "no-assignment": "No assignment",
+    "in-alphabetical-order": "Alphabetical order",
+    "random": "Random",
+    "who-least-did-first": "Who did it least"
+  },
+  "weekday": {
+    "1": "Mon",
+    "2": "Tue",
+    "3": "Wed",
+    "4": "Thu",
+    "5": "Fri",
+    "6": "Sat",
+    "7": "Sun"
+  },
+  "journal": {
+    "title": "Journal",
+    "titleFor": "Journal for \"{{name}}\"",
+    "empty": "No execution recorded",
+    "unknownUser": "Unknown user",
+    "undo": "Undo"
+  },
+  "errors": {
+    "loadError": "Error loading data",
+    "generic": "Something went wrong"
+  }
+}
