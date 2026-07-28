@@ -1,13 +1,16 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
-import { Lock, Save, ShieldCheck, User as UserIcon, Mail, Apple, KeyRound } from 'lucide-react';
-import Github from '../components/icons/GithubIcon';
+import { Lock, Save, ShieldCheck, User as UserIcon, Mail, Github, Apple, KeyRound, Home } from 'lucide-react';
+import LanguageSelector from '../components/LanguageSelector';
 
 // lucide-react n'a pas d'icône de marque Google : petit logo officiel en SVG.
 function GoogleIcon(props) {
@@ -25,25 +28,27 @@ function GoogleIcon(props) {
 // futur SSO (GitHub, Apple...) s'affiche automatiquement dès que le backend
 // renseigne la clé correspondante dans auth_methods.
 const AUTH_METHOD_INFO = {
-  email: { label: 'Email et mot de passe', icon: Mail },
-  google: { label: 'Google', icon: GoogleIcon },
-  github: { label: 'GitHub', icon: Github },
-  apple: { label: 'Apple', icon: Apple },
+  email: { labelKey: 'authMethods.email', icon: Mail },
+  google: { labelKey: 'authMethods.google', icon: GoogleIcon },
+  github: { labelKey: 'authMethods.github', icon: Github },
+  apple: { labelKey: 'authMethods.apple', icon: Apple },
 };
 
 const ROLE_INFO = {
   admin: {
-    label: 'Administrateur',
-    description: "Accès complet : lecture, modification et gestion des utilisateurs.",
+    labelKey: 'roles.admin.label',
+    descriptionKey: 'roles.admin.description',
   },
   user: {
-    label: 'Utilisateur',
-    description: "Accès standard : gestion de votre propre stock.",
+    labelKey: 'roles.user.label',
+    descriptionKey: 'roles.user.description',
   },
 };
 
 export default function ProfilePage() {
-  const { api, user, updateUser } = useAuth();
+  const { t } = useTranslation('profile');
+  const { t: tHousehold } = useTranslation('household', { keyPrefix: 'switcher' });
+  const { api, user, updateUser, households } = useAuth();
 
   const [username, setUsername] = useState(user?.username || '');
   const [firstName, setFirstName] = useState(user?.first_name || '');
@@ -51,6 +56,8 @@ export default function ProfilePage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [preferredHouseholdId, setPreferredHouseholdId] = useState(user?.preferred_household_id || '');
+  const [autoSwitchToPreferred, setAutoSwitchToPreferred] = useState(user?.auto_switch_to_preferred || false);
   const [saving, setSaving] = useState(false);
 
   const roleInfo = ROLE_INFO[user?.role] || ROLE_INFO.user;
@@ -61,15 +68,15 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     if (!username.trim()) {
-      toast.error("Le nom d'utilisateur ne peut pas être vide");
+      toast.error(t('errors.usernameRequired'));
       return;
     }
     if (newPassword && newPassword !== confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas');
+      toast.error(t('errors.passwordMismatch'));
       return;
     }
     if (newPassword && newPassword.length < 6) {
-      toast.error('Le nouveau mot de passe doit contenir au moins 6 caractères');
+      toast.error(t('errors.passwordTooShort'));
       return;
     }
 
@@ -81,16 +88,22 @@ export default function ProfilePage() {
       payload.new_password = newPassword;
       payload.current_password = currentPassword;
     }
+    if (preferredHouseholdId !== (user?.preferred_household_id || '')) {
+      payload.preferred_household_id = preferredHouseholdId;
+    }
+    if (autoSwitchToPreferred !== (user?.auto_switch_to_preferred || false)) {
+      payload.auto_switch_to_preferred = autoSwitchToPreferred;
+    }
 
     if (Object.keys(payload).length === 0) {
-      toast.info('Aucune modification à enregistrer');
+      toast.info(t('noChanges'));
       return;
     }
 
     setSaving(true);
     try {
       const response = await api.patch('/auth/me', payload);
-      toast.success('Profil mis à jour');
+      toast.success(t('updated'));
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -101,17 +114,17 @@ export default function ProfilePage() {
         updateUser(response.data);
       }
     } catch (error) {
-      toast.error(error?.response?.data?.detail || "Erreur lors de l'enregistrement");
+      toast.error(error?.response?.data?.detail || t('errors.saveError'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-2xl" data-testid="profile-page">
+    <div className="space-y-6 max-w-2xl mx-auto" data-testid="profile-page">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Mon profil</h1>
-        <p className="text-muted-foreground mt-1">Gérez vos informations personnelles</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t('page.title')}</h1>
+        <p className="text-muted-foreground mt-1">{t('page.subtitle')}</p>
       </div>
 
       <Card className="bg-card border-border">
@@ -127,15 +140,15 @@ export default function ProfilePage() {
               <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <UserIcon className="w-3.5 h-3.5" /> {user?.email}
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">Login : {user?.username}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('loginLabel', { username: user?.username })}</p>
               {user?.auth_methods?.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap mt-2">
                   {user.auth_methods.map((method) => {
-                    const info = AUTH_METHOD_INFO[method] || { label: method, icon: KeyRound };
-                    const Icon = info.icon;
+                    const info = AUTH_METHOD_INFO[method];
+                    const Icon = info?.icon || KeyRound;
                     return (
                       <Badge key={method} variant="outline" className="gap-1.5 font-normal text-xs">
-                        <Icon className="w-3 h-3" /> {info.label}
+                        <Icon className="w-3 h-3" /> {info ? t(info.labelKey) : method}
                       </Badge>
                     );
                   })}
@@ -145,9 +158,9 @@ export default function ProfilePage() {
           </div>
           <div className="text-right">
             <Badge className="gap-1 mb-1">
-              <ShieldCheck className="w-3 h-3" /> {roleInfo.label}
+              <ShieldCheck className="w-3 h-3" /> {t(roleInfo.labelKey)}
             </Badge>
-            <p className="text-xs text-muted-foreground max-w-[220px]">{roleInfo.description}</p>
+            <p className="text-xs text-muted-foreground max-w-[220px]">{t(roleInfo.descriptionKey)}</p>
           </div>
         </CardContent>
       </Card>
@@ -155,10 +168,10 @@ export default function ProfilePage() {
       <Card className="bg-card border-border">
         <CardContent className="p-6 space-y-6">
           <div>
-            <h3 className="font-semibold text-primary mb-4">Modifier mes informations</h3>
+            <h3 className="font-semibold text-primary mb-4">{t('editSection.title')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label>Prénom</Label>
+                <Label>{t('editSection.firstName')}</Label>
                 <Input
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
@@ -166,7 +179,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <Label>Nom</Label>
+                <Label>{t('editSection.lastName')}</Label>
                 <Input
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
@@ -174,7 +187,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label>Nom d'utilisateur (login)</Label>
+                <Label>{t('editSection.username')}</Label>
                 <Input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -187,19 +200,18 @@ export default function ProfilePage() {
           <div className="border-t border-border pt-6">
             <h3 className="font-semibold flex items-center gap-2 mb-1">
               <Lock className="w-4 h-4" />
-              {hasPassword ? 'Changer le mot de passe' : 'Définir un mot de passe'}
-              <span className="text-xs text-muted-foreground font-normal">(facultatif)</span>
+              {hasPassword ? t('passwordSection.changeTitle') : t('passwordSection.setTitle')}
+              <span className="text-xs text-muted-foreground font-normal">{t('passwordSection.optional')}</span>
             </h3>
             {!hasPassword && (
               <p className="text-xs text-muted-foreground mb-4">
-                Votre compte est connecté via Google et n'a pas encore de mot de passe.
-                Vous pouvez en définir un ici pour pouvoir aussi vous connecter avec votre email.
+                {t('passwordSection.noPasswordHint')}
               </p>
             )}
             <div className="space-y-4">
               {hasPassword && (
                 <div>
-                  <Label>Mot de passe actuel</Label>
+                  <Label>{t('passwordSection.currentPassword')}</Label>
                   <Input
                     type="password"
                     value={currentPassword}
@@ -210,7 +222,7 @@ export default function ProfilePage() {
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label>Nouveau mot de passe</Label>
+                  <Label>{t('passwordSection.newPassword')}</Label>
                   <Input
                     type="password"
                     value={newPassword}
@@ -219,7 +231,7 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div>
-                  <Label>Confirmer</Label>
+                  <Label>{t('passwordSection.confirmPassword')}</Label>
                   <Input
                     type="password"
                     value={confirmPassword}
@@ -231,10 +243,59 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {households.length > 0 && (
+            <div className="border-t border-border pt-6">
+              <h3 className="font-semibold flex items-center gap-2 mb-4">
+                <Home className="w-4 h-4" />
+                {t('preferredHousehold.title')}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <Label>{t('preferredHousehold.householdLabel')}</Label>
+                  <Select
+                    value={preferredHouseholdId || 'none'}
+                    onValueChange={(value) => setPreferredHouseholdId(value === 'none' ? '' : value)}
+                  >
+                    <SelectTrigger data-testid="preferred-household-select">
+                      <SelectValue placeholder={t('preferredHousehold.placeholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t('preferredHousehold.none')}</SelectItem>
+                      {households.map((household) => (
+                        <SelectItem key={household.id} value={household.id}>
+                          {household.is_personal ? tHousehold('personal') : household.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="auto-switch-preferred"
+                    checked={autoSwitchToPreferred}
+                    onCheckedChange={(checked) => setAutoSwitchToPreferred(checked === true)}
+                    disabled={!preferredHouseholdId}
+                    data-testid="auto-switch-preferred-checkbox"
+                  />
+                  <Label htmlFor="auto-switch-preferred" className="font-normal cursor-pointer">
+                    {t('preferredHousehold.autoSwitchLabel')}
+                  </Label>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Button className="w-full btn-glow" onClick={handleSave} disabled={saving} data-testid="save-profile-btn">
             <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+            {saving ? t('saving') : t('saveChanges')}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border-border">
+        <CardContent className="p-6">
+          <Label className="mb-2 block">{t('languageSection.title')}</Label>
+          <LanguageSelector />
         </CardContent>
       </Card>
     </div>

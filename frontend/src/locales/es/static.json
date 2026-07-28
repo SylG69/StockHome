@@ -1,0 +1,45 @@
+{
+  "about": {
+    "title": "Acerca de",
+    "intro": "StockHome te ayuda a gestionar tu stock doméstico: productos, categorías, ubicaciones y lista de la compra.",
+    "sourcesTitle": "Fuentes de los datos de productos",
+    "sourcesIntroBefore": "Cuando escaneas un código de barras, StockHome consulta automáticamente las bases de datos colaborativas y de código abierto del proyecto",
+    "sourcesIntroAfter": ", en este orden, hasta obtener una respuesta:",
+    "sources": {
+      "openFoodFacts": "Productos alimentarios: ingredientes, Nutri-Score, indicadores nutricionales, alérgenos...",
+      "openBeautyFacts": "Productos cosméticos y de higiene.",
+      "openPetFoodFacts": "Alimentación para mascotas.",
+      "openProductsFacts": "Base de datos generalista, usada como último recurso para los productos no cubiertos anteriormente."
+    },
+    "licensesTitle": "Licencias y atribución",
+    "licensesIntro": "De acuerdo con las condiciones de uso de Open Food Facts, indicamos que toda la información de productos mostrada en StockHome (nombre, marca, categorías, Nutri-Score, fotos...) proviene de estas bases de datos colaborativas y de código abierto.",
+    "licenseDbBefore": "La base de datos está disponible bajo licencia",
+    "licenseDbLink": "Open Database License (ODbL)",
+    "licenseContentBefore": "El contenido individual de las fichas de producto está disponible bajo",
+    "licenseContentLink": "Database Contents License",
+    "licensePhotosBefore": "Las fotos de los productos están disponibles bajo licencia",
+    "licensePhotosLink": "Creative Commons Attribution ShareAlike",
+    "moreDetailsBefore": "Más detalles en",
+    "moreDetailsLink": "la página oficial de condiciones de uso",
+    "donateBefore": "Open Food Facts es un proyecto asociativo sin ánimo de lucro, financiado por donaciones. Si estos datos te son útiles en el día a día, también puedes",
+    "donateLink": "apoyar directamente a Open Food Facts",
+    "footer": "StockHome no está afiliado con Open Food Facts; la aplicación simplemente utiliza su API pública."
+  },
+  "sponsor": {
+    "title": "Apoyar StockHome",
+    "intro": "StockHome es un proyecto personal, desarrollado y mantenido en mi tiempo libre.",
+    "supportText": "Si la aplicación te resulta útil en el día a día, una donación me ayuda a cubrir los gastos de alojamiento y de nombre de dominio, y a seguir desarrollando nuevas funciones. No es en absoluto obligatorio — StockHome seguirá siendo gratuita y sin publicidad, pase lo que pase.",
+    "donateTitle": "Hacer una donación",
+    "donateButton": "Donar",
+    "comingSoon": "Próximamente",
+    "comingSoonTooltip": "Enlace próximamente",
+    "footer": "Gracias por tu apoyo, sea cual sea — incluidos tus comentarios y sugerencias, igual de valiosos!",
+    "platforms": {
+      "kofi": "Donaciones puntuales o mensuales, comisiones muy bajas, configuración en 5 minutos.",
+      "buyMeACoffee": "Alternativa muy popular a Ko-fi, página personalizable, donaciones puntuales o recurrentes.",
+      "githubSponsors": "Sin comisiones por parte de GitHub (solo las de Stripe) -- coherente si el código está en GitHub.",
+      "liberapay": "Plataforma asociativa sin ánimo de lucro, pensada para donaciones recurrentes a proyectos libres.",
+      "paypal": "La opción más sencilla y universalmente conocida para una donación puntual rápida."
+    }
+  }
+}

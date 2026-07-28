@@ -1,0 +1,33 @@
+{
+  "status": {
+    "active": "Active",
+    "pending": "Pending",
+    "disabled": "Disabled"
+  },
+  "errors": {
+    "loadError": "Error loading users",
+    "updateStatusError": "Error while updating",
+    "rejectError": "Error while rejecting",
+    "updateRoleError": "Error while updating role"
+  },
+  "statusUpdated": "Status updated",
+  "registrationRejected": "Registration rejected",
+  "roleUpdated": "Role updated",
+  "page": {
+    "title": "User management",
+    "pendingCount_one": "{{count}} account pending approval",
+    "pendingCount_other": "{{count}} accounts pending approval",
+    "allProcessed": "All accounts are processed",
+    "refresh": "Refresh"
+  },
+  "self": "Me",
+  "loginLine": "Login: {{username}} · Joined on {{date}}",
+  "approve": "Approve",
+  "reject": "Reject",
+  "roles": {
+    "user": "User",
+    "admin": "Administrator"
+  },
+  "reactivate": "Reactivate",
+  "deactivate": "Deactivate"
+}

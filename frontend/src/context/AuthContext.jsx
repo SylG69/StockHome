@@ -12,6 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
+  const [households, setHouseholds] = useState([]);
 
   // Configuration de l'instance Axios
   const api = axios.create({
@@ -47,6 +48,15 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   }, []);
 
+  const fetchHouseholds = useCallback(async () => {
+    try {
+      const response = await api.get('/households');
+      setHouseholds(response.data);
+    } catch (error) {
+      console.error('Failed to fetch households:', error);
+    }
+  }, []);
+
   const fetchUser = useCallback(async () => {
     if (!token) {
       setLoading(false);
@@ -55,13 +65,16 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await api.get('/auth/me');
       setUser(response.data);
+      if (response.data?.status === 'active') {
+        await fetchHouseholds();
+      }
     } catch (error) {
       console.error('Failed to fetch user:', error);
       logout();
     } finally {
       setLoading(false);
     }
-  }, [token, logout]);
+  }, [token, logout, fetchHouseholds]);
 
   useEffect(() => {
     fetchUser();
@@ -115,6 +128,28 @@ export const AuthProvider = ({ children }) => {
     return response.data;
   };
 
+  // Change le foyer actif : recharge la page entière ensuite (pas de cache de
+  // requêtes dans ce codebase), pour garantir que produits/catégories/liste
+  // de courses/dashboard se rechargent bien pour le nouveau foyer actif.
+  const switchHousehold = async (householdId) => {
+    await api.post('/households/switch', { household_id: householdId });
+    window.location.reload();
+  };
+
+  const createHousehold = async (name) => {
+    const response = await api.post('/households', { name });
+    await fetchHouseholds();
+    return response.data;
+  };
+
+  const joinHousehold = async (inviteCode) => {
+    const response = await api.post('/households/join', { invite_code: inviteCode });
+    await fetchHouseholds();
+    return response.data;
+  };
+
+  const activeHousehold = households.find((h) => h.is_active) || null;
+
   const value = {
     user,
     token,
@@ -126,6 +161,12 @@ export const AuthProvider = ({ children }) => {
     updateUser,
     api,
     isAuthenticated: !!user,
+    households,
+    activeHousehold,
+    fetchHouseholds,
+    switchHousehold,
+    createHousehold,
+    joinHousehold,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

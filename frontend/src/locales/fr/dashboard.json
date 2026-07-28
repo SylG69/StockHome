@@ -1,0 +1,42 @@
+{
+  "stats": {
+    "totalProducts": "Total Produits",
+    "lowStock": "Stock Bas",
+    "categories": "Catégories",
+    "locations": "Emplacements",
+    "stockValue": "Valeur du Stock",
+    "alert": "Alerte"
+  },
+  "greeting": "Bonjour, {{name}}",
+  "subtitle": "Voici un aperçu de votre stock domestique",
+  "scanner": "Scanner",
+  "shoppingListButton": "Liste ({{count}})",
+  "lowStockSubcategories": {
+    "title": "Sous-catégories en Stock Bas",
+    "viewAll": "Voir tous les produits en stock bas",
+    "empty": "Tous vos produits sont en stock !"
+  },
+  "expiringSoon": {
+    "title": "Bientôt Périmés",
+    "expired": "Périmé",
+    "empty": "Aucun produit bientôt périmé"
+  },
+  "nutriscore": {
+    "distributionTitle": "Répartition Nutri-Score",
+    "noProducts": "Aucun produit alimentaire avec Nutri-Score pour le moment.",
+    "basedOn_one": "Basé sur {{count}} produit alimentaire — cliquez sur une barre pour voir les produits correspondants.",
+    "basedOn_other": "Basé sur {{count}} produits alimentaires — cliquez sur une barre pour voir les produits correspondants.",
+    "averageTitle": "Nutri-Score moyen",
+    "notEnoughData": "Pas encore assez de produits alimentaires avec Nutri-Score pour calculer une moyenne.",
+    "scoreLabel": "(score {{score}})",
+    "calculatedOn_one": "Calculé sur {{count}} produit alimentaire avec Nutri-Score connu.",
+    "calculatedOn_other": "Calculé sur {{count}} produits alimentaires avec Nutri-Score connu."
+  },
+  "recentProducts": {
+    "title": "Produits Récents",
+    "viewAll": "Voir tout",
+    "noBrand": "Sans marque",
+    "empty": "Aucun produit pour le moment",
+    "addFirst": "Ajouter un produit"
+  }
+}

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { formatDate, formatNumber } from '../lib/formatters';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -21,6 +23,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
+  const { t } = useTranslation('dashboard');
   const { api, user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
@@ -91,7 +94,8 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      title: 'Total Produits',
+      key: 'total-produits',
+      title: t('stats.totalProducts'),
       value: stats?.total_products || 0,
       icon: Package,
       color: 'text-primary',
@@ -99,7 +103,8 @@ export default function DashboardPage() {
       to: '/products',
     },
     {
-      title: 'Stock Bas',
+      key: 'stock-bas',
+      title: t('stats.lowStock'),
       value: stats?.low_stock_count || 0,
       icon: AlertTriangle,
       color: 'text-destructive',
@@ -108,7 +113,8 @@ export default function DashboardPage() {
       to: '/products?low_stock=true',
     },
     {
-      title: 'Catégories',
+      key: 'categories',
+      title: t('stats.categories'),
       value: stats?.total_categories || 0,
       icon: FolderOpen,
       color: 'text-emerald-500',
@@ -116,7 +122,8 @@ export default function DashboardPage() {
       to: '/configuration?section=categories',
     },
     {
-      title: 'Emplacements',
+      key: 'emplacements',
+      title: t('stats.locations'),
       value: stats?.total_locations || 0,
       icon: MapPin,
       color: 'text-amber-500',
@@ -124,8 +131,9 @@ export default function DashboardPage() {
       to: '/configuration?section=locations',
     },
     {
-      title: 'Valeur du Stock',
-      value: `${(stats?.total_stock_value || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+      key: 'valeur-du-stock',
+      title: t('stats.stockValue'),
+      value: `${formatNumber(stats?.total_stock_value || 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
       icon: Euro,
       color: 'text-violet-500',
       bgColor: 'bg-violet-500/10',
@@ -139,23 +147,23 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Bonjour, {user?.name?.split(' ')[0]}
+            {t('greeting', { name: user?.name?.split(' ')[0] })}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Voici un aperçu de votre stock domestique
+            {t('subtitle')}
           </p>
         </div>
         <div className="flex gap-3">
           <Link to="/scanner">
             <Button className="btn-glow" data-testid="quick-scan-btn">
               <ScanLine className="w-4 h-4 mr-2" />
-              Scanner
+              {t('scanner')}
             </Button>
           </Link>
           <Link to="/shopping-list">
             <Button variant="secondary" data-testid="shopping-list-btn">
               <ShoppingCart className="w-4 h-4 mr-2" />
-              Liste ({stats?.shopping_list_count || 0})
+              {t('shoppingListButton', { count: stats?.shopping_list_count || 0 })}
             </Button>
           </Link>
         </div>
@@ -165,14 +173,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {statCards.map((stat, index) => (
           <Link
-            key={stat.title}
+            key={stat.key}
             to={stat.to}
             className={`block animate-fade-in stagger-${index + 1}`}
-            data-testid={`stat-card-link-${stat.title.toLowerCase().replace(' ', '-')}`}
+            data-testid={`stat-card-link-${stat.key}`}
           >
             <Card
               className="bg-card border-border card-hover h-full"
-              data-testid={`stat-card-${stat.title.toLowerCase().replace(' ', '-')}`}
+              data-testid={`stat-card-${stat.key}`}
             >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -181,7 +189,7 @@ export default function DashboardPage() {
                   </div>
                   {stat.alert && (
                     <Badge variant="destructive" className="animate-pulse">
-                      Alerte
+                      {t('stats.alert')}
                     </Badge>
                   )}
                 </div>
@@ -245,7 +253,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <TrendingDown className="w-5 h-5 text-destructive" />
-              Sous-catégories en Stock Bas
+              {t('lowStockSubcategories.title')}
             </CardTitle>
             {stats?.low_stock_count > 0 && (
               <Badge variant="destructive">{stats.low_stock_count}</Badge>
@@ -274,7 +282,7 @@ export default function DashboardPage() {
                 ))}
                 <Link to="/products?low_stock=true">
                   <Button variant="outline" className="w-full mt-2" data-testid="view-all-low-stock">
-                    Voir tous les produits en stock bas
+                    {t('lowStockSubcategories.viewAll')}
                   </Button>
                 </Link>
               </div>
@@ -283,7 +291,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
                   <Package className="w-8 h-8 text-emerald-500" />
                 </div>
-                <p className="text-muted-foreground">Tous vos produits sont en stock !</p>
+                <p className="text-muted-foreground">{t('lowStockSubcategories.empty')}</p>
               </div>
             )}
           </CardContent>
@@ -294,7 +302,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <CalendarClock className="w-5 h-5 text-amber-500" />
-              Bientôt Périmés
+              {t('expiringSoon.title')}
             </CardTitle>
             {stats?.expiring_soon_count > 0 && (
               <Badge className="bg-amber-500 text-black">{stats.expiring_soon_count}</Badge>
@@ -320,7 +328,7 @@ export default function DashboardPage() {
                         <p className="font-medium text-sm truncate">{product.name}</p>
                       </div>
                       <p className={`text-sm font-semibold shrink-0 ${isExpired ? 'text-destructive' : 'text-amber-500'}`}>
-                        {isExpired ? 'Périmé' : new Date(product.expiration_date).toLocaleDateString('fr-FR')}
+                        {isExpired ? t('expiringSoon.expired') : formatDate(product.expiration_date)}
                       </p>
                     </Link>
                   );
@@ -331,7 +339,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
                   <CalendarClock className="w-8 h-8 text-emerald-500" />
                 </div>
-                <p className="text-muted-foreground">Aucun produit bientôt périmé</p>
+                <p className="text-muted-foreground">{t('expiringSoon.empty')}</p>
               </div>
             )}
           </CardContent>
@@ -345,7 +353,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-primary" />
-              Répartition Nutri-Score
+              {t('nutriscore.distributionTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -356,12 +364,12 @@ export default function DashboardPage() {
             ) : !nutriscoreStats || nutriscoreStats.total_food_products === 0 ? (
               <div className="text-center py-8">
                 <Apple className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">Aucun produit alimentaire avec Nutri-Score pour le moment.</p>
+                <p className="text-muted-foreground text-sm">{t('nutriscore.noProducts')}</p>
               </div>
             ) : (
               <>
                 <p className="text-xs text-muted-foreground mb-4">
-                  Basé sur {nutriscoreStats.total_food_products} produit{nutriscoreStats.total_food_products > 1 ? 's' : ''} alimentaire{nutriscoreStats.total_food_products > 1 ? 's' : ''} — cliquez sur une barre pour voir les produits correspondants.
+                  {t('nutriscore.basedOn', { count: nutriscoreStats.total_food_products })}
                 </p>
                 <div className="flex items-end justify-between gap-2 h-40">
                   {(() => {
@@ -402,7 +410,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Apple className="w-5 h-5 text-emerald-500" />
-              Nutri-Score moyen
+              {t('nutriscore.averageTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -414,7 +422,7 @@ export default function DashboardPage() {
               <div className="text-center py-8">
                 <Apple className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground text-sm">
-                  Pas encore assez de produits alimentaires avec Nutri-Score pour calculer une moyenne.
+                  {t('nutriscore.notEnoughData')}
                 </p>
               </div>
             ) : (
@@ -428,11 +436,11 @@ export default function DashboardPage() {
                   <p className="text-2xl font-bold">
                     {nutriscoreStats.average_grade.toUpperCase()}
                     <span className="text-sm font-normal text-muted-foreground ml-2">
-                      (score {nutriscoreStats.average_score})
+                      {t('nutriscore.scoreLabel', { score: nutriscoreStats.average_score })}
                     </span>
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Calculé sur {nutriscoreStats.total_food_products} produit{nutriscoreStats.total_food_products > 1 ? 's' : ''} alimentaire{nutriscoreStats.total_food_products > 1 ? 's' : ''} avec Nutri-Score connu.
+                    {t('nutriscore.calculatedOn', { count: nutriscoreStats.total_food_products })}
                   </p>
                 </div>
               </div>
@@ -444,10 +452,10 @@ export default function DashboardPage() {
       {/* Recent Products */}
       <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-semibold">Produits Récents</CardTitle>
+          <CardTitle className="text-lg font-semibold">{t('recentProducts.title')}</CardTitle>
           <Link to="/products">
             <Button variant="ghost" size="sm" data-testid="view-all-products">
-              Voir tout
+              {t('recentProducts.viewAll')}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
@@ -473,7 +481,7 @@ export default function DashboardPage() {
                   )}
                   <p className="font-medium text-sm truncate">{product.name}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {product.brand || 'Sans marque'}
+                    {product.brand || t('recentProducts.noBrand')}
                   </p>
                   <div className="flex items-center justify-between mt-2">
                     <span
@@ -491,10 +499,10 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">Aucun produit pour le moment</p>
+              <p className="text-muted-foreground">{t('recentProducts.empty')}</p>
               <Link to="/products">
                 <Button className="mt-4" data-testid="add-first-product">
-                  Ajouter un produit
+                  {t('recentProducts.addFirst')}
                 </Button>
               </Link>
             </div>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { formatDate } from '../lib/formatters';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -21,12 +23,13 @@ import {
 } from 'lucide-react';
 
 const STATUS_LABEL = {
-  active: { label: 'Actif', variant: 'success' },
-  pending: { label: 'En attente', variant: 'warning' },
-  disabled: { label: 'Désactivé', variant: 'destructive' },
+  active: { labelKey: 'status.active', variant: 'success' },
+  pending: { labelKey: 'status.pending', variant: 'warning' },
+  disabled: { labelKey: 'status.disabled', variant: 'destructive' },
 };
 
 export default function UsersPage() {
+  const { t } = useTranslation('users');
   const { api, user } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +46,7 @@ export default function UsersPage() {
       setUsers(response.data);
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      toast.error("Erreur lors du chargement des utilisateurs");
+      toast.error(t('errors.loadError'));
     } finally {
       setLoading(false);
     }
@@ -53,10 +56,10 @@ export default function UsersPage() {
     setBusyId(userId);
     try {
       await api.patch(`/auth/users/${userId}/status`, { status });
-      toast.success('Statut mis à jour');
+      toast.success(t('statusUpdated'));
       fetchUsers();
     } catch (error) {
-      toast.error(error?.response?.data?.detail || 'Erreur lors de la mise à jour');
+      toast.error(error?.response?.data?.detail || t('errors.updateStatusError'));
     } finally {
       setBusyId(null);
     }
@@ -66,10 +69,10 @@ export default function UsersPage() {
     setBusyId(userId);
     try {
       await api.delete(`/auth/users/${userId}`);
-      toast.success('Inscription refusée');
+      toast.success(t('registrationRejected'));
       fetchUsers();
     } catch (error) {
-      toast.error(error?.response?.data?.detail || 'Erreur lors du refus');
+      toast.error(error?.response?.data?.detail || t('errors.rejectError'));
     } finally {
       setBusyId(null);
     }
@@ -79,10 +82,10 @@ export default function UsersPage() {
     setBusyId(userId);
     try {
       await api.patch(`/auth/users/${userId}/role`, { role });
-      toast.success('Rôle mis à jour');
+      toast.success(t('roleUpdated'));
       fetchUsers();
     } catch (error) {
-      toast.error(error?.response?.data?.detail || 'Erreur lors de la mise à jour du rôle');
+      toast.error(error?.response?.data?.detail || t('errors.updateRoleError'));
     } finally {
       setBusyId(null);
     }
@@ -102,16 +105,16 @@ export default function UsersPage() {
     <div className="space-y-6" data-testid="users-page">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gestion des utilisateurs</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('page.title')}</h1>
           <p className="text-muted-foreground mt-1">
             {pendingCount > 0
-              ? `${pendingCount} compte${pendingCount > 1 ? 's' : ''} en attente de validation`
-              : 'Tous les comptes sont traités'}
+              ? t('page.pendingCount', { count: pendingCount })
+              : t('page.allProcessed')}
           </p>
         </div>
         <Button variant="outline" onClick={fetchUsers} data-testid="refresh-users-btn">
           <RefreshCw className="w-4 h-4 mr-2" />
-          Actualiser
+          {t('page.refresh')}
         </Button>
       </div>
 
@@ -126,17 +129,16 @@ export default function UsersPage() {
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold">{u.username}</h3>
-                    {isSelf && <Badge variant="secondary">Moi</Badge>}
+                    {isSelf && <Badge variant="secondary">{t('self')}</Badge>}
                     <Badge variant={status.variant === 'success' ? 'default' : status.variant === 'warning' ? 'outline' : 'destructive'}>
                       {u.status === 'active' && <Check className="w-3 h-3 mr-1" />}
                       {u.status === 'pending' && <Clock className="w-3 h-3 mr-1" />}
-                      {status.label}
+                      {t(status.labelKey)}
                     </Badge>
                   </div>
                   <p className="text-muted-foreground text-sm mt-1">{u.email}</p>
                   <p className="text-muted-foreground text-xs mt-1">
-                    Login : {u.username} · Inscrit le{' '}
-                    {new Date(u.created_at).toLocaleDateString('fr-FR')}
+                    {t('loginLine', { username: u.username, date: formatDate(u.created_at) })}
                   </p>
                 </div>
 
@@ -151,7 +153,7 @@ export default function UsersPage() {
                           data-testid={`approve-user-${u.id}`}
                         >
                           <UserCheck className="w-4 h-4 mr-2" />
-                          Approuver
+                          {t('approve')}
                         </Button>
                         <Button
                           size="sm"
@@ -162,7 +164,7 @@ export default function UsersPage() {
                           data-testid={`reject-user-${u.id}`}
                         >
                           <X className="w-4 h-4 mr-2" />
-                          Refuser
+                          {t('reject')}
                         </Button>
                       </>
                     ) : (
@@ -176,8 +178,8 @@ export default function UsersPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="user">Utilisateur</SelectItem>
-                            <SelectItem value="admin">Administrateur</SelectItem>
+                            <SelectItem value="user">{t('roles.user')}</SelectItem>
+                            <SelectItem value="admin">{t('roles.admin')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <Button
@@ -189,7 +191,7 @@ export default function UsersPage() {
                           data-testid={`toggle-status-${u.id}`}
                         >
                           <UserX className="w-4 h-4 mr-2" />
-                          {u.status === 'disabled' ? 'Réactiver' : 'Désactiver'}
+                          {u.status === 'disabled' ? t('reactivate') : t('deactivate')}
                         </Button>
                       </>
                     )}

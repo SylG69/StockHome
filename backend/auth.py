@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import User
+from models import Household, HouseholdMember, User
 
 
 
@@ -106,3 +106,38 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
     return current_user
+
+
+def get_active_household(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Household:
+    """Résout le foyer actif du current_user, en vérifiant que
+    active_household_id correspond bien à une adhésion réelle. Si l'état est
+    absent ou incohérent (foyer quitté/supprimé entre-temps...), se replie
+    automatiquement sur le foyer personnel de l'utilisateur et corrige
+    active_household_id en base."""
+    membership = None
+    if current_user.active_household_id:
+        membership = db.execute(
+            select(HouseholdMember).where(
+                HouseholdMember.user_id == current_user.id,
+                HouseholdMember.household_id == current_user.active_household_id,
+            )
+        ).scalar_one_or_none()
+
+    if membership is not None:
+        return db.get(Household, current_user.active_household_id)
+
+    personal = db.execute(
+        select(Household)
+        .join(HouseholdMember, HouseholdMember.household_id == Household.id)
+        .where(HouseholdMember.user_id == current_user.id, Household.is_personal.is_(True))
+    ).scalar_one_or_none()
+    if personal is None:
+        raise HTTPException(status_code=500, detail="Aucun foyer personnel trouvé pour cet utilisateur")
+
+    current_user.active_household_id = personal.id
+    db.commit()
+    db.refresh(current_user)
+    return personal

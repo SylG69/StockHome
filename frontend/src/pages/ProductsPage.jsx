@@ -72,6 +72,8 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Trans, useTranslation } from 'react-i18next';
+import { formatDate, compareLocale } from '../lib/formatters';
 
 // Filtres persistés par utilisateur (localStorage) pour que la page Produits
 // retrouve son état d'une session à l'autre -- clé dédiée par user.id pour
@@ -100,6 +102,7 @@ function loadStoredFilters(userId) {
 }
 
 export default function ProductsPage() {
+  const { t } = useTranslation(['products', 'common']);
   const { api, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -142,7 +145,7 @@ export default function ProductsPage() {
     setFilterNutriscore(DEFAULT_FILTERS.filterNutriscore);
     setHideOutOfStock(DEFAULT_FILTERS.hideOutOfStock);
     setIsGrouped(DEFAULT_FILTERS.isGrouped);
-    toast.success('Filtres réinitialisés');
+    toast.success(t('products:toast.filtersReset'));
   };
 
   // Dialog states
@@ -177,7 +180,7 @@ export default function ProductsPage() {
       setLocations(locationsRes.data);
       setSubCategories(subCatsRes.data);
     } catch (error) {
-      toast.error('Erreur lors du chargement des données');
+      toast.error(t('products:toast.loadError'));
     } finally {
       setLoading(false);
     }
@@ -193,11 +196,11 @@ export default function ProductsPage() {
         min_quantity: min_stock
       });
 
-      toast.success("Seuil mis à jour");
+      toast.success(t('products:toast.thresholdUpdated'));
       fetchData();
     } catch (error) {
       console.error("Erreur lors de la mise à jour du seuil:", error);
-      toast.error("Erreur de sauvegarde du seuil");
+      toast.error(t('products:toast.thresholdSaveError'));
     }
   };
 
@@ -221,7 +224,7 @@ export default function ProductsPage() {
     if (!renamingSubCategory) return;
     const trimmed = renameValue.trim();
     if (!trimmed) {
-      toast.error('Le nom ne peut pas être vide');
+      toast.error(t('products:toast.nameRequired'));
       return;
     }
     try {
@@ -237,16 +240,16 @@ export default function ProductsPage() {
       // sous-catégorie existante : l'id renvoyé diffère alors de celui
       // qu'on renommait, et les produits ont été rattachés à l'existante.
       if (response.data.id !== renamingSubCategory.id) {
-        toast.success(`Fusionnée avec la sous-catégorie "${response.data.name}" existante`);
+        toast.success(t('products:toast.merged', { name: response.data.name }));
       } else {
-        toast.success('Sous-catégorie renommée');
+        toast.success(t('products:toast.renamed'));
       }
       setRenameDialogOpen(false);
       setRenamingSubCategory(null);
       fetchData();
     } catch (error) {
       console.error('Erreur lors du renommage:', error);
-      toast.error('Erreur lors du renommage');
+      toast.error(t('products:toast.renameError'));
     }
   };
 
@@ -257,12 +260,12 @@ export default function ProductsPage() {
         // Lot épuisé et supprimé côté serveur (d'autres lots du même
         // code-barres restent en stock) : on le retire simplement de la liste.
         setProducts(prev => prev.filter(p => p.id !== product.id));
-        toast.info(`${product.name} : lot épuisé, retiré du stock`);
+        toast.info(t('products:toast.lotDepleted', { name: product.name }));
       } else {
         setProducts(prev => prev.map(p => p.id === product.id ? { ...p, quantity: response.data.quantity } : p));
       }
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour');
+      toast.error(t('products:toast.updateError'));
     }
   };
 
@@ -292,7 +295,7 @@ export default function ProductsPage() {
     const subCat = subCategories.find(s => s.id === subCatId);
     if (!acc[subCatId]) {
       acc[subCatId] = {
-        name: subCat?.name || "Sans sous-catégorie",
+        name: subCat?.name || t('products:list.noSubCategory'),
         products: [],
         totalStock: 0,
         threshold: subCat?.min_quantity || 0,
@@ -311,12 +314,12 @@ export default function ProductsPage() {
   // Tri alphabétique : sous-catégories entre elles (mode groupé), et
   // produits entre eux au sein de chaque groupe / en mode non groupé.
   Object.values(groupedProducts).forEach((group) => {
-    group.products.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    group.products.sort((a, b) => compareLocale(a.name, b.name));
   });
   const sortedGroupEntries = Object.entries(groupedProducts).sort(
-    ([, a], [, b]) => a.name.localeCompare(b.name, 'fr')
+    ([, a], [, b]) => compareLocale(a.name, b.name)
   );
-  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => compareLocale(a.name, b.name));
 
   const groupKeys = Object.keys(groupedProducts);
   const groupKeysSignature = groupKeys.join(',');
@@ -350,7 +353,7 @@ export default function ProductsPage() {
     const isSoon = !isExpired && (expiry - today) / 86400000 <= 7;
     return (
       <span className={`text-sm ${isExpired ? 'text-destructive font-semibold' : isSoon ? 'text-amber-500 font-semibold' : 'text-muted-foreground'}`}>
-        {expiry.toLocaleDateString('fr-FR')}
+        {formatDate(expiry)}
       </span>
     );
   };
@@ -362,7 +365,7 @@ export default function ProductsPage() {
     return (
       <span
         className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black uppercase ${NUTRISCORE_STYLES[grade]}`}
-        title={`Nutri-Score ${grade.toUpperCase()}`}
+        title={t('products:table.nutriscoreTitle', { grade: grade.toUpperCase() })}
       >
         {grade}
       </span>
@@ -394,7 +397,7 @@ export default function ProductsPage() {
           )}
         </td>
         <td className="p-3 font-medium text-sm truncate max-w-0">{product.name}</td>
-        <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{product.brand || 'Sans marque'}</td>
+        <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{product.brand || t('products:list.noBrand')}</td>
         <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{category?.name || '—'}</td>
         <td className="p-3 text-sm text-muted-foreground truncate max-w-0">{location?.name || '—'}</td>
         <td className="p-3"><ExpirationBadge date={product.expiration_date} /></td>
@@ -424,7 +427,7 @@ export default function ProductsPage() {
           </div>
           {isLowStock && (
             <div className="flex items-center gap-1 text-[10px] text-destructive font-black uppercase tracking-tighter mt-1">
-              <AlertTriangle className="w-3 h-3" /> Stock bas
+              <AlertTriangle className="w-3 h-3" /> {t('products:list.lowStock')}
             </div>
           )}
         </td>
@@ -434,9 +437,9 @@ export default function ProductsPage() {
               <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleOpenDialog(product)}><Edit className="w-4 h-4 mr-2" /> Modifier</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenDialog(product)}><Edit className="w-4 h-4 mr-2" /> {t('common:actions.edit')}</DropdownMenuItem>
               <DropdownMenuItem className="text-destructive" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
-                <Trash2 className="w-4 h-4 mr-2" /> Supprimer
+                <Trash2 className="w-4 h-4 mr-2" /> {t('common:actions.delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -474,7 +477,7 @@ export default function ProductsPage() {
             <NutriscoreBadge grade={product.nutriscore_grade} />
           </div>
           <p className="text-xs text-muted-foreground truncate">
-            {product.brand || 'Sans marque'}
+            {product.brand || t('products:list.noBrand')}
             {(category || location) && ' · '}
             {[category?.name, location?.name].filter(Boolean).join(' · ')}
           </p>
@@ -483,7 +486,7 @@ export default function ProductsPage() {
           )}
           {isLowStock && (
             <div className="flex items-center gap-1 text-[10px] text-destructive font-black uppercase tracking-tighter mt-0.5">
-              <AlertTriangle className="w-3 h-3" /> Stock bas
+              <AlertTriangle className="w-3 h-3" /> {t('products:list.lowStock')}
             </div>
           )}
         </div>
@@ -518,9 +521,9 @@ export default function ProductsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleOpenDialog(product)}><Edit className="w-4 h-4 mr-2" /> Modifier</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenDialog(product)}><Edit className="w-4 h-4 mr-2" /> {t('common:actions.edit')}</DropdownMenuItem>
               <DropdownMenuItem className="text-destructive" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
-                <Trash2 className="w-4 h-4 mr-2" /> Supprimer
+                <Trash2 className="w-4 h-4 mr-2" /> {t('common:actions.delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -554,13 +557,13 @@ export default function ProductsPage() {
         <thead>
           <tr className="bg-secondary/50 text-left text-xs uppercase text-muted-foreground font-bold">
             <th className="p-3 w-16"></th>
-            <th className="p-3 w-[18%]">Nom</th>
-            <th className="p-3 w-[14%]">Marque</th>
-            <th className="p-3 w-[13%]">Catégorie</th>
-            <th className="p-3 w-[13%]">Emplacement</th>
-            <th className="p-3 w-[11%]">Péremption</th>
-            <th className="p-3 w-24">Nutri-Score</th>
-            <th className="p-3 w-32">Quantité</th>
+            <th className="p-3 w-[18%]">{t('products:table.name')}</th>
+            <th className="p-3 w-[14%]">{t('products:table.brand')}</th>
+            <th className="p-3 w-[13%]">{t('products:table.category')}</th>
+            <th className="p-3 w-[13%]">{t('products:table.location')}</th>
+            <th className="p-3 w-[11%]">{t('products:table.expiration')}</th>
+            <th className="p-3 w-24">{t('products:table.nutriscore')}</th>
+            <th className="p-3 w-32">{t('products:table.quantity')}</th>
             <th className="p-3 w-10"></th>
           </tr>
         </thead>
@@ -596,13 +599,13 @@ export default function ProductsPage() {
                       size="icon"
                       className="h-6 w-6 text-muted-foreground hover:text-foreground"
                       onClick={(e) => { e.stopPropagation(); handleOpenRenameDialog(subCatId, group); }}
-                      title="Renommer la sous-catégorie"
+                      title={t('products:group.renameTooltip')}
                       data-testid={`rename-subcategory-${subCatId}`}
                     >
                       <Edit className="w-3.5 h-3.5" />
                     </Button>
                   )}
-                  <Badge variant="outline" className="bg-background">{group.products.length} produits</Badge>
+                  <Badge variant="outline" className="bg-background">{t('products:group.productsCount', { count: group.products.length })}</Badge>
                 </div>
                 <div className="flex items-center gap-4 sm:gap-6">
                   {subCatId !== 'no-sub' && (
@@ -611,7 +614,7 @@ export default function ProductsPage() {
                       className="flex items-center gap-1.5 px-1 py-1 touch-none"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Label className="text-[10px] uppercase font-black text-muted-foreground mr-1">Min :</Label>
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground mr-1">{t('products:group.min')}</Label>
 
                       {/* Masquage du bouton "-" si le seuil est à 0 */}
                       {group.threshold > 0 ? (
@@ -642,7 +645,7 @@ export default function ProductsPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-2">
-                    <span className="hidden sm:inline text-[10px] text-muted-foreground uppercase font-bold">Total :</span>
+                    <span className="hidden sm:inline text-[10px] text-muted-foreground uppercase font-bold">{t('products:group.total')}</span>
                     <Badge className={`h-7 px-3 flex items-center font-bold ${isGroupLowStock ? "bg-destructive" : "bg-emerald-500"}`}>
                       {group.totalStock}
                     </Badge>
@@ -687,7 +690,7 @@ export default function ProductsPage() {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      toast.error("Le nom est requis");
+      toast.error(t('products:toast.productNameRequired'));
       return;
     }
 
@@ -701,16 +704,16 @@ export default function ProductsPage() {
       if (editingProduct) {
         const encodedId = encodeURIComponent(editingProduct.id);
         await api.put(`/products/${encodedId}`, payload);
-        toast.success("Produit mis à jour");
+        toast.success(t('products:toast.productUpdated'));
       } else {
         await api.post('/products', payload);
-        toast.success("Produit ajouté");
+        toast.success(t('products:toast.productAdded'));
       }
       setDialogOpen(false);
       fetchData();
     } catch (error) {
       console.error(error);
-      toast.error("Erreur lors de l'enregistrement");
+      toast.error(t('products:toast.saveError'));
     } finally {
       setSaving(false);
     }
@@ -721,12 +724,12 @@ export default function ProductsPage() {
     try {
       const encodedId = encodeURIComponent(productToDelete.id);
       await api.delete(`/products/${encodedId}`);
-      toast.success('Produit supprimé');
+      toast.success(t('products:toast.productDeleted'));
       setDeleteDialogOpen(false);
       setProductToDelete(null);
       fetchData();
     } catch (e) {
-      toast.error("Erreur lors de la suppression");
+      toast.error(t('products:toast.deleteError'));
     }
   };
 
@@ -736,19 +739,19 @@ export default function ProductsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Produits</h1>
-          <p className="text-muted-foreground mt-1">Gérez votre inventaire de produits</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('products:list.title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('products:list.subtitle')}</p>
         </div>
         <div className="flex gap-3">
-          <Link to="/scanner"><Button className="btn-glow"><ScanLine className="w-4 h-4 mr-2" /> Scanner</Button></Link>
-          <Button onClick={() => handleOpenDialog()} className="btn-glow"><Plus className="w-4 h-4 mr-2" /> Ajouter</Button>
+          <Link to="/scanner"><Button className="btn-glow"><ScanLine className="w-4 h-4 mr-2" /> {t('products:list.scanner')}</Button></Link>
+          <Button onClick={() => handleOpenDialog()} className="btn-glow"><Plus className="w-4 h-4 mr-2" /> {t('products:list.add')}</Button>
         </div>
       </div>
 
       {filterNutriscore !== 'all' && (
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="gap-1.5 pr-1">
-            Nutri-Score : {filterNutriscore === 'unknown' ? 'Inconnu' : filterNutriscore.toUpperCase()}
+            {t('products:filters.nutriscoreLabel', { value: filterNutriscore === 'unknown' ? t('products:filters.nutriscoreUnknown') : filterNutriscore.toUpperCase() })}
             <Button
               variant="ghost"
               size="icon"
@@ -766,21 +769,21 @@ export default function ProductsPage() {
         <CardContent className="p-4 flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Rechercher..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+            <Input placeholder={t('products:filters.searchPlaceholder')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
           <div className="flex flex-wrap gap-3 items-center">
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Catégorie" /></SelectTrigger>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('products:filters.category')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Toutes</SelectItem>
+                <SelectItem value="all">{t('products:filters.allCategories')}</SelectItem>
                 {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
 
             <Select value={filterLocation} onValueChange={setFilterLocation}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Emplacement" /></SelectTrigger>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('products:filters.location')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les emplacements</SelectItem>
+                <SelectItem value="all">{t('products:filters.allLocations')}</SelectItem>
                 {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -788,30 +791,30 @@ export default function ProductsPage() {
             {isGrouped && (
               <div className="flex gap-1">
                 <Button variant="outline" size="sm" onClick={handleExpandAll} data-testid="expand-all-groups">
-                  <ChevronsDown className="w-4 h-4 mr-1.5" /> Tout déplier
+                  <ChevronsDown className="w-4 h-4 mr-1.5" /> {t('products:filters.expandAll')}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleCollapseAll} data-testid="collapse-all-groups">
-                  <ChevronsUp className="w-4 h-4 mr-1.5" /> Tout plier
+                  <ChevronsUp className="w-4 h-4 mr-1.5" /> {t('products:filters.collapseAll')}
                 </Button>
               </div>
             )}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2"><Settings2 className="w-4 h-4" /> Options</Button>
+                <Button variant="outline" className="gap-2"><Settings2 className="w-4 h-4" /> {t('products:filters.options')}</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 p-2">
                 <div className="space-y-4 p-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">En stock uniquement</Label>
+                    <Label className="text-sm">{t('products:filters.inStockOnly')}</Label>
                     <Switch checked={hideOutOfStock} onCheckedChange={setHideOutOfStock} />
                   </div>
                   <div className="flex items-center justify-between border-t pt-3">
-                    <Label className="text-sm">Stock bas</Label>
+                    <Label className="text-sm">{t('products:filters.lowStockOnly')}</Label>
                     <Switch checked={filterLowStock} onCheckedChange={setFilterLowStock} />
                   </div>
                   <div className="flex items-center justify-between border-t pt-3 font-bold">
-                    <Label className="text-sm">Grouper l'affichage</Label>
+                    <Label className="text-sm">{t('products:filters.groupDisplay')}</Label>
                     <Switch checked={isGrouped} onCheckedChange={setIsGrouped} />
                   </div>
                   <Button
@@ -821,7 +824,7 @@ export default function ProductsPage() {
                     onClick={handleResetFilters}
                     data-testid="reset-filters-btn"
                   >
-                    Réinitialiser les filtres
+                    {t('products:filters.resetFilters')}
                   </Button>
                 </div>
               </DropdownMenuContent>
@@ -833,7 +836,7 @@ export default function ProductsPage() {
       {filteredProducts.length > 0 ? productsView : (
         <Card className="bg-card border-border py-16 text-center">
           <Package className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold">Aucun produit trouvé</h3>
+          <h3 className="text-lg font-semibold">{t('products:emptyState.title')}</h3>
         </Card>
       )}
 
@@ -843,10 +846,10 @@ export default function ProductsPage() {
           className="bg-card border-border max-w-lg"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <DialogHeader><DialogTitle>{editingProduct ? 'Modifier' : 'Ajouter'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingProduct ? t('common:actions.edit') : t('common:actions.add')}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <Label>Nom *</Label>
+              <Label>{t('products:dialog.name')}</Label>
               <Input
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
@@ -855,7 +858,7 @@ export default function ProductsPage() {
             </div>
 
             <div className="col-span-2">
-              <Label>Marque</Label>
+              <Label>{t('products:dialog.brand')}</Label>
               <Input
                 value={formData.brand}
                 onChange={e => setFormData({...formData, brand: e.target.value})}
@@ -864,7 +867,7 @@ export default function ProductsPage() {
             </div>
 
             <div>
-              <Label>Quantité</Label>
+              <Label>{t('products:dialog.quantity')}</Label>
               <Input
                 type="number"
                 min="0"
@@ -878,12 +881,12 @@ export default function ProductsPage() {
             </div>
 
             <div>
-              <Label>Prix unitaire (€)</Label>
+              <Label>{t('products:dialog.unitPrice')}</Label>
               <Input
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder="Ex: 2.50"
+                placeholder={t('products:dialog.unitPricePlaceholder')}
                 value={formData.price}
                 onChange={e => setFormData({
                   ...formData,
@@ -894,7 +897,7 @@ export default function ProductsPage() {
             </div>
 
             <div>
-              <Label>Date de péremption</Label>
+              <Label>{t('products:dialog.expirationDate')}</Label>
               <Input
                 type="date"
                 value={formData.expiration_date}
@@ -904,21 +907,21 @@ export default function ProductsPage() {
             </div>
 
             <div>
-              <Label>Catégorie</Label>
+              <Label>{t('products:dialog.category')}</Label>
               <Select
                 value={formData.category_id || "none"}
                 onValueChange={v => setFormData({...formData, category_id: v === "none" ? null : v})}
               >
                 <SelectTrigger className="bg-input border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Aucune</SelectItem>
+                  <SelectItem value="none">{t('products:dialog.none')}</SelectItem>
                   {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label>Sous-catégorie</Label>
+              <Label>{t('products:dialog.subCategory')}</Label>
               <Popover open={subCategoryComboOpen} onOpenChange={setSubCategoryComboOpen}>
                 <PopoverTrigger asChild>
                   <button
@@ -926,14 +929,14 @@ export default function ProductsPage() {
                     aria-expanded={subCategoryComboOpen}
                     className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
                   >
-                    {formData.sub_category_name || "Chercher ou choisir..."}
+                    {formData.sub_category_name || t('products:dialog.subCategorySearchPlaceholder')}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                   <Command>
                     <CommandInput
-                      placeholder="Rechercher une sous-catégorie..."
+                      placeholder={t('products:dialog.subCategoryCommandPlaceholder')}
                       onValueChange={(searchTerm) => {
                         const formattedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
                         setFormData({ ...formData, sub_category_name: formattedTerm, sub_category_id: null });
@@ -948,7 +951,7 @@ export default function ProductsPage() {
                           onClick={() => setSubCategoryComboOpen(false)}
                         >
                           <Plus className="mr-2 h-4 w-4" />
-                          Créer "{formData.sub_category_name}"
+                          {t('products:dialog.createSubCategory', { name: formData.sub_category_name })}
                         </Button>
                       </CommandEmpty>
                       <CommandGroup title="Suggestions">
@@ -980,27 +983,27 @@ export default function ProductsPage() {
                 </PopoverContent>
               </Popover>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Tapez pour chercher/créer ou choisissez une suggestion.
+                {t('products:dialog.subCategoryHint')}
               </p>
             </div>
 
             <div>
-              <Label>Emplacement</Label>
+              <Label>{t('products:dialog.location')}</Label>
               <Select
                 value={formData.location_id || "none"}
                 onValueChange={v => setFormData({...formData, location_id: v === "none" ? null : v})}
               >
                 <SelectTrigger className="bg-input border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Aucun</SelectItem>
+                  <SelectItem value="none">{t('products:dialog.noneMasculine')}</SelectItem>
                   {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
-            <Button onClick={handleSave} disabled={saving}>Enregistrer</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>{t('common:actions.cancel')}</Button>
+            <Button onClick={handleSave} disabled={saving}>{t('common:actions.save')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1010,21 +1013,25 @@ export default function ProductsPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer ce produit ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('products:deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
               {productToDelete && (
-                <>Le produit <strong>{productToDelete.name}</strong> sera définitivement supprimé de votre stock. Cette action est irréversible.</>
+                <Trans
+                  i18nKey="products:deleteDialog.description"
+                  values={{ name: productToDelete.name }}
+                  components={{ strong: <strong /> }}
+                />
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setProductToDelete(null)}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setProductToDelete(null)}>{t('common:actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="confirm-delete-product-btn"
             >
-              Supprimer
+              {t('common:actions.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1034,10 +1041,10 @@ export default function ProductsPage() {
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
         <DialogContent className="bg-card border-border max-w-sm">
           <DialogHeader>
-            <DialogTitle>Renommer la sous-catégorie</DialogTitle>
+            <DialogTitle>{t('products:renameDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="rename-subcategory-input">Nom</Label>
+            <Label htmlFor="rename-subcategory-input">{t('products:renameDialog.name')}</Label>
             <Popover open={renameComboOpen} onOpenChange={setRenameComboOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -1047,21 +1054,21 @@ export default function ProductsPage() {
                   className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-input px-3 py-2 text-sm shadow-sm"
                   data-testid="rename-subcategory-input"
                 >
-                  {renameValue || "Tapez un nom..."}
+                  {renameValue || t('products:renameDialog.placeholder')}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                 <Command>
                   <CommandInput
-                    placeholder="Rechercher ou saisir un nom..."
+                    placeholder={t('products:renameDialog.searchPlaceholder')}
                     value={renameValue}
                     onValueChange={setRenameValue}
                     onKeyDown={(e) => { if (e.key === 'Enter') { setRenameComboOpen(false); handleRenameSubCategory(); } }}
                   />
                   <CommandList>
                     <CommandEmpty className="p-2 text-xs text-muted-foreground">
-                      Aucune sous-catégorie existante avec ce nom.
+                      {t('products:renameDialog.noMatch')}
                     </CommandEmpty>
                     <CommandGroup>
                       {subCategories
@@ -1082,12 +1089,12 @@ export default function ProductsPage() {
               </PopoverContent>
             </Popover>
             <p className="text-[10px] text-muted-foreground">
-              Choisir une sous-catégorie existante fusionnera les deux (tous les produits seront rattachés à l'existante).
+              {t('products:renameDialog.mergeHint')}
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>Annuler</Button>
-            <Button onClick={handleRenameSubCategory} data-testid="confirm-rename-subcategory-btn">Renommer</Button>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>{t('common:actions.cancel')}</Button>
+            <Button onClick={handleRenameSubCategory} data-testid="confirm-rename-subcategory-btn">{t('products:renameDialog.confirm')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

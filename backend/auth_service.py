@@ -150,11 +150,46 @@ async def _fetch_github_profile(access_token: str) -> dict:
     profile["email"] = email
     return profile
 
-def add_demo_products(db: Session, user_id: str):
+def bootstrap_personal_household(db: Session, user: models.User) -> models.Household:
+    """Crée le foyer personnel d'un nouvel utilisateur (is_personal=True,
+    toujours un seul membre : lui-même, rôle admin) et l'active par défaut.
+    Appelé sur les 3 chemins d'inscription (email/mot de passe, Google,
+    GitHub) ; miroir de la logique de backfill de la migration Alembic
+    e7a1c4f6b2d9 pour les comptes existants avant cette fonctionnalité."""
+    household = models.Household(name=f"Foyer de {user.username}", is_personal=True, created_by=user.id)
+    db.add(household)
+    db.flush()
+    db.add(models.HouseholdMember(household_id=household.id, user_id=user.id, role="admin"))
+    user.active_household_id = household.id
+    db.flush()
+    return household
+
+
+def apply_preferred_household_if_enabled(db: Session, user: models.User) -> None:
+    """Si l'utilisateur a activé la connexion automatique à son foyer préféré,
+    force active_household_id sur ce foyer à chaque connexion (appelé sur les
+    3 chemins : email/mot de passe, Google, GitHub). Ignore silencieusement si
+    le foyer préféré n'est plus une adhésion valide (ex: retiré entre-temps)."""
+    if not user.auto_switch_to_preferred or not user.preferred_household_id:
+        return
+    membership = db.execute(
+        select(models.HouseholdMember).where(
+            models.HouseholdMember.user_id == user.id,
+            models.HouseholdMember.household_id == user.preferred_household_id,
+        )
+    ).scalar_one_or_none()
+    if membership is None or user.active_household_id == user.preferred_household_id:
+        return
+    user.active_household_id = user.preferred_household_id
+    db.commit()
+    db.refresh(user)
+
+
+def add_demo_products(db: Session, user_id: str, household_id: str):
     """Ajoute des produits de démonstration pour un nouvel utilisateur."""
 
-    categories = {cat.name: cat for cat in db.execute(select(models.Category).where(models.Category.user_id == user_id)).scalars().all()}
-    locations = {loc.name: loc for loc in db.execute(select(models.StorageLocation).where(models.StorageLocation.user_id == user_id)).scalars().all()}
+    categories = {cat.name: cat for cat in db.execute(select(models.Category).where(models.Category.household_id == household_id)).scalars().all()}
+    locations = {loc.name: loc for loc in db.execute(select(models.StorageLocation).where(models.StorageLocation.household_id == household_id)).scalars().all()}
     if IS_STAGING:
         print(f"Ajout des produits de démonstration pour l'utilisateur {user_id} : {len(DEMO_PRODUCTS)} produits")
         for prod in DEMO_PRODUCTS:
@@ -167,17 +202,18 @@ def add_demo_products(db: Session, user_id: str):
                     location_id=location.id,
                     quantity=prod["quantity"],
                     unit=prod["unit"],
-                    user_id=user_id
+                    user_id=user_id,
+                    household_id=household_id,
                 )
                 db.add(new_product)
         db.commit()
 
-def add_default_categories_and_locations(db: Session, user_id: str):
+def add_default_categories_and_locations(db: Session, user_id: str, household_id: str):
     """Ajoute des catégories et emplacements par défaut pour un nouvel utilisateur."""
     for cat in DEFAULT_CATEGORIES:
-        db.add(models.Category(**cat, user_id=user_id))
+        db.add(models.Category(**cat, user_id=user_id, household_id=household_id))
     for loc in DEFAULT_LOCATIONS:
-        db.add(models.StorageLocation(**loc, user_id=user_id))
+        db.add(models.StorageLocation(**loc, user_id=user_id, household_id=household_id))
     db.commit()
 
 @router.post("/register", response_model=schemas.TokenResponse)
@@ -207,10 +243,12 @@ def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
     db.add(user)
     db.flush()
 
-    # Catégories et emplacements par défaut, créés à chaque inscription
-    add_default_categories_and_locations(db, user.id)
+    household = bootstrap_personal_household(db, user)
 
-    add_demo_products(db, user.id)  # Ajout des produits de démonstration pour le nouvel utilisateur
+    # Catégories et emplacements par défaut, créés à chaque inscription
+    add_default_categories_and_locations(db, user.id, household.id)
+
+    add_demo_products(db, user.id, household.id)  # Ajout des produits de démonstration pour le nouvel utilisateur
 
     db.commit()
     db.refresh(user)
@@ -242,6 +280,8 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Votre compte est en attente de validation par un administrateur")
     if user.status == "disabled":
         raise HTTPException(status_code=403, detail="Votre compte a été désactivé")
+
+    apply_preferred_household_if_enabled(db, user)
 
     token = create_token(user.id)
     return schemas.TokenResponse(access_token=token, user=schemas.UserResponse.model_validate(user))
@@ -284,6 +324,23 @@ def update_me(
                 raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
         current_user.password_hash = hash_password(data.new_password)
 
+    if data.preferred_household_id is not None:
+        if data.preferred_household_id == "":
+            current_user.preferred_household_id = None
+        else:
+            membership = db.execute(
+                select(models.HouseholdMember).where(
+                    models.HouseholdMember.user_id == current_user.id,
+                    models.HouseholdMember.household_id == data.preferred_household_id,
+                )
+            ).scalar_one_or_none()
+            if membership is None:
+                raise HTTPException(status_code=400, detail="Vous n'êtes pas membre de ce foyer")
+            current_user.preferred_household_id = data.preferred_household_id
+
+    if data.auto_switch_to_preferred is not None:
+        current_user.auto_switch_to_preferred = data.auto_switch_to_preferred
+
     db.commit()
     db.refresh(current_user)
     return schemas.UserResponse.model_validate(current_user)
@@ -325,8 +382,9 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
             db.add(user)
             db.flush()
 
-            add_default_categories_and_locations(db, user.id)
-            add_demo_products(db, user.id)  # Ajout des produits de démonstration pour le nouvel utilisateur
+            household = bootstrap_personal_household(db, user)
+            add_default_categories_and_locations(db, user.id, household.id)
+            add_demo_products(db, user.id, household.id)  # Ajout des produits de démonstration pour le nouvel utilisateur
 
             db.commit()
             db.refresh(user)
@@ -341,6 +399,8 @@ async def auth_google(body: schemas.GoogleTokenBody, db: Session = Depends(get_d
             raise HTTPException(status_code=403, detail="Votre compte est en attente de validation par un administrateur")
         if user.status == "disabled":
             raise HTTPException(status_code=403, detail="Votre compte a été désactivé")
+
+        apply_preferred_household_if_enabled(db, user)
 
         # 3. Génération du token JWT interne de l'application
         token = create_token(user.id)
@@ -396,8 +456,9 @@ async def auth_github(body: schemas.GithubTokenBody, db: Session = Depends(get_d
         db.add(user)
         db.flush()
 
-        add_default_categories_and_locations(db, user.id)
-        add_demo_products(db, user.id)
+        household = bootstrap_personal_household(db, user)
+        add_default_categories_and_locations(db, user.id, household.id)
+        add_demo_products(db, user.id, household.id)
 
         db.commit()
         db.refresh(user)
@@ -420,6 +481,8 @@ async def auth_github(body: schemas.GithubTokenBody, db: Session = Depends(get_d
         raise HTTPException(status_code=403, detail="Votre compte est en attente de validation par un administrateur")
     if user.status == "disabled":
         raise HTTPException(status_code=403, detail="Votre compte a été désactivé")
+
+    apply_preferred_household_if_enabled(db, user)
 
     token = create_token(user.id)
     return schemas.TokenResponse(access_token=token, user=schemas.UserResponse.model_validate(user))

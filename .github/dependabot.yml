@@ -9,13 +9,6 @@ updates:
       - "dependencies"
       - "frontend"
     groups:
-      # Une seule PR groupant TOUTES les mises à jour npm de la semaine,
-      # plutôt qu'une PR par paquet -- limite les merges et évite les
-      # conflits entre plusieurs PR touchant le même package.json/lock.
-      # Inclut de fait eslint + @eslint/js ensemble (paquets couplés : la
-      # config "recommended" de @eslint/js embarque des règles du coeur
-      # d'ESLint, qui doivent donc toujours avancer de pair -- cf. erreur
-      # "no-unassigned-vars" quand l'un des deux est resté en retrait).
       frontend:
         patterns:
           - "*"
@@ -29,8 +22,6 @@ updates:
       - "dependencies"
       - "backend"
     groups:
-      # Idem côté backend : une seule PR groupant toutes les mises à jour
-      # pip de la semaine.
       backend:
         patterns:
           - "*"

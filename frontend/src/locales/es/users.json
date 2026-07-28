@@ -1,0 +1,33 @@
+{
+  "status": {
+    "active": "Activo",
+    "pending": "Pendiente",
+    "disabled": "Desactivado"
+  },
+  "errors": {
+    "loadError": "Error al cargar los usuarios",
+    "updateStatusError": "Error al actualizar",
+    "rejectError": "Error al rechazar",
+    "updateRoleError": "Error al actualizar el rol"
+  },
+  "statusUpdated": "Estado actualizado",
+  "registrationRejected": "Registro rechazado",
+  "roleUpdated": "Rol actualizado",
+  "page": {
+    "title": "Gestión de usuarios",
+    "pendingCount_one": "{{count}} cuenta pendiente de validación",
+    "pendingCount_other": "{{count}} cuentas pendientes de validación",
+    "allProcessed": "Todas las cuentas están procesadas",
+    "refresh": "Actualizar"
+  },
+  "self": "Yo",
+  "loginLine": "Usuario: {{username}} · Registrado el {{date}}",
+  "approve": "Aprobar",
+  "reject": "Rechazar",
+  "roles": {
+    "user": "Usuario",
+    "admin": "Administrador"
+  },
+  "reactivate": "Reactivar",
+  "deactivate": "Desactivar"
+}
