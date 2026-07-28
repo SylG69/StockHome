@@ -1,0 +1,107 @@
+{
+  "page": {
+    "title": "Configuration",
+    "subtitle": "Manage your household stock settings",
+    "categories": "Categories",
+    "locations": "Locations"
+  },
+  "categories": {
+    "title": "Categories",
+    "subtitle": "Organize your products by category",
+    "addButton": "Add a category",
+    "empty": {
+      "title": "No categories"
+    },
+    "toast": {
+      "loadError": "Error loading categories",
+      "nameRequired": "Category name is required",
+      "updated": "Category updated",
+      "created": "Category created",
+      "deleted": "Category deleted",
+      "deleteError": "Error while deleting"
+    },
+    "dialog": {
+      "editTitle": "Edit category",
+      "addTitle": "Add a category",
+      "nameLabel": "Name *",
+      "iconLabel": "Icon",
+      "colorLabel": "Color",
+      "previewLabel": "Preview",
+      "previewPlaceholder": "Category name"
+    },
+    "deleteDialog": {
+      "title": "Confirm deletion",
+      "message": "Are you sure you want to delete the category \"{{name}}\"?"
+    },
+    "icons": {
+      "food": "Food",
+      "beverages": "Beverages",
+      "hygiene": "Hygiene",
+      "cleaning": "Cleaning",
+      "general": "General",
+      "animals": "Pets",
+      "folder": "Folder"
+    },
+    "colors": {
+      "green": "Green",
+      "blue": "Blue",
+      "purple": "Purple",
+      "orange": "Orange",
+      "red": "Red",
+      "gray": "Gray",
+      "pink": "Pink",
+      "turquoise": "Turquoise"
+    }
+  },
+  "locations": {
+    "title": "Locations",
+    "subtitle": "Manage your storage locations",
+    "addButton": "Add a location",
+    "empty": {
+      "title": "No locations",
+      "description": "Create locations to organize your products"
+    },
+    "toast": {
+      "loadError": "Error loading locations",
+      "nameRequired": "Location name is required",
+      "updated": "Location updated",
+      "created": "Location created",
+      "deleted": "Location deleted",
+      "deleteError": "Error while deleting"
+    },
+    "dialog": {
+      "editTitle": "Edit location",
+      "addTitle": "Add a location",
+      "nameLabel": "Name *",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Optional description",
+      "iconLabel": "Icon",
+      "colorLabel": "Color",
+      "previewLabel": "Preview",
+      "previewPlaceholder": "Location name"
+    },
+    "deleteDialog": {
+      "title": "Confirm deletion",
+      "message": "Are you sure you want to delete the location \"{{name}}\"? Associated products won't be deleted but will no longer have a location."
+    },
+    "icons": {
+      "home": "Home",
+      "kitchen": "Kitchen",
+      "fridge": "Fridge",
+      "bathroom": "Bathroom",
+      "garage": "Garage",
+      "car": "Car",
+      "other": "Other"
+    },
+    "colors": {
+      "green": "Green",
+      "blue": "Blue",
+      "purple": "Purple",
+      "orange": "Orange",
+      "red": "Red",
+      "gray": "Gray",
+      "pink": "Pink",
+      "turquoise": "Turquoise"
+    }
+  }
+}

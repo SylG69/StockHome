@@ -1,0 +1,85 @@
+{
+  "switcher": {
+    "placeholder": "Foyer actif",
+    "personal": "Personnel"
+  },
+  "joinPage": {
+    "processing": "Connexion à votre foyer en cours..."
+  },
+  "page": {
+    "title": "Mon foyer",
+    "subtitle": "Partagez votre stock avec d'autres comptes en les invitant dans votre foyer.",
+    "refresh": "Actualiser"
+  },
+  "card": {
+    "personalHousehold": "Foyer personnel",
+    "roleAdmin": "Administrateur",
+    "roleMember": "Membre",
+    "inviteCodeLabel": "Code d'invitation :",
+    "copy": "Copier",
+    "regenerate": "Régénérer",
+    "showQrCode": "Afficher le QR code",
+    "hideQrCode": "Masquer le QR code",
+    "qrCodeHint": "En le scannant, on rejoint directement ce foyer (après connexion si besoin).",
+    "membersTitle": "Membres ({{count}})",
+    "self": "Moi",
+    "roleAdminShort": "Admin",
+    "roleMemberShort": "Membre",
+    "remove": "Retirer",
+    "leave": "Quitter ce foyer",
+    "delete": "Supprimer le foyer"
+  },
+  "create": {
+    "title": "Créer un nouveau foyer",
+    "description": "Créez un foyer partagé et invitez d'autres comptes à le rejoindre.",
+    "namePlaceholder": "Nom du foyer (ex: Maison)",
+    "submit": "Créer"
+  },
+  "join": {
+    "title": "Rejoindre un foyer",
+    "description": "Saisissez le code d'invitation fourni par l'administrateur du foyer.",
+    "codePlaceholder": "Code d'invitation",
+    "submit": "Rejoindre"
+  },
+  "transferDialog": {
+    "title": "Transférer votre stock vers ce nouveau foyer ?",
+    "descriptionBefore": "Vos produits, catégories, emplacements et liste de courses actuellement dans",
+    "descriptionAfter": "peuvent être déplacés vers ce nouveau foyer dès sa création. Cette action est réversible en créant un nouveau transfert plus tard, mais déplace immédiatement tout le stock actuel. Si vous transférez, les catégories/emplacements par défaut ne seront pas proposés ensuite (le transfert apporte déjà les vôtres).",
+    "targetPersonal": "votre foyer personnel",
+    "targetNamed": "le foyer « {{name}} »",
+    "cancelAll": "Annuler",
+    "skip": "Non, ne pas transférer",
+    "confirm": "Oui, transférer"
+  },
+  "deleteDialog": {
+    "title": "Supprimer ce foyer ?",
+    "description": "Cette action supprimera définitivement le foyer « {{name}} », tout son stock (produits, catégories, emplacements, liste de courses) et retirera tous ses membres. Cette action est irréversible.",
+    "cancel": "Annuler",
+    "confirm": "Supprimer définitivement"
+  },
+  "defaultsDialog": {
+    "title": "Créer les catégories et emplacements par défaut ?",
+    "description": "Vous pouvez démarrer ce foyer avec un jeu de catégories (Alimentaire, Boissons, Hygiène...) et d'emplacements (Cuisine, Réfrigérateur...) prêts à l'emploi, ou partir d'un foyer vide.",
+    "cancel": "Annuler",
+    "skip": "Non, foyer vide",
+    "confirm": "Oui, créer les valeurs par défaut"
+  },
+  "toast": {
+    "loadError": "Erreur lors du chargement du foyer",
+    "created": "Foyer créé",
+    "transferSuccess": "Stock transféré : basculez vers ce foyer pour le retrouver",
+    "transferError": "Erreur lors du transfert du stock",
+    "joined": "Vous avez rejoint le foyer",
+    "joinError": "Code d'invitation invalide",
+    "codeRegenerated": "Code régénéré",
+    "regenerateError": "Erreur lors de la régénération du code",
+    "codeCopied": "Code copié",
+    "memberRemoved": "Membre retiré",
+    "removeError": "Erreur lors du retrait",
+    "left": "Vous avez quitté le foyer",
+    "leaveError": "Erreur lors de la sortie du foyer",
+    "createError": "Erreur lors de la création du foyer",
+    "deleted": "Foyer supprimé",
+    "deleteError": "Erreur lors de la suppression du foyer"
+  }
+}

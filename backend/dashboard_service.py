@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 import models
 import schemas
-from auth import get_current_user
+from auth import get_active_household
 from database import get_db
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -20,36 +20,38 @@ EXPIRY_SOON_DAYS = 7
 
 
 @router.get("/stats")
-def get_dashboard_stats(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Retourne les statistiques résumées pour le tableau de bord de l'utilisateur courant."""
-    user_id = current_user.id
+def get_dashboard_stats(
+    active_household: models.Household = Depends(get_active_household), db: Session = Depends(get_db)
+):
+    """Retourne les statistiques résumées pour le tableau de bord du foyer actif de l'utilisateur courant."""
+    household_id = active_household.id
 
     total_products = db.execute(
-        select(func.count(models.Product.id)).where(models.Product.user_id == user_id)  # pylint: disable=not-callable
+        select(func.count(models.Product.id)).where(models.Product.household_id == household_id)  # pylint: disable=not-callable
     ).scalar_one()
 
     total_categories = db.execute(
-        select(func.count(models.Category.id)).where(models.Category.user_id == user_id)  # pylint: disable=not-callable
+        select(func.count(models.Category.id)).where(models.Category.household_id == household_id)  # pylint: disable=not-callable
     ).scalar_one()
 
     total_locations = db.execute(
-        select(func.count(models.StorageLocation.id)).where(models.StorageLocation.user_id == user_id)  # pylint: disable=not-callable
+        select(func.count(models.StorageLocation.id)).where(models.StorageLocation.household_id == household_id)  # pylint: disable=not-callable
     ).scalar_one()
 
     total_stock_value = db.execute(
         select(func.coalesce(func.sum(models.Product.price * models.Product.quantity), 0)).where(
-            models.Product.user_id == user_id, models.Product.price.is_not(None)
+            models.Product.household_id == household_id, models.Product.price.is_not(None)
         )
     ).scalar_one()
 
     shopping_list_count = db.execute(
         select(func.count(models.ShoppingListItem.id)).where(  # pylint: disable=not-callable
-            models.ShoppingListItem.user_id == user_id, models.ShoppingListItem.is_checked.is_(False)
+            models.ShoppingListItem.household_id == household_id, models.ShoppingListItem.is_checked.is_(False)
         )
     ).scalar_one()
 
     by_category_rows = db.execute(
-        select(models.Product.category_id, func.count()).where(models.Product.user_id == user_id).group_by(  # pylint: disable=not-callable
+        select(models.Product.category_id, func.count()).where(models.Product.household_id == household_id).group_by(  # pylint: disable=not-callable
             models.Product.category_id
         )
     ).all()
@@ -57,7 +59,7 @@ def get_dashboard_stats(current_user: models.User = Depends(get_current_user), d
 
     recent_result = db.execute(
         select(models.Product)
-        .where(models.Product.user_id == user_id)
+        .where(models.Product.household_id == household_id)
         .order_by(models.Product.updated_at.desc())
         .limit(5)
     )
@@ -68,13 +70,13 @@ def get_dashboard_stats(current_user: models.User = Depends(get_current_user), d
     stock_by_subcategory = dict(
         db.execute(
             select(models.Product.sub_category_id, func.coalesce(func.sum(models.Product.quantity), 0))
-            .where(models.Product.user_id == user_id, models.Product.sub_category_id.is_not(None))
+            .where(models.Product.household_id == household_id, models.Product.sub_category_id.is_not(None))
             .group_by(models.Product.sub_category_id)
         ).all()
     )
 
     subcategories = db.execute(
-        select(models.SubCategory).where(models.SubCategory.user_id == user_id)
+        select(models.SubCategory).where(models.SubCategory.household_id == household_id)
     ).scalars().all()
 
     low_stock_subcategories = []
@@ -97,7 +99,7 @@ def get_dashboard_stats(current_user: models.User = Depends(get_current_user), d
     expiring_result = db.execute(
         select(models.Product)
         .where(
-            models.Product.user_id == user_id,
+            models.Product.household_id == household_id,
             models.Product.expiration_date.is_not(None),
             models.Product.expiration_date <= expiry_threshold,
             models.Product.quantity > 0,

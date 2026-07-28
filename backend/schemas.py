@@ -30,6 +30,9 @@ class UserResponse(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     auth_methods: List[str] = []  # ex: ["email"], ["google"], ["email", "google"]
+    active_household_id: Optional[str] = None
+    preferred_household_id: Optional[str] = None
+    auto_switch_to_preferred: bool = False
 
 class UserStatusUpdate(BaseModel):
     """Requête admin pour approuver/refuser/désactiver un compte."""
@@ -46,6 +49,8 @@ class ProfileUpdate(BaseModel):
     last_name: Optional[str] = None
     current_password: Optional[str] = None  # requis si new_password est fourni et qu'un mot de passe existe déjà
     new_password: Optional[str] = None
+    preferred_household_id: Optional[str] = None  # foyer préféré ; "" pour l'effacer
+    auto_switch_to_preferred: Optional[bool] = None
 
 class TokenResponse(BaseModel):
     """Payload contenant le jeton d'accès et l'utilisateur associé."""
@@ -63,6 +68,46 @@ class GithubTokenBody(BaseModel):
     échangé contre un access_token GitHub côté serveur (le client_secret ne
     doit jamais transiter côté frontend)."""
     code: str
+
+# ==================== HOUSEHOLDS ====================
+
+class HouseholdCreate(BaseModel):
+    """Requête de création d'un foyer partagé."""
+    name: str
+    # Si True, précrée les catégories et emplacements par défaut (les mêmes
+    # que ceux proposés à l'inscription) pour éviter de repartir de zéro.
+    create_defaults: bool = False
+
+class HouseholdJoinRequest(BaseModel):
+    """Requête pour rejoindre un foyer via son code d'invitation."""
+    invite_code: str
+
+class HouseholdSwitchRequest(BaseModel):
+    """Requête pour changer le foyer actif de l'utilisateur courant."""
+    household_id: str
+
+class HouseholdMemberResponse(BaseModel):
+    """Réponse API décrivant un membre d'un foyer."""
+    model_config = ConfigDict(from_attributes=True)
+    user_id: str
+    username: str
+    role: str
+    joined_at: datetime
+
+class HouseholdResponse(BaseModel):
+    """Réponse API résumant un foyer du point de vue de l'utilisateur courant."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    name: str
+    is_personal: bool
+    role: str  # rôle de l'utilisateur courant dans ce foyer
+    member_count: int
+    is_active: bool  # ce foyer est-il le foyer actif de l'utilisateur courant
+
+class HouseholdDetailResponse(HouseholdResponse):
+    """Détail d'un foyer, avec code d'invitation (admin uniquement) et membres."""
+    invite_code: Optional[str] = None
+    members: List[HouseholdMemberResponse] = []
 
 # ==================== CATEGORIES ====================
 

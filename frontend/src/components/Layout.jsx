@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/button';
+import HouseholdSwitcher from './HouseholdSwitcher';
 import {
   LayoutDashboard,
   Package,
@@ -13,6 +15,7 @@ import {
   X,
   Home,
   ShieldCheck,
+  Users,
   Tag,
   GitBranch,
   Info,
@@ -20,24 +23,29 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Tableau de bord', exact: true },
-  { to: '/products', icon: Package, label: 'Produits' },
-  { to: '/shopping-list', icon: ShoppingCart, label: 'Liste de courses' },
-  { to: '/scanner', icon: ScanLine, label: 'Scanner' },
+  { to: '/', icon: LayoutDashboard, labelKey: 'common:nav.dashboard', exact: true },
+  { to: '/products', icon: Package, labelKey: 'common:nav.products' },
+  { to: '/shopping-list', icon: ShoppingCart, labelKey: 'common:nav.shoppingList' },
+  { to: '/scanner', icon: ScanLine, labelKey: 'common:nav.scanner' },
 ];
 
-const configNavItem = { to: '/configuration', icon: Settings, label: 'Configuration' };
+const configNavItem = { to: '/configuration', icon: Settings, labelKey: 'common:nav.configuration' };
+const householdNavItem = { to: '/household', icon: Users, labelKey: 'common:nav.household' };
 
 // Entrée de menu affichée uniquement pour les administrateurs, en plus des
 // items ci-dessus (voir usage avec .filter dans le rendu de la nav).
-const adminNavItem = { to: '/users', icon: ShieldCheck, label: 'Utilisateurs' };
+const adminNavItem = { to: '/users', icon: ShieldCheck, labelKey: 'common:nav.users' };
 
 // Construit la liste des entrées de nav avec petits séparateurs : items
 // principaux, puis Configuration (toujours), puis Utilisateurs (admin
 // seulement) -- chacun précédé d'une fine ligne de séparation.
 function buildNavEntries(isAdmin) {
   const entries = navItems.map((item) => ({ type: 'link', item }));
-  entries.push({ type: 'separator', key: 'sep-config' }, { type: 'link', item: configNavItem });
+  entries.push(
+    { type: 'separator', key: 'sep-config' },
+    { type: 'link', item: configNavItem },
+    { type: 'link', item: householdNavItem }
+  );
   if (isAdmin) {
     entries.push({ type: 'separator', key: 'sep-admin' }, { type: 'link', item: adminNavItem });
   }
@@ -61,9 +69,10 @@ const IS_PROD_VERSION = APP_ENV === 'production';
 // Liens secondaires du menu (À propos, Soutenir l'app), affichés juste
 // au-dessus du badge de version. onNavigate ferme le menu mobile au clic.
 function FooterLinks({ onNavigate }) {
+  const { t } = useTranslation('common');
   const items = [
-    { to: '/about', icon: Info, label: 'À propos' },
-    { to: '/sponsor', icon: Heart, label: "Soutenir l'app" },
+    { to: '/about', icon: Info, label: t('nav.about') },
+    { to: '/sponsor', icon: Heart, label: t('nav.sponsor') },
   ];
   return (
     <div className="px-2 py-1 space-y-0.5">
@@ -98,6 +107,7 @@ function VersionBadge() {
 }
 
 export default function Layout() {
+  const { t } = useTranslation('common');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -122,8 +132,8 @@ export default function Layout() {
             <Home className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">StockHome</h1>
-            <p className="text-xs text-muted-foreground">Gestion de stock</p>
+            <h1 className="text-lg font-bold tracking-tight">{t('appName')}</h1>
+            <p className="text-xs text-muted-foreground">{t('appTagline')}</p>
           </div>
         </div>
 
@@ -146,7 +156,7 @@ export default function Layout() {
                 data-testid={`nav-${entry.item.to.replace('/', '') || 'dashboard'}`}
               >
                 <entry.item.icon className="w-5 h-5" />
-                <span className="font-medium">{entry.item.label}</span>
+                <span className="font-medium">{t(entry.item.labelKey)}</span>
               </NavLink>
             )
           )}
@@ -154,6 +164,7 @@ export default function Layout() {
 
         <FooterLinks />
         <VersionBadge />
+        <HouseholdSwitcher />
         <div className="p-4 border-t border-border">
           <Link
             to="/profile"
@@ -176,7 +187,7 @@ export default function Layout() {
             data-testid="logout-btn"
           >
             <LogOut className="w-5 h-5" />
-            Déconnexion
+            {t('actions.logout')}
           </Button>
         </div>
       </aside>
@@ -209,7 +220,7 @@ export default function Layout() {
 
       {/* Mobile Menu */}
       <div
-        className={`lg:hidden fixed top-16 left-0 right-0 bottom-0 bg-card z-40 transform transition-transform duration-300 ${
+        className={`lg:hidden fixed top-16 left-0 right-0 bottom-0 bg-card z-40 flex flex-col overflow-y-auto transform transition-transform duration-300 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -232,15 +243,16 @@ export default function Layout() {
                 }
               >
                 <entry.item.icon className="w-5 h-5" />
-                <span className="font-medium">{entry.item.label}</span>
+                <span className="font-medium">{t(entry.item.labelKey)}</span>
               </NavLink>
             )
           )}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+        <div className="mt-auto p-4 border-t border-border">
           <FooterLinks onNavigate={() => setMobileMenuOpen(false)} />
           <VersionBadge />
+          <HouseholdSwitcher />
           <Link
             to="/profile"
             onClick={() => setMobileMenuOpen(false)}
@@ -261,7 +273,7 @@ export default function Layout() {
             onClick={handleLogout}
           >
             <LogOut className="w-5 h-5" />
-            Déconnexion
+            {t('actions.logout')}
           </Button>
         </div>
       </div>

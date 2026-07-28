@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -43,32 +44,35 @@ const iconMap = {
   PawPrint: PawPrint,
 };
 
-const iconOptions = [
-  { value: 'Apple', label: 'Alimentaire' },
-  { value: 'Wine', label: 'Boissons' },
-  { value: 'Sparkles', label: 'Hygiène' },
-  { value: 'SprayCan', label: 'Entretien' },
-  { value: 'Package', label: 'Général' },
-  { value: 'PawPrint', label: 'Animaux' },
-  { value: 'FolderOpen', label: 'Dossier' },
+const getIconOptions = (t) => [
+  { value: 'Apple', label: t('categories.icons.food') },
+  { value: 'Wine', label: t('categories.icons.beverages') },
+  { value: 'Sparkles', label: t('categories.icons.hygiene') },
+  { value: 'SprayCan', label: t('categories.icons.cleaning') },
+  { value: 'Package', label: t('categories.icons.general') },
+  { value: 'PawPrint', label: t('categories.icons.animals') },
+  { value: 'FolderOpen', label: t('categories.icons.folder') },
 ];
 
-const colorOptions = [
-  { value: '#10B981', label: 'Vert' },
-  { value: '#3B82F6', label: 'Bleu' },
-  { value: '#8B5CF6', label: 'Violet' },
-  { value: '#F59E0B', label: 'Orange' },
-  { value: '#EF4444', label: 'Rouge' },
-  { value: '#6B7280', label: 'Gris' },
-  { value: '#EC4899', label: 'Rose' },
-  { value: '#14B8A6', label: 'Turquoise' },
+const getColorOptions = (t) => [
+  { value: '#10B981', label: t('categories.colors.green') },
+  { value: '#3B82F6', label: t('categories.colors.blue') },
+  { value: '#8B5CF6', label: t('categories.colors.purple') },
+  { value: '#F59E0B', label: t('categories.colors.orange') },
+  { value: '#EF4444', label: t('categories.colors.red') },
+  { value: '#6B7280', label: t('categories.colors.gray') },
+  { value: '#EC4899', label: t('categories.colors.pink') },
+  { value: '#14B8A6', label: t('categories.colors.turquoise') },
 ];
 
 // Section "Catégories" de la page Configuration (voir ConfigurationPage.jsx).
 // Anciennement une page à part entière (/categories) ; logique inchangée,
 // seul l'en-tête pleine page a été retiré (déjà géré par le shell).
 export default function CategoriesConfigSection() {
+  const { t } = useTranslation(['configuration', 'common']);
   const { api } = useAuth();
+  const iconOptions = getIconOptions(t);
+  const colorOptions = getColorOptions(t);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -93,7 +97,7 @@ export default function CategoriesConfigSection() {
       const response = await api.get('/categories');
       setCategories(response.data);
     } catch (error) {
-      toast.error('Erreur lors du chargement des catégories');
+      toast.error(t('categories.toast.loadError'));
     } finally {
       setLoading(false);
     }
@@ -120,7 +124,7 @@ export default function CategoriesConfigSection() {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      toast.error('Le nom de la catégorie est requis');
+      toast.error(t('categories.toast.nameRequired'));
       return;
     }
 
@@ -129,16 +133,16 @@ export default function CategoriesConfigSection() {
       if (editingCategory) {
         const encodedId = encodeURIComponent(editingCategory.id);
         await api.put(`/categories/${encodedId}`, formData);
-        toast.success('Catégorie mise à jour');
+        toast.success(t('categories.toast.updated'));
       } else {
         await api.post('/categories', formData);
-        toast.success('Catégorie créée');
+        toast.success(t('categories.toast.created'));
       }
       setDialogOpen(false);
       await fetchCategories();
     } catch (error) {
       console.error(error);
-      toast.error("Erreur lors de l'enregistrement");
+      toast.error(t('common:errors.saveError'));
     } finally {
       setSaving(false);
     }
@@ -150,12 +154,12 @@ export default function CategoriesConfigSection() {
     try {
       const encodedId = encodeURIComponent(categoryToDelete.id);
       await api.delete(`/categories/${encodedId}`);
-      toast.success('Catégorie supprimée');
+      toast.success(t('categories.toast.deleted'));
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);
       fetchCategories();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('categories.toast.deleteError'));
     }
   };
 
@@ -171,12 +175,12 @@ export default function CategoriesConfigSection() {
     <div className="space-y-6" data-testid="config-categories-section">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold">Catégories</h2>
-          <p className="text-muted-foreground text-sm mt-1">Organisez vos produits par catégories</p>
+          <h2 className="text-xl font-bold">{t('categories.title')}</h2>
+          <p className="text-muted-foreground text-sm mt-1">{t('categories.subtitle')}</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="btn-glow">
           <Plus className="w-4 h-4 mr-2" />
-          Ajouter une catégorie
+          {t('categories.addButton')}
         </Button>
       </div>
 
@@ -206,11 +210,11 @@ export default function CategoriesConfigSection() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleOpenDialog(category)}>
                           <Edit className="w-4 h-4 mr-2" />
-                          Modifier
+                          {t('common:actions.edit')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setCategoryToDelete(category); setDeleteDialogOpen(true); }} className="text-destructive">
                           <Trash2 className="w-4 h-4 mr-2" />
-                          Supprimer
+                          {t('common:actions.delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -224,10 +228,10 @@ export default function CategoriesConfigSection() {
       ) : (
         <Card className="bg-card border-border py-16 text-center">
             <FolderOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucune catégorie</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('categories.empty.title')}</h3>
             <Button onClick={() => handleOpenDialog()} className="mt-4">
               <Plus className="w-4 h-4 mr-2" />
-              Ajouter une catégorie
+              {t('categories.addButton')}
             </Button>
         </Card>
       )}
@@ -236,15 +240,15 @@ export default function CategoriesConfigSection() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle>{editingCategory ? 'Modifier la catégorie' : 'Ajouter une catégorie'}</DialogTitle>
+            <DialogTitle>{editingCategory ? t('categories.dialog.editTitle') : t('categories.dialog.addTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="category-name">Nom *</Label>
+              <Label htmlFor="category-name">{t('categories.dialog.nameLabel')}</Label>
               <Input id="category-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-input border-border" />
             </div>
             <div>
-              <Label>Icône</Label>
+              <Label>{t('categories.dialog.iconLabel')}</Label>
               <div className="grid grid-cols-6 gap-2 mt-2">
                 {iconOptions.map((option) => {
                   const Icon = iconMap[option.value];
@@ -262,7 +266,7 @@ export default function CategoriesConfigSection() {
               </div>
             </div>
             <div>
-              <Label>Couleur</Label>
+              <Label>{t('categories.dialog.colorLabel')}</Label>
               <div className="grid grid-cols-8 gap-2 mt-2">
                 {colorOptions.map((option) => (
                   <button
@@ -276,7 +280,7 @@ export default function CategoriesConfigSection() {
               </div>
             </div>
             <div className="pt-4 border-t border-border">
-              <Label>Aperçu</Label>
+              <Label>{t('categories.dialog.previewLabel')}</Label>
               <div className="flex items-center gap-3 mt-2 p-4 rounded-lg bg-secondary/50">
                 <div
                   className="p-3 rounded-xl"
@@ -288,15 +292,15 @@ export default function CategoriesConfigSection() {
                   })()}
                 </div>
                 <span className="font-semibold">
-                  {formData.name || 'Nom de la catégorie'}
+                  {formData.name || t('categories.dialog.previewPlaceholder')}
                 </span>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>{t('common:actions.cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('common:status.saving')}</> : t('common:actions.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -305,11 +309,11 @@ export default function CategoriesConfigSection() {
       {/* Dialog Suppression */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle>Confirmer la suppression</DialogTitle></DialogHeader>
-          <p className="text-muted-foreground">Êtes-vous sûr de vouloir supprimer la catégorie "{categoryToDelete?.name}" ?</p>
+          <DialogHeader><DialogTitle>{t('categories.deleteDialog.title')}</DialogTitle></DialogHeader>
+          <p className="text-muted-foreground">{t('categories.deleteDialog.message', { name: categoryToDelete?.name })}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Annuler</Button>
-            <Button variant="destructive" onClick={handleDelete}>Supprimer</Button>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>{t('common:actions.cancel')}</Button>
+            <Button variant="destructive" onClick={handleDelete}>{t('common:actions.delete')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

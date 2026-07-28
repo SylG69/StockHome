@@ -1,0 +1,195 @@
+{
+  "list": {
+    "title": "Produits",
+    "subtitle": "Gérez votre inventaire de produits",
+    "scanner": "Scanner",
+    "add": "Ajouter",
+    "noBrand": "Sans marque",
+    "noSubCategory": "Sans sous-catégorie",
+    "lowStock": "Stock bas"
+  },
+  "filters": {
+    "searchPlaceholder": "Rechercher...",
+    "category": "Catégorie",
+    "allCategories": "Toutes",
+    "location": "Emplacement",
+    "allLocations": "Tous les emplacements",
+    "nutriscoreLabel": "Nutri-Score : {{value}}",
+    "nutriscoreUnknown": "Inconnu",
+    "expandAll": "Tout déplier",
+    "collapseAll": "Tout plier",
+    "options": "Options",
+    "inStockOnly": "En stock uniquement",
+    "lowStockOnly": "Stock bas",
+    "groupDisplay": "Grouper l'affichage",
+    "resetFilters": "Réinitialiser les filtres"
+  },
+  "emptyState": {
+    "title": "Aucun produit trouvé"
+  },
+  "table": {
+    "name": "Nom",
+    "brand": "Marque",
+    "category": "Catégorie",
+    "location": "Emplacement",
+    "expiration": "Péremption",
+    "nutriscore": "Nutri-Score",
+    "quantity": "Quantité",
+    "nutriscoreTitle": "Nutri-Score {{grade}}"
+  },
+  "group": {
+    "productsCount_one": "{{count}} produit",
+    "productsCount_other": "{{count}} produits",
+    "min": "Min :",
+    "total": "Total :",
+    "renameTooltip": "Renommer la sous-catégorie"
+  },
+  "dialog": {
+    "editTitle": "Modifier",
+    "addTitle": "Ajouter",
+    "name": "Nom *",
+    "brand": "Marque",
+    "quantity": "Quantité",
+    "unitPrice": "Prix unitaire (€)",
+    "unitPricePlaceholder": "Ex: 2.50",
+    "expirationDate": "Date de péremption",
+    "category": "Catégorie",
+    "none": "Aucune",
+    "subCategory": "Sous-catégorie",
+    "subCategorySearchPlaceholder": "Chercher ou choisir...",
+    "subCategoryCommandPlaceholder": "Rechercher une sous-catégorie...",
+    "createSubCategory": "Créer \"{{name}}\"",
+    "subCategoryHint": "Tapez pour chercher/créer ou choisissez une suggestion.",
+    "location": "Emplacement",
+    "noneMasculine": "Aucun"
+  },
+  "deleteDialog": {
+    "title": "Supprimer ce produit ?",
+    "description": "Le produit <strong>{{name}}</strong> sera définitivement supprimé de votre stock. Cette action est irréversible."
+  },
+  "renameDialog": {
+    "title": "Renommer la sous-catégorie",
+    "name": "Nom",
+    "placeholder": "Tapez un nom...",
+    "searchPlaceholder": "Rechercher ou saisir un nom...",
+    "noMatch": "Aucune sous-catégorie existante avec ce nom.",
+    "mergeHint": "Choisir une sous-catégorie existante fusionnera les deux (tous les produits seront rattachés à l'existante).",
+    "confirm": "Renommer"
+  },
+  "toast": {
+    "filtersReset": "Filtres réinitialisés",
+    "loadError": "Erreur lors du chargement des données",
+    "thresholdUpdated": "Seuil mis à jour",
+    "thresholdSaveError": "Erreur de sauvegarde du seuil",
+    "nameRequired": "Le nom ne peut pas être vide",
+    "merged": "Fusionnée avec la sous-catégorie \"{{name}}\" existante",
+    "renamed": "Sous-catégorie renommée",
+    "renameError": "Erreur lors du renommage",
+    "lotDepleted": "{{name}} : lot épuisé, retiré du stock",
+    "updateError": "Erreur lors de la mise à jour",
+    "productNameRequired": "Le nom est requis",
+    "productUpdated": "Produit mis à jour",
+    "productAdded": "Produit ajouté",
+    "saveError": "Erreur lors de l'enregistrement",
+    "productDeleted": "Produit supprimé",
+    "deleteError": "Erreur lors de la suppression"
+  },
+  "detail": {
+    "header": {
+      "backButton": "Retour aux produits",
+      "editButton": "Modifier",
+      "refreshButton": "Actualiser depuis OFF",
+      "fullInfoLabel": "Information complète",
+      "noBrand": "Sans marque",
+      "barcode": "Code-barres : {{barcode}}",
+      "unitPrice": "Prix unitaire : {{price}} €",
+      "expiration": "Date de péremption : {{date}}",
+      "expired": " (périmé)"
+    },
+    "health": {
+      "title": "Santé",
+      "loading": "Récupération des données nutritionnelles...",
+      "noBarcode": "Aucun code-barres associé à ce produit : les informations Open Food Facts ne sont pas disponibles."
+    },
+    "nutriscore": {
+      "unavailable": "Nutri-Score non disponible",
+      "label": "Nutri-Score {{grade}}",
+      "text": {
+        "a": "Très bonne qualité nutritionnelle",
+        "b": "Bonne qualité nutritionnelle",
+        "c": "Qualité nutritionnelle moyenne",
+        "d": "Qualité nutritionnelle plus faible",
+        "e": "Moins bonne qualité nutritionnelle"
+      }
+    },
+    "nutrientLevels": {
+      "title": "Repères nutritionnels",
+      "high": " en quantité élevée",
+      "moderate": " en quantité modérée",
+      "low": " en faible quantité",
+      "percent": " ({{value}}%)"
+    },
+    "nutrientLabels": {
+      "fat": "Matières grasses",
+      "saturatedFat": "Acides gras saturés",
+      "sugars": "Sucres",
+      "salt": "Sel"
+    },
+    "off": {
+      "fullTitle": "Fiche Open Food Facts complète",
+      "loadingFull": "Chargement de la fiche complète...",
+      "source": "Source : {{source}}",
+      "noData": "Aucune donnée Open Food Facts disponible pour ce produit.",
+      "barcode": "Code-barres : ",
+      "genericName": "Dénomination générique",
+      "quantity": "Quantité",
+      "packaging": "Emballage",
+      "brands": "Marques",
+      "categories": "Catégories",
+      "labels": "Labels, certifications, récompenses",
+      "allergens": "Allergènes",
+      "origins": "Origine des ingrédients",
+      "manufacturingPlaces": "Lieux de fabrication ou de transformation",
+      "stores": "Magasins",
+      "countries": "Pays de vente",
+      "ingredients": "Ingrédients :",
+      "toggleRawShow": "Voir",
+      "toggleRawHide": "Masquer",
+      "toggleRawSuffix": "toutes les données brutes Open Food Facts",
+      "matchTitle": "Correspondance avec vos préférences",
+      "nutriscoreTitle": "Nutri-Score {{grade}}",
+      "novaTitle": "Groupe NOVA {{group}}",
+      "novaLabels": {
+        "1": "Aliments non transformés ou transformés minimalement",
+        "2": "Ingrédients culinaires transformés",
+        "3": "Aliments transformés",
+        "4": "Aliments ultra-transformés"
+      },
+      "ecoscoreTitle": "Green-Score {{grade}}",
+      "ecoscoreDescription": "Impact environnemental estimé"
+    },
+    "toast": {
+      "notFound": "Produit introuvable",
+      "nameRequired": "Le nom est requis",
+      "updated": "Produit mis à jour",
+      "offRefreshed": "Données Open Food Facts actualisées",
+      "offRefreshError": "Erreur lors de l'actualisation"
+    },
+    "editDialog": {
+      "title": "Modifier le produit",
+      "name": "Nom *",
+      "brand": "Marque",
+      "quantity": "Quantité",
+      "unitPrice": "Prix unitaire (€)",
+      "unitPricePlaceholder": "Ex: 2.50",
+      "expirationDate": "Date de péremption",
+      "category": "Catégorie",
+      "none": "Aucune",
+      "subCategory": "Sous-catégorie",
+      "location": "Emplacement",
+      "noneMasculine": "Aucun",
+      "minQuantity": "Quantité minimale",
+      "description": "Description"
+    }
+  }
+}

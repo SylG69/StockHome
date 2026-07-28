@@ -1,0 +1,102 @@
+{
+  "page": {
+    "title": "Escáner",
+    "subtitle": "Escanea un código de barras para añadir o actualizar un producto"
+  },
+  "mode": {
+    "title": "Modo de escaneo",
+    "active": "Activo",
+    "add": "Añadir manual",
+    "shopping": "Vuelta de la compra",
+    "consume": "Consumo",
+    "descriptionAdd": "Cada escaneo abre una ficha para añadir el producto manualmente.",
+    "descriptionShopping": "Sonido de aviso, incremento automático (+1) y guardado instantáneo en segundo plano.",
+    "descriptionConsume": "Sonido de aviso, decremento automático (-1) del producto escaneado en tu stock."
+  },
+  "camera": {
+    "title": "Escanear con la cámara",
+    "switchCamera": "Cambiar de cámara",
+    "torchOn": "Apagar el flash",
+    "torchOff": "Encender el flash",
+    "disabled": "Cámara desactivada",
+    "start": "Iniciar cámara",
+    "stop": "Detener cámara",
+    "accessError": "No se puede acceder a la cámara. Comprueba los permisos."
+  },
+  "manual": {
+    "title": "Entrada manual / lector USB",
+    "usbLabel": "Lector USB",
+    "usbHint": "Si usas un lector USB, escanea directamente el producto.",
+    "inputLabel": "O introduce el código manualmente",
+    "inputPlaceholder": "Ej: 3017620422003"
+  },
+  "howItWorks": {
+    "title": "¿Cómo funciona?",
+    "step1Title": "Escanea el código de barras",
+    "step1Text": "Cámara optimizada, lector USB o entrada manual.",
+    "step2Title": "Verifica o almacena en cadena",
+    "step2Text": "El modo clásico muestra la ficha, el modo compra automatiza la acción.",
+    "step3Title": "Añade a tu stock",
+    "step3Text": "Define la cantidad global y la ubicación."
+  },
+  "buffer": {
+    "title": "Zona temporal — códigos no encontrados",
+    "clear": "Vaciar",
+    "description": "Estos códigos de barras escaneados en modo compra no se encontraron ni en tu stock ni en Open Food Facts. Por eso no se han añadido automáticamente. Complétalos manualmente o elimínalos.",
+    "scannedAt": "Escaneado a las {{time}}",
+    "complete": "Completar",
+    "remove": "Quitar de la zona temporal"
+  },
+  "dialog": {
+    "foundInStock": "Producto encontrado en tu stock",
+    "noBrand": "Sin marca",
+    "stockQuantity": "Cantidad en stock",
+    "close": "Cerrar",
+    "viewProducts": "Ver productos",
+    "productFound": "Producto encontrado",
+    "newProduct": "Nuevo producto",
+    "source": "Base de datos asociada",
+    "unknownProduct": "Producto desconocido",
+    "unlisted": "Producto no catalogado. Es posible introducirlo manualmente.",
+    "name": "Nombre *",
+    "brand": "Marca",
+    "quantity": "Cantidad *",
+    "unitPrice": "Precio unitario (€)",
+    "unitPricePlaceholder": "Ej: 2.50",
+    "averagePrice_one": "Precio medio observado (Open Prices, {{count}} dato): {{price}} {{currency}}",
+    "averagePrice_other": "Precio medio observado (Open Prices, {{count}} datos): {{price}} {{currency}}",
+    "expirationDate": "Fecha de caducidad",
+    "category": "Categoría *",
+    "categoryPlaceholder": "Seleccionar",
+    "subCategory": "Subcategoría",
+    "subCategorySearchPlaceholder": "Buscar...",
+    "subCategoryCommandPlaceholder": "Buscar...",
+    "createSubCategory": "Crear \"{{name}}\"",
+    "location": "Ubicación *",
+    "locationPlaceholder": "Seleccionar",
+    "addToStock": "Añadir al stock",
+    "saving": "Guardando..."
+  },
+  "toast": {
+    "torchUnavailable": "El flash no está disponible en este dispositivo",
+    "consumeAlreadyZero": "{{name}}: el stock ya está a 0",
+    "consumeSuccess_one": "-1: {{name}} (queda {{remaining}} {{unit}})",
+    "consumeSuccess_other": "-1: {{name}} (quedan {{remaining}} {{unit}})",
+    "consumeNotFound": "Producto no encontrado en tu stock (código {{barcode}})",
+    "bufferedNotFound": "Código {{barcode}} no encontrado — apartado en la zona temporal",
+    "shoppingAdded": "+1 añadido: {{name}}",
+    "shoppingError": "Error durante la adición automática",
+    "enterBarcode": "Introduce un código de barras",
+    "lotDepleted": "Lote agotado, retirado del stock",
+    "quantityUpdated": "Cantidad actualizada: {{quantity}}",
+    "updateError": "Error al actualizar",
+    "searchError": "Error al buscar",
+    "missingFields": "Faltan campos obligatorios: {{fields}}",
+    "fieldQuantity": "Cantidad",
+    "fieldCategory": "Categoría",
+    "fieldLocation": "Ubicación",
+    "productAdded": "Producto añadido al stock",
+    "saveError": "Error al guardar",
+    "unknownProductWithBarcode": "Producto desconocido ({{barcode}})"
+  }
+}
