@@ -121,7 +121,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl" data-testid="profile-page">
+    <div className="space-y-6 max-w-2xl mx-auto" data-testid="profile-page">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{t('page.title')}</h1>
         <p className="text-muted-foreground mt-1">{t('page.subtitle')}</p>
