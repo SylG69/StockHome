@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { completePendingInvite } from '../lib/pendingInvite';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -11,7 +12,7 @@ import { Home, Loader2, Eye, EyeOff, Github } from 'lucide-react';
 
 export default function LoginPage() {
   const { t } = useTranslation('auth');
-  const { login, loginWithToken } = useAuth();
+  const { login, loginWithToken, api } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -62,7 +63,8 @@ export default function LoginPage() {
 
         // Connexion réussie !
         toast.success(t('login.googleSuccess'));
-        navigate('/'); // Redirection vers le tableau de bord après la connexion
+        const joined = await completePendingInvite(api);
+        navigate(joined ? '/household' : '/');
       } catch (error) {
         toast.error(error.message || t('login.googleGenericError'));
       } finally {
@@ -139,7 +141,8 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success(t('login.success'));
-      navigate('/');
+      const joined = await completePendingInvite(api);
+      navigate(joined ? '/household' : '/');
     } catch (error) {
       // Le backend renvoie un 403 avec un message explicite pour les
       // comptes en attente de validation ("pending") ou désactivés :

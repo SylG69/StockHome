@@ -220,7 +220,7 @@ export default function Layout() {
 
       {/* Mobile Menu */}
       <div
-        className={`lg:hidden fixed top-16 left-0 right-0 bottom-0 bg-card z-40 transform transition-transform duration-300 ${
+        className={`lg:hidden fixed top-16 left-0 right-0 bottom-0 bg-card z-40 flex flex-col overflow-y-auto transform transition-transform duration-300 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -249,7 +249,7 @@ export default function Layout() {
           )}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+        <div className="mt-auto p-4 border-t border-border">
           <FooterLinks onNavigate={() => setMobileMenuOpen(false)} />
           <VersionBadge />
           <HouseholdSwitcher />

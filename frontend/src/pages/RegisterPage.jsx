@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { completePendingInvite } from '../lib/pendingInvite';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -11,7 +12,7 @@ import { Home, Loader2, Eye, EyeOff, Clock } from 'lucide-react';
 
 export default function RegisterPage() {
   const { t } = useTranslation('auth');
-  const { register } = useAuth();
+  const { register, api } = useAuth();
   const navigate = useNavigate();
   const [username, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -54,7 +55,8 @@ export default function RegisterPage() {
         // AuthContext a stocké le token, PublicRoute redirigera vers "/",
         // mais on navigue explicitement pour ne pas dépendre du re-render.
         toast.success(t('register.success'));
-        navigate('/');
+        const joined = await completePendingInvite(api);
+        navigate(joined ? '/household' : '/');
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || t('register.genericError'));

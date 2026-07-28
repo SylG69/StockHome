@@ -3,6 +3,9 @@
     "placeholder": "Foyer actif",
     "personal": "Personnel"
   },
+  "joinPage": {
+    "processing": "Connexion à votre foyer en cours..."
+  },
   "page": {
     "title": "Mon foyer",
     "subtitle": "Partagez votre stock avec d'autres comptes en les invitant dans votre foyer.",
@@ -15,6 +18,9 @@
     "inviteCodeLabel": "Code d'invitation :",
     "copy": "Copier",
     "regenerate": "Régénérer",
+    "showQrCode": "Afficher le QR code",
+    "hideQrCode": "Masquer le QR code",
+    "qrCodeHint": "En le scannant, on rejoint directement ce foyer (après connexion si besoin).",
     "membersTitle": "Membres ({{count}})",
     "self": "Moi",
     "roleAdminShort": "Admin",

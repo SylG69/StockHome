@@ -16,7 +16,8 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { RefreshCw, Copy, UserMinus, LogOut, Plus, KeyRound, Home, Users, Trash2 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { RefreshCw, Copy, UserMinus, LogOut, Plus, KeyRound, Home, Users, Trash2, QrCode } from 'lucide-react';
 
 export default function HouseholdPage() {
   const { t } = useTranslation('household');
@@ -28,6 +29,7 @@ export default function HouseholdPage() {
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [transferTargetId, setTransferTargetId] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
   const [pendingHouseholdName, setPendingHouseholdName] = useState(null);
 
   const fetchDetail = useCallback(async () => {
@@ -201,17 +203,40 @@ export default function HouseholdPage() {
             </div>
 
             {!detail.is_personal && isAdmin && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-muted-foreground">{t('card.inviteCodeLabel')}</span>
-                <code className="px-2 py-1 rounded bg-secondary font-mono text-sm">{detail.invite_code}</code>
-                <Button size="sm" variant="ghost" onClick={handleCopyCode}>
-                  <Copy className="w-4 h-4 mr-1" />
-                  {t('card.copy')}
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleRegenerateCode} disabled={busy}>
-                  <KeyRound className="w-4 h-4 mr-1" />
-                  {t('card.regenerate')}
-                </Button>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground">{t('card.inviteCodeLabel')}</span>
+                  <code className="px-2 py-1 rounded bg-secondary font-mono text-sm">{detail.invite_code}</code>
+                  <Button size="sm" variant="ghost" onClick={handleCopyCode}>
+                    <Copy className="w-4 h-4 mr-1" />
+                    {t('card.copy')}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleRegenerateCode} disabled={busy}>
+                    <KeyRound className="w-4 h-4 mr-1" />
+                    {t('card.regenerate')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowQrCode((prev) => !prev)}
+                    data-testid="toggle-qr-code-btn"
+                  >
+                    <QrCode className="w-4 h-4 mr-1" />
+                    {showQrCode ? t('card.hideQrCode') : t('card.showQrCode')}
+                  </Button>
+                </div>
+                {showQrCode && (
+                  <div className="flex flex-col items-center gap-2 p-4 bg-secondary/30 rounded-lg w-fit">
+                    <QRCodeSVG
+                      value={`${window.location.origin}/join?code=${detail.invite_code}`}
+                      size={160}
+                      data-testid="household-invite-qrcode"
+                    />
+                    <p className="text-xs text-muted-foreground text-center max-w-[200px]">
+                      {t('card.qrCodeHint')}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

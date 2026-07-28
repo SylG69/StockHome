@@ -3,7 +3,7 @@
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -318,13 +318,31 @@ def delete_household(
 ):
     """Supprime définitivement un foyer partagé, tout son contenu (stock,
     catégories, emplacements, liste de courses) et retire tous ses membres
-    (admin uniquement). Les utilisateurs ayant ce foyer comme actif/préféré
-    basculent automatiquement sur leur foyer personnel (ON DELETE SET NULL +
-    repli de get_active_household)."""
+    (admin uniquement).
+
+    users.active_household_id est NOT NULL en base (voir migration
+    e7a1c4f6b2d9) : un simple ON DELETE SET NULL sur la FK échouerait donc
+    avec une violation de contrainte dès qu'un membre (souvent l'admin qui
+    supprime) a ce foyer comme actif. On rebascule donc explicitement tous
+    les membres concernés vers leur foyer personnel avant de supprimer la
+    ligne, et on nettoie preferred_household_id (nullable, mais on évite une
+    référence pendante vers un foyer supprimé)."""
     _require_household_admin(db, household_id, current_user.id)
     household = db.get(models.Household, household_id)
     if household.is_personal:
         raise HTTPException(status_code=400, detail="Le foyer personnel ne peut pas être supprimé")
+
+    member_user_ids = db.execute(
+        select(models.HouseholdMember.user_id).where(models.HouseholdMember.household_id == household_id)
+    ).scalars().all()
+    for member_user_id in member_user_ids:
+        _reset_active_household_if_needed(db, member_user_id, household_id)
+
+    db.execute(
+        update(models.User)
+        .where(models.User.preferred_household_id == household_id)
+        .values(preferred_household_id=None)
+    )
 
     db.delete(household)
     db.commit()

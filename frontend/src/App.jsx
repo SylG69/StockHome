@@ -14,6 +14,7 @@ import ShoppingListPage from './pages/ShoppingListPage';
 import ScannerPage from './pages/ScannerPage';
 import UsersPage from './pages/UsersPage';
 import HouseholdPage from './pages/HouseholdPage';
+import JoinHouseholdPage from './pages/JoinHouseholdPage';
 import ProfilePage from './pages/ProfilePage';
 import AboutPage from './pages/AboutPage';
 import SponsorPage from './pages/SponsorPage';
@@ -98,6 +99,10 @@ function AppRoutes() {
           redirection une fois l'échange terminé, et l'utilisateur n'est pas
           encore authentifié au moment où GitHub redirige dessus. */}
       <Route path="/auth/github/callback" element={<GithubCallbackPage />} />
+      {/* Ouverte en scannant le QR code d'invitation : pas de wrapper ici
+          non plus, JoinHouseholdPage gère elle-même le cas connecté/non
+          connecté (voir lib/pendingInvite pour le cas non connecté). */}
+      <Route path="/join" element={<JoinHouseholdPage />} />
       <Route
         path="/"
         element={

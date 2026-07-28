@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { completePendingInvite } from '../lib/pendingInvite';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -13,7 +14,7 @@ export default function GithubCallbackPage() {
   const { t } = useTranslation('auth');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { loginWithToken } = useAuth();
+  const { loginWithToken, api } = useAuth();
   // Un code d'autorisation GitHub n'est utilisable qu'une seule fois : ce
   // ref évite un double-échange si l'effet se déclenche deux fois (ex.
   // React StrictMode en dev), ce qui ferait échouer le second appel.
@@ -72,7 +73,8 @@ export default function GithubCallbackPage() {
         const data = await res.json();
         loginWithToken(data.access_token, data.user);
         toast.success(t('githubCallback.success'));
-        navigate('/');
+        const joined = await completePendingInvite(api);
+        navigate(joined ? '/household' : '/');
       } catch (err) {
         toast.error(err.message || t('githubCallback.genericError'));
         navigate('/login');
