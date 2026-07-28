@@ -26,6 +26,18 @@ import en_profile from '../locales/en/profile.json';
 import en_users from '../locales/en/users.json';
 import en_static from '../locales/en/static.json';
 
+import es_common from '../locales/es/common.json';
+import es_auth from '../locales/es/auth.json';
+import es_dashboard from '../locales/es/dashboard.json';
+import es_products from '../locales/es/products.json';
+import es_scanner from '../locales/es/scanner.json';
+import es_configuration from '../locales/es/configuration.json';
+import es_shoppingList from '../locales/es/shoppingList.json';
+import es_household from '../locales/es/household.json';
+import es_profile from '../locales/es/profile.json';
+import es_users from '../locales/es/users.json';
+import es_static from '../locales/es/static.json';
+
 // Ajouter une langue plus tard = ajouter un bloc "resources.xx" ici (imports
 // des JSON du dossier locales/xx) + une entrée dans src/i18n/languages.js.
 export const resources = {
@@ -55,6 +67,19 @@ export const resources = {
     users: en_users,
     static: en_static,
   },
+  es: {
+    common: es_common,
+    auth: es_auth,
+    dashboard: es_dashboard,
+    products: es_products,
+    scanner: es_scanner,
+    configuration: es_configuration,
+    shoppingList: es_shoppingList,
+    household: es_household,
+    profile: es_profile,
+    users: es_users,
+    static: es_static,
+  },
 };
 
 i18n
@@ -63,7 +88,7 @@ i18n
   .init({
     resources,
     fallbackLng: 'fr',
-    supportedLngs: ['fr', 'en'],
+    supportedLngs: ['fr', 'en', 'es'],
     ns: Object.keys(resources.fr),
     defaultNS: 'common',
     detection: {

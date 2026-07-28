@@ -1,0 +1,107 @@
+{
+  "page": {
+    "title": "Configuración",
+    "subtitle": "Gestiona los ajustes de tu stock doméstico",
+    "categories": "Categorías",
+    "locations": "Ubicaciones"
+  },
+  "categories": {
+    "title": "Categorías",
+    "subtitle": "Organiza tus productos por categorías",
+    "addButton": "Añadir una categoría",
+    "empty": {
+      "title": "Sin categorías"
+    },
+    "toast": {
+      "loadError": "Error al cargar las categorías",
+      "nameRequired": "El nombre de la categoría es obligatorio",
+      "updated": "Categoría actualizada",
+      "created": "Categoría creada",
+      "deleted": "Categoría eliminada",
+      "deleteError": "Error al eliminar"
+    },
+    "dialog": {
+      "editTitle": "Editar categoría",
+      "addTitle": "Añadir una categoría",
+      "nameLabel": "Nombre *",
+      "iconLabel": "Icono",
+      "colorLabel": "Color",
+      "previewLabel": "Vista previa",
+      "previewPlaceholder": "Nombre de la categoría"
+    },
+    "deleteDialog": {
+      "title": "Confirmar eliminación",
+      "message": "¿Seguro que quieres eliminar la categoría \"{{name}}\"?"
+    },
+    "icons": {
+      "food": "Alimentación",
+      "beverages": "Bebidas",
+      "hygiene": "Higiene",
+      "cleaning": "Limpieza",
+      "general": "General",
+      "animals": "Mascotas",
+      "folder": "Carpeta"
+    },
+    "colors": {
+      "green": "Verde",
+      "blue": "Azul",
+      "purple": "Morado",
+      "orange": "Naranja",
+      "red": "Rojo",
+      "gray": "Gris",
+      "pink": "Rosa",
+      "turquoise": "Turquesa"
+    }
+  },
+  "locations": {
+    "title": "Ubicaciones",
+    "subtitle": "Gestiona tus ubicaciones de almacenamiento",
+    "addButton": "Añadir una ubicación",
+    "empty": {
+      "title": "Sin ubicaciones",
+      "description": "Crea ubicaciones para organizar tus productos"
+    },
+    "toast": {
+      "loadError": "Error al cargar las ubicaciones",
+      "nameRequired": "El nombre de la ubicación es obligatorio",
+      "updated": "Ubicación actualizada",
+      "created": "Ubicación creada",
+      "deleted": "Ubicación eliminada",
+      "deleteError": "Error al eliminar"
+    },
+    "dialog": {
+      "editTitle": "Editar ubicación",
+      "addTitle": "Añadir una ubicación",
+      "nameLabel": "Nombre *",
+      "descriptionLabel": "Descripción",
+      "descriptionPlaceholder": "Descripción opcional",
+      "iconLabel": "Icono",
+      "colorLabel": "Color",
+      "previewLabel": "Vista previa",
+      "previewPlaceholder": "Nombre de la ubicación"
+    },
+    "deleteDialog": {
+      "title": "Confirmar eliminación",
+      "message": "¿Seguro que quieres eliminar la ubicación \"{{name}}\"? Los productos asociados no se eliminarán, pero dejarán de tener ubicación."
+    },
+    "icons": {
+      "home": "Casa",
+      "kitchen": "Cocina",
+      "fridge": "Nevera",
+      "bathroom": "Baño",
+      "garage": "Garaje",
+      "car": "Coche",
+      "other": "Otro"
+    },
+    "colors": {
+      "green": "Verde",
+      "blue": "Azul",
+      "purple": "Morado",
+      "orange": "Naranja",
+      "red": "Rojo",
+      "gray": "Gris",
+      "pink": "Rosa",
+      "turquoise": "Turquesa"
+    }
+  }
+}

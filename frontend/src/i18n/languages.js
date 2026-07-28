@@ -4,4 +4,5 @@
 export const AVAILABLE_LANGUAGES = [
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
   { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
 ];

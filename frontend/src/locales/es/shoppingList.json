@@ -1,0 +1,38 @@
+{
+  "errors": {
+    "loadError": "Error al cargar",
+    "emptyList": "Lista vacía",
+    "generic": "Error",
+    "generationError": "Error de generación"
+  },
+  "export": {
+    "copiedApple": "¡Copiado! Pégalo en Notas.",
+    "copiedAndroid": "¡Copiado! Pégalo en Google Keep.",
+    "copiedGeneric": "¡Lista copiada!",
+    "notes": "Notas",
+    "keep": "Keep"
+  },
+  "sufficientStock": "El stock es suficiente según tus ajustes.",
+  "groupsAdded_one": "{{count}} grupo añadido",
+  "groupsAdded_other": "{{count}} grupos añadidos",
+  "generate": "Generar",
+  "add": "Añadir",
+  "page": {
+    "title": "Lista de la compra",
+    "subtitle": "Basado en el stock de los grupos"
+  },
+  "stats": {
+    "toBuy": "Por comprar",
+    "inCart": "En el carrito"
+  },
+  "identifiedNeeds": "Necesidades identificadas",
+  "group": "Grupo",
+  "inCartTitle": "En el carrito",
+  "emptyCart": "Vaciar el carrito",
+  "allInStock": "¡Todo está en stock!",
+  "addDialog": {
+    "title": "Añadir manualmente",
+    "namePlaceholder": "Nombre del artículo...",
+    "unitPlaceholder": "Unidad"
+  }
+}

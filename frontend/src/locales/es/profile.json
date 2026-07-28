@@ -1,0 +1,58 @@
+{
+  "authMethods": {
+    "email": "Correo y contraseña",
+    "google": "Google",
+    "github": "GitHub",
+    "apple": "Apple"
+  },
+  "roles": {
+    "admin": {
+      "label": "Administrador",
+      "description": "Acceso completo: lectura, modificación y gestión de usuarios."
+    },
+    "user": {
+      "label": "Usuario",
+      "description": "Acceso estándar: gestión de tu propio stock."
+    }
+  },
+  "errors": {
+    "usernameRequired": "El nombre de usuario no puede estar vacío",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "passwordTooShort": "La nueva contraseña debe tener al menos 6 caracteres",
+    "saveError": "Error al guardar"
+  },
+  "noChanges": "No hay cambios que guardar",
+  "updated": "Perfil actualizado",
+  "page": {
+    "title": "Mi perfil",
+    "subtitle": "Gestiona tu información personal"
+  },
+  "loginLabel": "Usuario: {{username}}",
+  "editSection": {
+    "title": "Editar mi información",
+    "firstName": "Nombre",
+    "lastName": "Apellidos",
+    "username": "Nombre de usuario (login)"
+  },
+  "passwordSection": {
+    "changeTitle": "Cambiar contraseña",
+    "setTitle": "Establecer una contraseña",
+    "optional": "(opcional)",
+    "noPasswordHint": "Tu cuenta inicia sesión mediante Google y todavía no tiene contraseña. Puedes establecer una aquí para poder iniciar sesión también con tu correo.",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar"
+  },
+  "saving": "Guardando...",
+  "saveChanges": "Guardar cambios",
+  "languageSection": {
+    "title": "Idioma"
+  },
+  "preferredHousehold": {
+    "title": "Hogar preferido",
+    "householdLabel": "Hogar",
+    "placeholder": "Ningún hogar preferido",
+    "none": "Ninguno",
+    "autoSwitchLabel": "Cambiar automáticamente a este hogar al iniciar sesión"
+  }
+}
