@@ -9,6 +9,7 @@ import fr_products from '../locales/fr/products.json';
 import fr_scanner from '../locales/fr/scanner.json';
 import fr_configuration from '../locales/fr/configuration.json';
 import fr_shoppingList from '../locales/fr/shoppingList.json';
+import fr_chores from '../locales/fr/chores.json';
 import fr_household from '../locales/fr/household.json';
 import fr_profile from '../locales/fr/profile.json';
 import fr_users from '../locales/fr/users.json';
@@ -21,6 +22,7 @@ import en_products from '../locales/en/products.json';
 import en_scanner from '../locales/en/scanner.json';
 import en_configuration from '../locales/en/configuration.json';
 import en_shoppingList from '../locales/en/shoppingList.json';
+import en_chores from '../locales/en/chores.json';
 import en_household from '../locales/en/household.json';
 import en_profile from '../locales/en/profile.json';
 import en_users from '../locales/en/users.json';
@@ -33,6 +35,7 @@ import es_products from '../locales/es/products.json';
 import es_scanner from '../locales/es/scanner.json';
 import es_configuration from '../locales/es/configuration.json';
 import es_shoppingList from '../locales/es/shoppingList.json';
+import es_chores from '../locales/es/chores.json';
 import es_household from '../locales/es/household.json';
 import es_profile from '../locales/es/profile.json';
 import es_users from '../locales/es/users.json';
@@ -49,6 +52,7 @@ export const resources = {
     scanner: fr_scanner,
     configuration: fr_configuration,
     shoppingList: fr_shoppingList,
+    chores: fr_chores,
     household: fr_household,
     profile: fr_profile,
     users: fr_users,
@@ -62,6 +66,7 @@ export const resources = {
     scanner: en_scanner,
     configuration: en_configuration,
     shoppingList: en_shoppingList,
+    chores: en_chores,
     household: en_household,
     profile: en_profile,
     users: en_users,
@@ -75,6 +80,7 @@ export const resources = {
     scanner: es_scanner,
     configuration: es_configuration,
     shoppingList: es_shoppingList,
+    chores: es_chores,
     household: es_household,
     profile: es_profile,
     users: es_users,

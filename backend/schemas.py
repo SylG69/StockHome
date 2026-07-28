@@ -283,3 +283,67 @@ class OpenFoodFactsProduct(BaseModel):
     suggested_price: Optional[float] = None
     suggested_price_currency: Optional[str] = None
     suggested_price_count: int = 0
+
+# ==================== CHORES ====================
+
+class ChoreBase(BaseModel):
+    """Base décrivant les champs communs d'une corvée (planification + attribution)."""
+    name: str
+    description: Optional[str] = ""
+    period_type: str = "manually"  # hourly | daily | weekly | monthly | yearly | manually
+    period_hours: Optional[int] = None  # hourly
+    period_days: Optional[int] = None  # daily
+    weekdays: Optional[List[int]] = None  # weekly, ISO 1 (lundi) à 7 (dimanche)
+    month_days: Optional[List[int]] = None  # monthly, jours du mois 1-31
+    yearly_month: Optional[int] = None  # yearly, 1-12
+    yearly_day: Optional[int] = None  # yearly, 1-31
+    assignment_type: str = "no-assignment"  # no-assignment | in-alphabetical-order | random | who-least-did-first
+    assigned_user_id: Optional[str] = None  # assigné initial explicite (facultatif)
+
+class ChoreCreate(ChoreBase):
+    """Requête de création d'une corvée."""
+    pass
+
+class ChoreUpdate(BaseModel):
+    """Modèle de mise à jour partielle d'une corvée."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    period_type: Optional[str] = None
+    period_hours: Optional[int] = None
+    period_days: Optional[int] = None
+    weekdays: Optional[List[int]] = None
+    month_days: Optional[List[int]] = None
+    yearly_month: Optional[int] = None
+    yearly_day: Optional[int] = None
+    assignment_type: Optional[str] = None
+    assigned_user_id: Optional[str] = None
+
+class ChoreResponse(ChoreBase):
+    """Réponse API pour une corvée, avec état calculé (échéance, statut, assigné)."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    user_id: str
+    household_id: str
+    last_done_at: Optional[datetime] = None
+    next_due_at: Optional[datetime] = None
+    # "overdue" | "due_today" | "due_soon" | "upcoming" | "no_schedule"
+    status: str = "no_schedule"
+    assigned_user_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class ChoreLogResponse(BaseModel):
+    """Réponse API pour une entrée du journal d'exécution d'une corvée."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    chore_id: str
+    executed_by_user_id: Optional[str] = None
+    executed_by_username: Optional[str] = None
+    executed_at: datetime
+    previous_due_date: Optional[datetime] = None
+    new_due_date: Optional[datetime] = None
+
+class ChoreExecuteResponse(BaseModel):
+    """Réponse renvoyée après avoir marqué une corvée comme faite."""
+    chore: ChoreResponse
+    log: ChoreLogResponse

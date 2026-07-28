@@ -1,0 +1,458 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
+import { Badge } from '../components/ui/badge';
+import { Label } from '../components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../components/ui/sheet';
+import { toast } from 'sonner';
+import {
+  ListChecks,
+  Plus,
+  Trash2,
+  Check,
+  Loader2,
+  Clock,
+  AlarmClock,
+  History,
+  Undo2,
+  User,
+} from 'lucide-react';
+
+const PERIOD_TYPES = ['manually', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'];
+const ASSIGNMENT_TYPES = ['no-assignment', 'in-alphabetical-order', 'random', 'who-least-did-first'];
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7]; // ISO : 1 = lundi ... 7 = dimanche
+
+const STATUS_STYLES = {
+  overdue: 'bg-red-500/10 text-red-600 border-red-500/30',
+  due_today: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+  due_soon: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30',
+  upcoming: 'bg-secondary text-muted-foreground border-transparent',
+  no_schedule: 'bg-secondary text-muted-foreground border-transparent',
+};
+
+const EMPTY_FORM = {
+  name: '',
+  description: '',
+  period_type: 'manually',
+  period_hours: 4,
+  period_days: 1,
+  weekdays: [],
+  month_days: '',
+  yearly_month: 1,
+  yearly_day: 1,
+  assignment_type: 'no-assignment',
+  assigned_user_id: '',
+};
+
+function parseMonthDays(value) {
+  return value
+    .split(',')
+    .map((v) => parseInt(v.trim(), 10))
+    .filter((v) => Number.isInteger(v) && v >= 1 && v <= 31);
+}
+
+export default function ChoresPage() {
+  const { t } = useTranslation('chores');
+  const { api, activeHousehold } = useAuth();
+  const [chores, setChores] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+
+  const [journalChore, setJournalChore] = useState(null);
+  const [journalLogs, setJournalLogs] = useState([]);
+  const [journalLoading, setJournalLoading] = useState(false);
+
+  const fetchChores = useCallback(async () => {
+    try {
+      const response = await api.get('/chores');
+      setChores(response.data);
+    } catch (error) {
+      toast.error(t('errors.loadError'));
+    } finally {
+      setLoading(false);
+    }
+  }, [api, t]);
+
+  const fetchMembers = useCallback(async () => {
+    if (!activeHousehold) return;
+    try {
+      const response = await api.get(`/households/${activeHousehold.id}/members`);
+      setMembers(response.data);
+    } catch (error) {
+      // Silencieux : l'attribution manuelle est juste indisponible si ça échoue.
+    }
+  }, [api, activeHousehold]);
+
+  useEffect(() => {
+    fetchChores();
+    fetchMembers();
+  }, [fetchChores, fetchMembers]);
+
+  const openCreateDialog = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (chore) => {
+    setEditingId(chore.id);
+    setForm({
+      name: chore.name,
+      description: chore.description || '',
+      period_type: chore.period_type,
+      period_hours: chore.period_hours || 4,
+      period_days: chore.period_days || 1,
+      weekdays: chore.weekdays || [],
+      month_days: (chore.month_days || []).join(','),
+      yearly_month: chore.yearly_month || 1,
+      yearly_day: chore.yearly_day || 1,
+      assignment_type: chore.assignment_type,
+      assigned_user_id: chore.assigned_user_id || '',
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name,
+        description: form.description,
+        period_type: form.period_type,
+        assignment_type: form.assignment_type,
+        assigned_user_id: form.assigned_user_id || null,
+        period_hours: form.period_type === 'hourly' ? Number(form.period_hours) || 1 : null,
+        period_days: form.period_type === 'daily' ? Number(form.period_days) || 1 : null,
+        weekdays: form.period_type === 'weekly' ? form.weekdays.map(Number) : null,
+        month_days: form.period_type === 'monthly' ? parseMonthDays(form.month_days) : null,
+        yearly_month: form.period_type === 'yearly' ? Number(form.yearly_month) : null,
+        yearly_day: form.period_type === 'yearly' ? Number(form.yearly_day) : null,
+      };
+
+      if (editingId) {
+        await api.put(`/chores/${editingId}`, payload);
+      } else {
+        await api.post('/chores', payload);
+      }
+      setDialogOpen(false);
+      await fetchChores();
+      toast.success(t(editingId ? 'saved' : 'created'));
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('errors.generic'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (choreId) => {
+    try {
+      await api.delete(`/chores/${choreId}`);
+      setChores((prev) => prev.filter((c) => c.id !== choreId));
+      toast.success(t('deleted'));
+    } catch (error) {
+      toast.error(t('errors.generic'));
+    }
+  };
+
+  const handleExecute = async (choreId) => {
+    try {
+      const response = await api.post(`/chores/${choreId}/execute`);
+      setChores((prev) => prev.map((c) => (c.id === choreId ? response.data.chore : c)));
+      toast.success(t('markedDone'));
+    } catch (error) {
+      toast.error(t('errors.generic'));
+    }
+  };
+
+  const openJournal = async (chore) => {
+    setJournalChore(chore);
+    setJournalLoading(true);
+    try {
+      const response = await api.get(`/chores/${chore.id}/logs`);
+      setJournalLogs(response.data);
+    } catch (error) {
+      toast.error(t('errors.loadError'));
+    } finally {
+      setJournalLoading(false);
+    }
+  };
+
+  const handleUndo = async (logId) => {
+    try {
+      await api.delete(`/chores/logs/${logId}`);
+      toast.success(t('undone'));
+      const response = await api.get(`/chores/${journalChore.id}/logs`);
+      setJournalLogs(response.data);
+      await fetchChores();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('errors.generic'));
+    }
+  };
+
+  const overdueCount = chores.filter((c) => c.status === 'overdue').length;
+  const dueTodayCount = chores.filter((c) => c.status === 'due_today').length;
+  const dueSoonCount = chores.filter((c) => c.status === 'due_soon').length;
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="animate-spin h-12 w-12 text-primary" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{t('page.title')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm italic">{t('page.subtitle')}</p>
+        </div>
+        <Button onClick={openCreateDialog} className="btn-glow">
+          <Plus className="w-4 h-4 mr-2" /> {t('add')}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-red-500/10"><AlarmClock className="w-6 h-6 text-red-600" /></div>
+            <div><p className="text-2xl font-bold">{overdueCount}</p><p className="text-sm text-muted-foreground">{t('stats.overdue')}</p></div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-blue-500/10"><Clock className="w-6 h-6 text-blue-600" /></div>
+            <div><p className="text-2xl font-bold">{dueTodayCount}</p><p className="text-sm text-muted-foreground">{t('stats.dueToday')}</p></div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-yellow-500/10"><ListChecks className="w-6 h-6 text-yellow-700" /></div>
+            <div><p className="text-2xl font-bold">{dueSoonCount}</p><p className="text-sm text-muted-foreground">{t('stats.dueSoon')}</p></div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {chores.length > 0 ? (
+        <Card className="bg-card border-border">
+          <CardHeader><CardTitle className="text-lg font-semibold">{t('list.title')}</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {chores.map((chore) => (
+              <div key={chore.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold">{chore.name}</span>
+                    <Badge variant="outline" className={STATUS_STYLES[chore.status]}>
+                      {t(`status.${chore.status}`)}
+                    </Badge>
+                    {chore.assigned_user_name && (
+                      <Badge variant="secondary" className="text-xs">
+                        <User className="w-3 h-3 mr-1" /> {chore.assigned_user_name}
+                      </Badge>
+                    )}
+                  </div>
+                  {chore.description && (
+                    <p className="text-sm text-muted-foreground mt-1">{chore.description}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openJournal(chore)} title={t('journal.title')}>
+                    <History className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleExecute(chore.id)}>
+                    <Check className="w-4 h-4 mr-1" /> {t('markDone')}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => openEditDialog(chore)}>
+                    {t('edit')}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(chore.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-card border-border border-dashed py-16 text-center">
+          <ListChecks className="w-16 h-16 mx-auto text-muted-foreground/20 mb-4" />
+          <p className="text-muted-foreground">{t('empty')}</p>
+        </Card>
+      )}
+
+      {/* Dialog création/édition */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="bg-card border-border max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t(editingId ? 'editDialog.title' : 'addDialog.title')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>{t('form.name')}</Label>
+              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('form.namePlaceholder')} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('form.description')}</Label>
+              <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>{t('form.periodType')}</Label>
+              <Select value={form.period_type} onValueChange={(v) => setForm((f) => ({ ...f, period_type: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PERIOD_TYPES.map((pt) => (
+                    <SelectItem key={pt} value={pt}>{t(`periodType.${pt}`)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {form.period_type === 'hourly' && (
+              <div className="space-y-1.5">
+                <Label>{t('form.periodHours')}</Label>
+                <Input type="number" min={1} value={form.period_hours} onChange={(e) => setForm((f) => ({ ...f, period_hours: e.target.value }))} />
+              </div>
+            )}
+
+            {form.period_type === 'daily' && (
+              <div className="space-y-1.5">
+                <Label>{t('form.periodDays')}</Label>
+                <Input type="number" min={1} value={form.period_days} onChange={(e) => setForm((f) => ({ ...f, period_days: e.target.value }))} />
+              </div>
+            )}
+
+            {form.period_type === 'weekly' && (
+              <div className="space-y-1.5">
+                <Label>{t('form.weekdays')}</Label>
+                <ToggleGroup
+                  type="multiple"
+                  value={form.weekdays.map(String)}
+                  onValueChange={(v) => setForm((f) => ({ ...f, weekdays: v }))}
+                  className="flex-wrap justify-start"
+                >
+                  {WEEKDAYS.map((d) => (
+                    <ToggleGroupItem key={d} value={String(d)} className="text-xs">
+                      {t(`weekday.${d}`)}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            )}
+
+            {form.period_type === 'monthly' && (
+              <div className="space-y-1.5">
+                <Label>{t('form.monthDays')}</Label>
+                <Input value={form.month_days} onChange={(e) => setForm((f) => ({ ...f, month_days: e.target.value }))} placeholder="1,15,28" />
+              </div>
+            )}
+
+            {form.period_type === 'yearly' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>{t('form.yearlyMonth')}</Label>
+                  <Input type="number" min={1} max={12} value={form.yearly_month} onChange={(e) => setForm((f) => ({ ...f, yearly_month: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t('form.yearlyDay')}</Label>
+                  <Input type="number" min={1} max={31} value={form.yearly_day} onChange={(e) => setForm((f) => ({ ...f, yearly_day: e.target.value }))} />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label>{t('form.assignmentType')}</Label>
+              <Select value={form.assignment_type} onValueChange={(v) => setForm((f) => ({ ...f, assignment_type: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ASSIGNMENT_TYPES.map((at) => (
+                    <SelectItem key={at} value={at}>{t(`assignmentType.${at}`)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {form.assignment_type !== 'no-assignment' && members.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>{t('form.initialAssignee')}</Label>
+                <Select value={form.assigned_user_id || '__none__'} onValueChange={(v) => setForm((f) => ({ ...f, assigned_user_id: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{t('form.noInitialAssignee')}</SelectItem>
+                    {members.map((m) => (
+                      <SelectItem key={m.user_id} value={m.user_id}>{m.username}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t(editingId ? 'save' : 'add')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Journal d'exécution */}
+      <Sheet open={!!journalChore} onOpenChange={(open) => !open && setJournalChore(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{t('journal.titleFor', { name: journalChore?.name })}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-2">
+            {journalLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+            ) : journalLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">{t('journal.empty')}</p>
+            ) : (
+              journalLogs.map((log, index) => (
+                <div key={log.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                  <div>
+                    <p className="text-sm font-medium">{log.executed_by_username || t('journal.unknownUser')}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(log.executed_at).toLocaleString()}</p>
+                  </div>
+                  {index === 0 && (
+                    <Button variant="ghost" size="sm" onClick={() => handleUndo(log.id)}>
+                      <Undo2 className="w-4 h-4 mr-1" /> {t('journal.undo')}
+                    </Button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
