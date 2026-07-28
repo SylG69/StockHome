@@ -44,10 +44,11 @@
   "transferDialog": {
     "title": "Transférer votre stock vers ce nouveau foyer ?",
     "descriptionBefore": "Vos produits, catégories, emplacements et liste de courses actuellement dans",
-    "descriptionAfter": "peuvent être déplacés vers le foyer que vous venez de créer. Cette action est réversible en créant un nouveau transfert plus tard, mais déplace immédiatement tout le stock actuel.",
+    "descriptionAfter": "peuvent être déplacés vers ce nouveau foyer dès sa création. Cette action est réversible en créant un nouveau transfert plus tard, mais déplace immédiatement tout le stock actuel. Si vous transférez, les catégories/emplacements par défaut ne seront pas proposés ensuite (le transfert apporte déjà les vôtres).",
     "targetPersonal": "votre foyer personnel",
     "targetNamed": "le foyer « {{name}} »",
-    "cancel": "Non, laisser vide",
+    "cancelAll": "Annuler",
+    "skip": "Non, ne pas transférer",
     "confirm": "Oui, transférer"
   },
   "deleteDialog": {

@@ -27,10 +27,14 @@ export default function HouseholdPage() {
   const [busy, setBusy] = useState(false);
   const [newHouseholdName, setNewHouseholdName] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
-  const [transferTargetId, setTransferTargetId] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
   const [pendingHouseholdName, setPendingHouseholdName] = useState(null);
+  // Étape courante de l'assistant de création : 'transfer' (proposer de
+  // transférer le foyer actif) puis, seulement si on ne transfère pas,
+  // 'defaults' (proposer les catégories/emplacements par défaut) -- les
+  // deux ne sont jamais proposés ensemble pour éviter les doublons.
+  const [createStep, setCreateStep] = useState(null);
 
   const fetchDetail = useCallback(async () => {
     if (!activeHousehold) return;
@@ -55,40 +59,58 @@ export default function HouseholdPage() {
   const handleCreateHousehold = (event) => {
     event.preventDefault();
     if (!newHouseholdName.trim()) return;
-    // Demande d'abord si les catégories/emplacements par défaut doivent être
-    // créés avant d'appeler l'API (voir handleConfirmCreateHousehold).
+    // Étape 1 : propose d'abord de transférer le foyer actif (voir
+    // handleTransferChoice) ; l'étape 2 (valeurs par défaut) ne s'affiche
+    // que si l'utilisateur refuse le transfert.
     setPendingHouseholdName(newHouseholdName.trim());
+    setCreateStep('transfer');
   };
 
-  const handleConfirmCreateHousehold = async (createDefaults) => {
+  const cancelCreateHousehold = () => {
+    setPendingHouseholdName(null);
+    setCreateStep(null);
+  };
+
+  const handleTransferChoice = (wantTransfer) => {
+    if (wantTransfer) {
+      finalizeCreateHousehold({ transfer: true, createDefaults: false });
+    } else {
+      setCreateStep('defaults');
+    }
+  };
+
+  const handleDefaultsChoice = (createDefaults) => {
+    finalizeCreateHousehold({ transfer: false, createDefaults });
+  };
+
+  const finalizeCreateHousehold = async ({ transfer, createDefaults }) => {
     if (!pendingHouseholdName) return;
     setBusy(true);
+    let createdId = null;
     try {
       const response = await api.post('/households', { name: pendingHouseholdName, create_defaults: createDefaults });
+      createdId = response.data.id;
       setNewHouseholdName('');
       await fetchHouseholds();
       toast.success(t('toast.created'));
-      setTransferTargetId(response.data.id);
     } catch (error) {
       toast.error(error?.response?.data?.detail || t('toast.createError'));
-    } finally {
       setBusy(false);
-      setPendingHouseholdName(null);
+      cancelCreateHousehold();
+      return;
     }
-  };
 
-  const handleTransferStock = async () => {
-    if (!transferTargetId) return;
-    setBusy(true);
-    try {
-      await api.post(`/households/${transferTargetId}/transfer-stock`);
-      toast.success(t('toast.transferSuccess'));
-    } catch (error) {
-      toast.error(error?.response?.data?.detail || t('toast.transferError'));
-    } finally {
-      setBusy(false);
-      setTransferTargetId(null);
+    if (transfer) {
+      try {
+        await api.post(`/households/${createdId}/transfer-stock`);
+        toast.success(t('toast.transferSuccess'));
+      } catch (error) {
+        toast.error(error?.response?.data?.detail || t('toast.transferError'));
+      }
     }
+
+    setBusy(false);
+    cancelCreateHousehold();
   };
 
   const handleJoinHousehold = async (event) => {
@@ -341,7 +363,7 @@ export default function HouseholdPage() {
         </Card>
       </div>
 
-      <AlertDialog open={!!transferTargetId} onOpenChange={(open) => !open && setTransferTargetId(null)}>
+      <AlertDialog open={createStep === 'transfer'} onOpenChange={(open) => !open && cancelCreateHousehold()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('transferDialog.title')}</AlertDialogTitle>
@@ -352,8 +374,20 @@ export default function HouseholdPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>{t('transferDialog.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleTransferStock} disabled={busy}>
+            <AlertDialogCancel disabled={busy}>{t('transferDialog.cancelAll')}</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => handleTransferChoice(false)}
+              disabled={busy}
+              data-testid="create-household-skip-transfer-btn"
+            >
+              {t('transferDialog.skip')}
+            </Button>
+            <AlertDialogAction
+              onClick={() => handleTransferChoice(true)}
+              disabled={busy}
+              data-testid="create-household-with-transfer-btn"
+            >
               {t('transferDialog.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -382,7 +416,7 @@ export default function HouseholdPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!pendingHouseholdName} onOpenChange={(open) => !open && setPendingHouseholdName(null)}>
+      <AlertDialog open={createStep === 'defaults'} onOpenChange={(open) => !open && cancelCreateHousehold()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('defaultsDialog.title')}</AlertDialogTitle>
@@ -394,14 +428,14 @@ export default function HouseholdPage() {
             <AlertDialogCancel disabled={busy}>{t('defaultsDialog.cancel')}</AlertDialogCancel>
             <Button
               variant="outline"
-              onClick={() => handleConfirmCreateHousehold(false)}
+              onClick={() => handleDefaultsChoice(false)}
               disabled={busy}
               data-testid="create-household-empty-btn"
             >
               {t('defaultsDialog.skip')}
             </Button>
             <AlertDialogAction
-              onClick={() => handleConfirmCreateHousehold(true)}
+              onClick={() => handleDefaultsChoice(true)}
               disabled={busy}
               data-testid="create-household-with-defaults-btn"
             >
