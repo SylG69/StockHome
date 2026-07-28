@@ -1,0 +1,45 @@
+{
+  "about": {
+    "title": "About",
+    "intro": "StockHome helps you manage your household stock: products, categories, locations and shopping list.",
+    "sourcesTitle": "Product data sources",
+    "sourcesIntroBefore": "When you scan a barcode, StockHome automatically queries the collaborative, open-source databases of the",
+    "sourcesIntroAfter": "project, in this order, until it gets a match:",
+    "sources": {
+      "openFoodFacts": "Food products: ingredients, Nutri-Score, nutrient levels, allergens...",
+      "openBeautyFacts": "Cosmetics and personal care products.",
+      "openPetFoodFacts": "Pet food.",
+      "openProductsFacts": "General-purpose database, used as a last resort for products not covered above."
+    },
+    "licensesTitle": "Licenses and attribution",
+    "licensesIntro": "In accordance with Open Food Facts' terms of use, we indicate that all product information displayed in StockHome (name, brand, categories, Nutri-Score, photos...) comes from these collaborative, open-source databases.",
+    "licenseDbBefore": "The database is available under the",
+    "licenseDbLink": "Open Database License (ODbL)",
+    "licenseContentBefore": "Individual product entries are available under the",
+    "licenseContentLink": "Database Contents License",
+    "licensePhotosBefore": "Product photos are available under the",
+    "licensePhotosLink": "Creative Commons Attribution ShareAlike",
+    "moreDetailsBefore": "More details on",
+    "moreDetailsLink": "the official terms of use page",
+    "donateBefore": "Open Food Facts is a non-profit association project, funded by donations. If this data is useful to you day to day, you can also",
+    "donateLink": "support Open Food Facts directly",
+    "footer": "StockHome is not affiliated with Open Food Facts; the app simply uses its public API."
+  },
+  "sponsor": {
+    "title": "Support StockHome",
+    "intro": "StockHome is a personal project, developed and maintained in my free time.",
+    "supportText": "If the app is useful to you day to day, a donation helps cover hosting and domain name costs, and keep developing new features. It's in no way mandatory — StockHome stays free and ad-free no matter what.",
+    "donateTitle": "Make a donation",
+    "donateButton": "Donate",
+    "comingSoon": "Coming soon",
+    "comingSoonTooltip": "Link coming soon",
+    "footer": "Thank you for your support, whatever form it takes — your feedback and suggestions are just as valuable!",
+    "platforms": {
+      "kofi": "One-off or monthly donations, very low fees, set up in 5 minutes.",
+      "buyMeACoffee": "Very popular alternative to Ko-fi, customizable page, one-off or recurring donations.",
+      "githubSponsors": "No fees taken by GitHub (only Stripe's) -- consistent if the code is hosted on GitHub.",
+      "liberapay": "Non-profit platform, designed for recurring donations to free/open projects.",
+      "paypal": "The simplest and most universally known option for a quick one-off donation."
+    }
+  }
+}

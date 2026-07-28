@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { I18nextProvider } from 'react-i18next';
+import i18n from './i18n';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from './components/ui/sonner';
 import LoginPage from './pages/LoginPage';
@@ -11,6 +13,8 @@ import ConfigurationPage from './pages/ConfigurationPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import ScannerPage from './pages/ScannerPage';
 import UsersPage from './pages/UsersPage';
+import HouseholdPage from './pages/HouseholdPage';
+import JoinHouseholdPage from './pages/JoinHouseholdPage';
 import ProfilePage from './pages/ProfilePage';
 import AboutPage from './pages/AboutPage';
 import SponsorPage from './pages/SponsorPage';
@@ -95,6 +99,10 @@ function AppRoutes() {
           redirection une fois l'échange terminé, et l'utilisateur n'est pas
           encore authentifié au moment où GitHub redirige dessus. */}
       <Route path="/auth/github/callback" element={<GithubCallbackPage />} />
+      {/* Ouverte en scannant le QR code d'invitation : pas de wrapper ici
+          non plus, JoinHouseholdPage gère elle-même le cas connecté/non
+          connecté (voir lib/pendingInvite pour le cas non connecté). */}
+      <Route path="/join" element={<JoinHouseholdPage />} />
       <Route
         path="/"
         element={
@@ -110,6 +118,7 @@ function AppRoutes() {
         <Route path="about" element={<AboutPage />} />
         <Route path="sponsor" element={<SponsorPage />} />
         <Route path="configuration" element={<ConfigurationPage />} />
+        <Route path="household" element={<HouseholdPage />} />
         {/* Redirections pour ne pas casser d'anciens liens/favoris vers les
             pages fusionnées. */}
         <Route path="categories" element={<Navigate to="/configuration?section=categories" replace />} />
@@ -131,12 +140,14 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-        <Toaster position="bottom-center" richColors />
-      </AuthProvider>
-    </BrowserRouter>
+    <I18nextProvider i18n={i18n}>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+          <Toaster position="bottom-center" richColors />
+        </AuthProvider>
+      </BrowserRouter>
+    </I18nextProvider>
   );
 }
 

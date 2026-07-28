@@ -1,0 +1,195 @@
+{
+  "list": {
+    "title": "Productos",
+    "subtitle": "Gestiona tu inventario de productos",
+    "scanner": "Escáner",
+    "add": "Añadir",
+    "noBrand": "Sin marca",
+    "noSubCategory": "Sin subcategoría",
+    "lowStock": "Stock bajo"
+  },
+  "filters": {
+    "searchPlaceholder": "Buscar...",
+    "category": "Categoría",
+    "allCategories": "Todas",
+    "location": "Ubicación",
+    "allLocations": "Todas las ubicaciones",
+    "nutriscoreLabel": "Nutri-Score: {{value}}",
+    "nutriscoreUnknown": "Desconocido",
+    "expandAll": "Expandir todo",
+    "collapseAll": "Contraer todo",
+    "options": "Opciones",
+    "inStockOnly": "Solo en stock",
+    "lowStockOnly": "Stock bajo",
+    "groupDisplay": "Agrupar la vista",
+    "resetFilters": "Restablecer filtros"
+  },
+  "emptyState": {
+    "title": "No se encontraron productos"
+  },
+  "table": {
+    "name": "Nombre",
+    "brand": "Marca",
+    "category": "Categoría",
+    "location": "Ubicación",
+    "expiration": "Caducidad",
+    "nutriscore": "Nutri-Score",
+    "quantity": "Cantidad",
+    "nutriscoreTitle": "Nutri-Score {{grade}}"
+  },
+  "group": {
+    "productsCount_one": "{{count}} producto",
+    "productsCount_other": "{{count}} productos",
+    "min": "Mín:",
+    "total": "Total:",
+    "renameTooltip": "Renombrar la subcategoría"
+  },
+  "dialog": {
+    "editTitle": "Editar",
+    "addTitle": "Añadir",
+    "name": "Nombre *",
+    "brand": "Marca",
+    "quantity": "Cantidad",
+    "unitPrice": "Precio unitario (€)",
+    "unitPricePlaceholder": "Ej: 2.50",
+    "expirationDate": "Fecha de caducidad",
+    "category": "Categoría",
+    "none": "Ninguna",
+    "subCategory": "Subcategoría",
+    "subCategorySearchPlaceholder": "Buscar o elegir...",
+    "subCategoryCommandPlaceholder": "Buscar una subcategoría...",
+    "createSubCategory": "Crear \"{{name}}\"",
+    "subCategoryHint": "Escribe para buscar/crear o elige una sugerencia.",
+    "location": "Ubicación",
+    "noneMasculine": "Ninguno"
+  },
+  "deleteDialog": {
+    "title": "¿Eliminar este producto?",
+    "description": "El producto <strong>{{name}}</strong> se eliminará definitivamente de tu stock. Esta acción es irreversible."
+  },
+  "renameDialog": {
+    "title": "Renombrar subcategoría",
+    "name": "Nombre",
+    "placeholder": "Escribe un nombre...",
+    "searchPlaceholder": "Buscar o introducir un nombre...",
+    "noMatch": "No existe ninguna subcategoría con este nombre.",
+    "mergeHint": "Elegir una subcategoría existente fusionará ambas (todos los productos se asignarán a la existente).",
+    "confirm": "Renombrar"
+  },
+  "toast": {
+    "filtersReset": "Filtros restablecidos",
+    "loadError": "Error al cargar los datos",
+    "thresholdUpdated": "Umbral actualizado",
+    "thresholdSaveError": "Error al guardar el umbral",
+    "nameRequired": "El nombre no puede estar vacío",
+    "merged": "Fusionada con la subcategoría existente \"{{name}}\"",
+    "renamed": "Subcategoría renombrada",
+    "renameError": "Error al renombrar",
+    "lotDepleted": "{{name}}: lote agotado, retirado del stock",
+    "updateError": "Error al actualizar",
+    "productNameRequired": "El nombre es obligatorio",
+    "productUpdated": "Producto actualizado",
+    "productAdded": "Producto añadido",
+    "saveError": "Error al guardar",
+    "productDeleted": "Producto eliminado",
+    "deleteError": "Error al eliminar"
+  },
+  "detail": {
+    "header": {
+      "backButton": "Volver a productos",
+      "editButton": "Editar",
+      "refreshButton": "Actualizar desde OFF",
+      "fullInfoLabel": "Información completa",
+      "noBrand": "Sin marca",
+      "barcode": "Código de barras: {{barcode}}",
+      "unitPrice": "Precio unitario: {{price}} €",
+      "expiration": "Fecha de caducidad: {{date}}",
+      "expired": " (caducado)"
+    },
+    "health": {
+      "title": "Salud",
+      "loading": "Obteniendo datos nutricionales...",
+      "noBarcode": "Ningún código de barras asociado a este producto: la información de Open Food Facts no está disponible."
+    },
+    "nutriscore": {
+      "unavailable": "Nutri-Score no disponible",
+      "label": "Nutri-Score {{grade}}",
+      "text": {
+        "a": "Muy buena calidad nutricional",
+        "b": "Buena calidad nutricional",
+        "c": "Calidad nutricional media",
+        "d": "Calidad nutricional más baja",
+        "e": "Calidad nutricional deficiente"
+      }
+    },
+    "nutrientLevels": {
+      "title": "Indicadores nutricionales",
+      "high": " en cantidad elevada",
+      "moderate": " en cantidad moderada",
+      "low": " en cantidad baja",
+      "percent": " ({{value}}%)"
+    },
+    "nutrientLabels": {
+      "fat": "Grasas",
+      "saturatedFat": "Ácidos grasos saturados",
+      "sugars": "Azúcares",
+      "salt": "Sal"
+    },
+    "off": {
+      "fullTitle": "Ficha completa de Open Food Facts",
+      "loadingFull": "Cargando la ficha completa...",
+      "source": "Fuente: {{source}}",
+      "noData": "No hay datos de Open Food Facts disponibles para este producto.",
+      "barcode": "Código de barras: ",
+      "genericName": "Denominación genérica",
+      "quantity": "Cantidad",
+      "packaging": "Envase",
+      "brands": "Marcas",
+      "categories": "Categorías",
+      "labels": "Etiquetas, certificaciones, premios",
+      "allergens": "Alérgenos",
+      "origins": "Origen de los ingredientes",
+      "manufacturingPlaces": "Lugares de fabricación o transformación",
+      "stores": "Tiendas",
+      "countries": "Países de venta",
+      "ingredients": "Ingredientes:",
+      "toggleRawShow": "Ver",
+      "toggleRawHide": "Ocultar",
+      "toggleRawSuffix": "todos los datos en bruto de Open Food Facts",
+      "matchTitle": "Coincidencia con tus preferencias",
+      "nutriscoreTitle": "Nutri-Score {{grade}}",
+      "novaTitle": "Grupo NOVA {{group}}",
+      "novaLabels": {
+        "1": "Alimentos no procesados o mínimamente procesados",
+        "2": "Ingredientes culinarios procesados",
+        "3": "Alimentos procesados",
+        "4": "Alimentos ultraprocesados"
+      },
+      "ecoscoreTitle": "Green-Score {{grade}}",
+      "ecoscoreDescription": "Impacto ambiental estimado"
+    },
+    "toast": {
+      "notFound": "Producto no encontrado",
+      "nameRequired": "El nombre es obligatorio",
+      "updated": "Producto actualizado",
+      "offRefreshed": "Datos de Open Food Facts actualizados",
+      "offRefreshError": "Error al actualizar"
+    },
+    "editDialog": {
+      "title": "Editar producto",
+      "name": "Nombre *",
+      "brand": "Marca",
+      "quantity": "Cantidad",
+      "unitPrice": "Precio unitario (€)",
+      "unitPricePlaceholder": "Ej: 2.50",
+      "expirationDate": "Fecha de caducidad",
+      "category": "Categoría",
+      "none": "Ninguna",
+      "subCategory": "Subcategoría",
+      "location": "Ubicación",
+      "noneMasculine": "Ninguno",
+      "minQuantity": "Cantidad mínima",
+      "description": "Descripción"
+    }
+  }
+}

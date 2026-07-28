@@ -1,0 +1,85 @@
+{
+  "switcher": {
+    "placeholder": "Active household",
+    "personal": "Personal"
+  },
+  "joinPage": {
+    "processing": "Joining your household..."
+  },
+  "page": {
+    "title": "My household",
+    "subtitle": "Share your stock with other accounts by inviting them to your household.",
+    "refresh": "Refresh"
+  },
+  "card": {
+    "personalHousehold": "Personal household",
+    "roleAdmin": "Admin",
+    "roleMember": "Member",
+    "inviteCodeLabel": "Invite code:",
+    "copy": "Copy",
+    "regenerate": "Regenerate",
+    "showQrCode": "Show QR code",
+    "hideQrCode": "Hide QR code",
+    "qrCodeHint": "Scanning it joins this household directly (after signing in if needed).",
+    "membersTitle": "Members ({{count}})",
+    "self": "Me",
+    "roleAdminShort": "Admin",
+    "roleMemberShort": "Member",
+    "remove": "Remove",
+    "leave": "Leave this household",
+    "delete": "Delete household"
+  },
+  "create": {
+    "title": "Create a new household",
+    "description": "Create a shared household and invite other accounts to join it.",
+    "namePlaceholder": "Household name (e.g. Home)",
+    "submit": "Create"
+  },
+  "join": {
+    "title": "Join a household",
+    "description": "Enter the invite code provided by the household admin.",
+    "codePlaceholder": "Invite code",
+    "submit": "Join"
+  },
+  "transferDialog": {
+    "title": "Transfer your stock to this new household?",
+    "descriptionBefore": "Your products, categories, locations and shopping list currently in",
+    "descriptionAfter": "can be moved to this new household as soon as it's created. This action is reversible by creating a new transfer later, but it moves all current stock immediately. If you transfer, you won't be asked about default categories/locations afterwards (the transfer already brings your own).",
+    "targetPersonal": "your personal household",
+    "targetNamed": "the household \"{{name}}\"",
+    "cancelAll": "Cancel",
+    "skip": "No, don't transfer",
+    "confirm": "Yes, transfer"
+  },
+  "deleteDialog": {
+    "title": "Delete this household?",
+    "description": "This will permanently delete the household \"{{name}}\", all its stock (products, categories, locations, shopping list) and remove all its members. This action is irreversible.",
+    "cancel": "Cancel",
+    "confirm": "Delete permanently"
+  },
+  "defaultsDialog": {
+    "title": "Create default categories and locations?",
+    "description": "You can start this household with a ready-to-use set of categories (Food, Beverages, Hygiene...) and locations (Kitchen, Fridge...), or start with an empty household.",
+    "cancel": "Cancel",
+    "skip": "No, empty household",
+    "confirm": "Yes, create the defaults"
+  },
+  "toast": {
+    "loadError": "Error loading household",
+    "created": "Household created",
+    "transferSuccess": "Stock transferred: switch to this household to see it",
+    "transferError": "Error while transferring stock",
+    "joined": "You joined the household",
+    "joinError": "Invalid invite code",
+    "codeRegenerated": "Code regenerated",
+    "regenerateError": "Error while regenerating the code",
+    "codeCopied": "Code copied",
+    "memberRemoved": "Member removed",
+    "removeError": "Error while removing member",
+    "left": "You left the household",
+    "leaveError": "Error while leaving the household",
+    "createError": "Error while creating the household",
+    "deleted": "Household deleted",
+    "deleteError": "Error while deleting the household"
+  }
+}

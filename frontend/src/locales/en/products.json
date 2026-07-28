@@ -1,0 +1,195 @@
+{
+  "list": {
+    "title": "Products",
+    "subtitle": "Manage your product inventory",
+    "scanner": "Scanner",
+    "add": "Add",
+    "noBrand": "No brand",
+    "noSubCategory": "No sub-category",
+    "lowStock": "Low stock"
+  },
+  "filters": {
+    "searchPlaceholder": "Search...",
+    "category": "Category",
+    "allCategories": "All",
+    "location": "Location",
+    "allLocations": "All locations",
+    "nutriscoreLabel": "Nutri-Score: {{value}}",
+    "nutriscoreUnknown": "Unknown",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "options": "Options",
+    "inStockOnly": "In stock only",
+    "lowStockOnly": "Low stock",
+    "groupDisplay": "Group display",
+    "resetFilters": "Reset filters"
+  },
+  "emptyState": {
+    "title": "No products found"
+  },
+  "table": {
+    "name": "Name",
+    "brand": "Brand",
+    "category": "Category",
+    "location": "Location",
+    "expiration": "Expiration",
+    "nutriscore": "Nutri-Score",
+    "quantity": "Quantity",
+    "nutriscoreTitle": "Nutri-Score {{grade}}"
+  },
+  "group": {
+    "productsCount_one": "{{count}} product",
+    "productsCount_other": "{{count}} products",
+    "min": "Min:",
+    "total": "Total:",
+    "renameTooltip": "Rename sub-category"
+  },
+  "dialog": {
+    "editTitle": "Edit",
+    "addTitle": "Add",
+    "name": "Name *",
+    "brand": "Brand",
+    "quantity": "Quantity",
+    "unitPrice": "Unit price (€)",
+    "unitPricePlaceholder": "e.g. 2.50",
+    "expirationDate": "Expiration date",
+    "category": "Category",
+    "none": "None",
+    "subCategory": "Sub-category",
+    "subCategorySearchPlaceholder": "Search or pick...",
+    "subCategoryCommandPlaceholder": "Search a sub-category...",
+    "createSubCategory": "Create \"{{name}}\"",
+    "subCategoryHint": "Type to search/create or pick a suggestion.",
+    "location": "Location",
+    "noneMasculine": "None"
+  },
+  "deleteDialog": {
+    "title": "Delete this product?",
+    "description": "The product <strong>{{name}}</strong> will be permanently deleted from your stock. This action is irreversible."
+  },
+  "renameDialog": {
+    "title": "Rename sub-category",
+    "name": "Name",
+    "placeholder": "Type a name...",
+    "searchPlaceholder": "Search or enter a name...",
+    "noMatch": "No existing sub-category with this name.",
+    "mergeHint": "Choosing an existing sub-category will merge both (all products will be attached to the existing one).",
+    "confirm": "Rename"
+  },
+  "toast": {
+    "filtersReset": "Filters reset",
+    "loadError": "Error loading data",
+    "thresholdUpdated": "Threshold updated",
+    "thresholdSaveError": "Error saving threshold",
+    "nameRequired": "Name cannot be empty",
+    "merged": "Merged with the existing sub-category \"{{name}}\"",
+    "renamed": "Sub-category renamed",
+    "renameError": "Error while renaming",
+    "lotDepleted": "{{name}}: batch depleted, removed from stock",
+    "updateError": "Error while updating",
+    "productNameRequired": "Name is required",
+    "productUpdated": "Product updated",
+    "productAdded": "Product added",
+    "saveError": "Error while saving",
+    "productDeleted": "Product deleted",
+    "deleteError": "Error while deleting"
+  },
+  "detail": {
+    "header": {
+      "backButton": "Back to products",
+      "editButton": "Edit",
+      "refreshButton": "Refresh from OFF",
+      "fullInfoLabel": "Full information",
+      "noBrand": "No brand",
+      "barcode": "Barcode: {{barcode}}",
+      "unitPrice": "Unit price: {{price}} €",
+      "expiration": "Expiration date: {{date}}",
+      "expired": " (expired)"
+    },
+    "health": {
+      "title": "Health",
+      "loading": "Fetching nutritional data...",
+      "noBarcode": "No barcode associated with this product: Open Food Facts information is not available."
+    },
+    "nutriscore": {
+      "unavailable": "Nutri-Score unavailable",
+      "label": "Nutri-Score {{grade}}",
+      "text": {
+        "a": "Very good nutritional quality",
+        "b": "Good nutritional quality",
+        "c": "Average nutritional quality",
+        "d": "Lower nutritional quality",
+        "e": "Poor nutritional quality"
+      }
+    },
+    "nutrientLevels": {
+      "title": "Nutrient levels",
+      "high": " high",
+      "moderate": " moderate",
+      "low": " low",
+      "percent": " ({{value}}%)"
+    },
+    "nutrientLabels": {
+      "fat": "Fat",
+      "saturatedFat": "Saturated fat",
+      "sugars": "Sugars",
+      "salt": "Salt"
+    },
+    "off": {
+      "fullTitle": "Full Open Food Facts entry",
+      "loadingFull": "Loading full entry...",
+      "source": "Source: {{source}}",
+      "noData": "No Open Food Facts data available for this product.",
+      "barcode": "Barcode: ",
+      "genericName": "Generic name",
+      "quantity": "Quantity",
+      "packaging": "Packaging",
+      "brands": "Brands",
+      "categories": "Categories",
+      "labels": "Labels, certifications, awards",
+      "allergens": "Allergens",
+      "origins": "Origin of ingredients",
+      "manufacturingPlaces": "Manufacturing or processing places",
+      "stores": "Stores",
+      "countries": "Countries sold",
+      "ingredients": "Ingredients:",
+      "toggleRawShow": "Show",
+      "toggleRawHide": "Hide",
+      "toggleRawSuffix": "all raw Open Food Facts data",
+      "matchTitle": "Match with your preferences",
+      "nutriscoreTitle": "Nutri-Score {{grade}}",
+      "novaTitle": "NOVA group {{group}}",
+      "novaLabels": {
+        "1": "Unprocessed or minimally processed foods",
+        "2": "Processed culinary ingredients",
+        "3": "Processed foods",
+        "4": "Ultra-processed foods"
+      },
+      "ecoscoreTitle": "Green-Score {{grade}}",
+      "ecoscoreDescription": "Estimated environmental impact"
+    },
+    "toast": {
+      "notFound": "Product not found",
+      "nameRequired": "Name is required",
+      "updated": "Product updated",
+      "offRefreshed": "Open Food Facts data refreshed",
+      "offRefreshError": "Error while refreshing"
+    },
+    "editDialog": {
+      "title": "Edit product",
+      "name": "Name *",
+      "brand": "Brand",
+      "quantity": "Quantity",
+      "unitPrice": "Unit price (€)",
+      "unitPricePlaceholder": "e.g. 2.50",
+      "expirationDate": "Expiration date",
+      "category": "Category",
+      "none": "None",
+      "subCategory": "Sub-category",
+      "location": "Location",
+      "noneMasculine": "None",
+      "minQuantity": "Minimum quantity",
+      "description": "Description"
+    }
+  }
+}

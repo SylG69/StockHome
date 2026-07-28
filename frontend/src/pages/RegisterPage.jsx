@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { completePendingInvite } from '../lib/pendingInvite';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -9,7 +11,8 @@ import { toast } from 'sonner';
 import { Home, Loader2, Eye, EyeOff, Clock } from 'lucide-react';
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { t } = useTranslation('auth');
+  const { register, api } = useAuth();
   const navigate = useNavigate();
   const [username, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -24,17 +27,17 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !email || !password || !confirmPassword) {
-      toast.error('Veuillez remplir tous les champs');
+      toast.error(t('register.fillAllFields'));
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas');
+      toast.error(t('register.passwordMismatch'));
       return;
     }
 
     if (password.length < 6) {
-      toast.error('Le mot de passe doit contenir au moins 6 caractères');
+      toast.error(t('register.passwordTooShort'));
       return;
     }
 
@@ -51,11 +54,12 @@ export default function RegisterPage() {
         // Compte actif immédiatement (premier utilisateur / email admin) :
         // AuthContext a stocké le token, PublicRoute redirigera vers "/",
         // mais on navigue explicitement pour ne pas dépendre du re-render.
-        toast.success('Compte créé avec succès');
-        navigate('/');
+        toast.success(t('register.success'));
+        const joined = await completePendingInvite(api);
+        navigate(joined ? '/household' : '/');
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Erreur lors de l'inscription");
+      toast.error(error.response?.data?.detail || t('register.genericError'));
     } finally {
       setLoading(false);
     }
@@ -79,11 +83,11 @@ export default function RegisterPage() {
             <h1 className="text-3xl font-bold tracking-tight">StockHome</h1>
           </div>
           <h2 className="text-4xl font-bold mb-4">
-            Commencez à<br />
-            <span className="text-primary">organiser</span>
+            {t('register.heroTitle1')}<br />
+            <span className="text-primary">{t('register.heroTitle2')}</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-md">
-            Créez votre compte et prenez le contrôle de votre stock domestique dès aujourd'hui.
+            {t('register.heroSubtitle')}
           </p>
         </div>
       </div>
@@ -103,16 +107,16 @@ export default function RegisterPage() {
                 <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-2">
                   <Clock className="w-7 h-7 text-amber-500" />
                 </div>
-                <CardTitle className="text-2xl font-bold">Compte en attente de validation</CardTitle>
+                <CardTitle className="text-2xl font-bold">{t('register.pendingTitle')}</CardTitle>
                 <CardDescription>
-                  Votre compte a bien été créé
+                  {t('register.pendingSubtitle')}
                 </CardDescription>
               </>
             ) : (
               <>
-                <CardTitle className="text-2xl font-bold">Créer un compte</CardTitle>
+                <CardTitle className="text-2xl font-bold">{t('register.title')}</CardTitle>
                 <CardDescription>
-                  Remplissez le formulaire pour créer votre compte
+                  {t('register.subtitle')}
                 </CardDescription>
               </>
             )}
@@ -121,9 +125,7 @@ export default function RegisterPage() {
             {pendingApproval ? (
               <div className="space-y-6" data-testid="pending-approval-screen">
                 <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm text-center">
-                  Un administrateur doit approuver votre inscription avant votre
-                  première connexion. Vous pourrez vous connecter dès que votre
-                  compte aura été validé.
+                  {t('register.pendingMessage')}
                 </div>
                 <Button
                   className="w-full"
@@ -131,18 +133,18 @@ export default function RegisterPage() {
                   onClick={() => navigate('/login')}
                   data-testid="back-to-login-btn"
                 >
-                  Retour à la connexion
+                  {t('register.backToLogin')}
                 </Button>
               </div>
             ) : (
             <>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nom</Label>
+                <Label htmlFor="name">{t('register.nameLabel')}</Label>
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Votre nom"
+                  placeholder={t('register.namePlaceholder')}
                   value={username}
                   onChange={(e) => setName(e.target.value)}
                   className="bg-input border-border focus:border-primary"
@@ -150,11 +152,11 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('register.emailLabel')}</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="votre@email.com"
+                  placeholder={t('register.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-input border-border focus:border-primary"
@@ -162,7 +164,7 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Mot de passe</Label>
+                <Label htmlFor="password">{t('register.passwordLabel')}</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -183,7 +185,7 @@ export default function RegisterPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+                <Label htmlFor="confirmPassword">{t('register.confirmPasswordLabel')}</Label>
                 <Input
                   id="confirmPassword"
                   type={showPassword ? 'text' : 'password'}
@@ -203,21 +205,21 @@ export default function RegisterPage() {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Création...
+                    {t('register.submitting')}
                   </>
                 ) : (
-                  "S'inscrire"
+                  t('register.submit')
                 )}
               </Button>
             </form>
             <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Déjà un compte ? </span>
+              <span className="text-muted-foreground">{t('register.alreadyHaveAccount')} </span>
               <Link
                 to="/login"
                 className="text-primary hover:underline font-medium"
                 data-testid="login-link"
               >
-                Se connecter
+                {t('register.signIn')}
               </Link>
             </div>
             </>

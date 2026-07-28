@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Settings, FolderOpen, MapPin } from 'lucide-react';
 import CategoriesConfigSection from './CategoriesConfigSection';
 import LocationsConfigSection from './LocationsConfigSection';
@@ -9,11 +10,12 @@ import LocationsConfigSection from './LocationsConfigSection';
 // pour un exemple minimal), puis ajouter une entrée ici -- le sous-menu et
 // l'affichage s'adaptent automatiquement, rien d'autre à modifier.
 const CONFIG_SECTIONS = [
-  { key: 'categories', label: 'Catégories', icon: FolderOpen, component: CategoriesConfigSection },
-  { key: 'locations', label: 'Emplacements', icon: MapPin, component: LocationsConfigSection },
+  { key: 'categories', labelKey: 'page.categories', icon: FolderOpen, component: CategoriesConfigSection },
+  { key: 'locations', labelKey: 'page.locations', icon: MapPin, component: LocationsConfigSection },
 ];
 
 export default function ConfigurationPage() {
+  const { t } = useTranslation('configuration');
   const [searchParams, setSearchParams] = useSearchParams();
 
   const requestedSection = searchParams.get('section');
@@ -35,9 +37,9 @@ export default function ConfigurationPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
           <Settings className="w-7 h-7 text-primary" />
-          Configuration
+          {t('page.title')}
         </h1>
-        <p className="text-muted-foreground mt-1">Gérez les paramètres de votre stock domestique</p>
+        <p className="text-muted-foreground mt-1">{t('page.subtitle')}</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
@@ -57,7 +59,7 @@ export default function ConfigurationPage() {
               data-testid={`config-section-${section.key}`}
             >
               <section.icon className="w-4 h-4" />
-              {section.label}
+              {t(section.labelKey)}
             </button>
           ))}
         </nav>

@@ -1,0 +1,39 @@
+{
+  "appName": "StockHome",
+  "appTagline": "Gestion de stock",
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "products": "Produits",
+    "shoppingList": "Liste de courses",
+    "scanner": "Scanner",
+    "configuration": "Configuration",
+    "household": "Mon foyer",
+    "users": "Utilisateurs",
+    "about": "À propos",
+    "sponsor": "Soutenir l'app"
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "search": "Rechercher",
+    "confirm": "Confirmer",
+    "close": "Fermer",
+    "back": "Retour",
+    "logout": "Déconnexion"
+  },
+  "status": {
+    "loading": "Chargement...",
+    "saving": "Enregistrement..."
+  },
+  "errors": {
+    "generic": "Une erreur est survenue",
+    "loadError": "Erreur lors du chargement",
+    "saveError": "Erreur lors de l'enregistrement"
+  },
+  "language": {
+    "label": "Langue"
+  }
+}

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { completePendingInvite } from '../lib/pendingInvite';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -9,7 +11,8 @@ import { toast } from 'sonner';
 import { Home, Loader2, Eye, EyeOff, Github } from 'lucide-react';
 
 export default function LoginPage() {
-  const { login, loginWithToken } = useAuth();
+  const { t } = useTranslation('auth');
+  const { login, loginWithToken, api } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,7 +54,7 @@ export default function LoginPage() {
             toast.warning(detail, { duration: 6000 });
             return;
           }
-          throw new Error(detail || "Échec de l'authentification avec Google");
+          throw new Error(detail || t('login.googleAuthFailed'));
         }
 
         const data = await res.json();
@@ -59,10 +62,11 @@ export default function LoginPage() {
         loginWithToken(data.access_token, data.user);
 
         // Connexion réussie !
-        toast.success('Connexion Google réussie');
-        navigate('/'); // Redirection vers le tableau de bord après la connexion
+        toast.success(t('login.googleSuccess'));
+        const joined = await completePendingInvite(api);
+        navigate(joined ? '/household' : '/');
       } catch (error) {
-        toast.error(error.message || 'Erreur lors de la connexion Google');
+        toast.error(error.message || t('login.googleGenericError'));
       } finally {
         setLoading(false);
       }
@@ -107,7 +111,7 @@ export default function LoginPage() {
     const redirectUri = import.meta.env.VITE_GITHUB_REDIRECT_URI || `${window.location.origin}/auth/github/callback`;
 
     if (!clientId) {
-      toast.error('Connexion GitHub non configurée (VITE_GITHUB_CLIENT_ID manquant)');
+      toast.error(t('login.githubNotConfigured'));
       return;
     }
 
@@ -129,15 +133,16 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error('Veuillez remplir tous les champs');
+      toast.error(t('login.fillAllFields'));
       return;
     }
 
     setLoading(true);
     try {
       await login(email, password);
-      toast.success('Connexion réussie');
-      navigate('/');
+      toast.success(t('login.success'));
+      const joined = await completePendingInvite(api);
+      navigate(joined ? '/household' : '/');
     } catch (error) {
       // Le backend renvoie un 403 avec un message explicite pour les
       // comptes en attente de validation ("pending") ou désactivés :
@@ -146,7 +151,7 @@ export default function LoginPage() {
       if (error.response?.status === 403 && detail) {
         toast.warning(detail, { duration: 6000 });
       } else {
-        toast.error(detail || 'Erreur de connexion');
+        toast.error(detail || t('login.genericError'));
       }
     } finally {
       setLoading(false);
@@ -171,11 +176,11 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold tracking-tight">StockHome</h1>
           </div>
           <h2 className="text-4xl font-bold mb-4">
-            Gérez votre stock<br />
-            <span className="text-primary">à domicile</span>
+            {t('login.heroTitle1')}<br />
+            <span className="text-primary">{t('login.heroTitle2')}</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-md">
-            Organisez vos produits, suivez vos stocks et générez automatiquement vos listes de courses.
+            {t('login.heroSubtitle')}
           </p>
         </div>
       </div>
@@ -190,19 +195,19 @@ export default function LoginPage() {
               </div>
               <h1 className="text-2xl font-bold">StockHome</h1>
             </div>
-            <CardTitle className="text-2xl font-bold">Connexion</CardTitle>
+            <CardTitle className="text-2xl font-bold">{t('login.title')}</CardTitle>
             <CardDescription>
-              Entrez vos identifiants pour accéder à votre compte
+              {t('login.subtitle')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('login.emailLabel')}</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="votre@email.com"
+                  placeholder={t('login.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-input border-border focus:border-primary"
@@ -210,7 +215,7 @@ export default function LoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Mot de passe</Label>
+                <Label htmlFor="password">{t('login.passwordLabel')}</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -239,10 +244,10 @@ export default function LoginPage() {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Connexion...
+                    {t('login.submitting')}
                   </>
                 ) : (
-                  'Se connecter'
+                  t('login.submit')
                 )}
               </Button>
             </form>
@@ -253,7 +258,7 @@ export default function LoginPage() {
                 <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Ou continuer avec</span>
+                <span className="bg-card px-2 text-muted-foreground">{t('login.orContinueWith')}</span>
               </div>
             </div>
 
@@ -269,17 +274,17 @@ export default function LoginPage() {
               data-testid="github-login-btn"
             >
               <Github className="w-4 h-4" />
-              Continuer avec GitHub
+              {t('login.continueWithGithub')}
             </Button>
 
             <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Pas encore de compte ? </span>
+              <span className="text-muted-foreground">{t('login.noAccount')} </span>
               <Link
                 to="/register"
                 className="text-primary hover:underline font-medium"
                 data-testid="register-link"
               >
-                S'inscrire
+                {t('login.signUp')}
               </Link>
             </div>
           </CardContent>

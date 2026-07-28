@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { completePendingInvite } from '../lib/pendingInvite';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -9,9 +11,10 @@ import { Loader2 } from 'lucide-react';
 // ?code=...&state=... ; on vérifie le state (anti-CSRF), puis on transmet
 // le code au backend qui l'échange contre un token GitHub côté serveur.
 export default function GithubCallbackPage() {
+  const { t } = useTranslation('auth');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { loginWithToken } = useAuth();
+  const { loginWithToken, api } = useAuth();
   // Un code d'autorisation GitHub n'est utilisable qu'une seule fois : ce
   // ref évite un double-échange si l'effet se déclenche deux fois (ex.
   // React StrictMode en dev), ce qui ferait échouer le second appel.
@@ -30,17 +33,17 @@ export default function GithubCallbackPage() {
 
       if (error) {
         // L'utilisateur a annulé ("access_denied") ou autre refus GitHub.
-        toast.error('Connexion GitHub annulée');
+        toast.error(t('githubCallback.cancelled'));
         navigate('/login');
         return;
       }
       if (!code) {
-        toast.error('Connexion GitHub invalide (code manquant)');
+        toast.error(t('githubCallback.invalidCode'));
         navigate('/login');
         return;
       }
       if (!state || state !== expectedState) {
-        toast.error('Échec de la vérification de sécurité, veuillez réessayer');
+        toast.error(t('githubCallback.securityCheckFailed'));
         navigate('/login');
         return;
       }
@@ -64,15 +67,16 @@ export default function GithubCallbackPage() {
             navigate('/login');
             return;
           }
-          throw new Error(detail || "Échec de l'authentification avec GitHub");
+          throw new Error(detail || t('githubCallback.authFailed'));
         }
 
         const data = await res.json();
         loginWithToken(data.access_token, data.user);
-        toast.success('Connexion GitHub réussie');
-        navigate('/');
+        toast.success(t('githubCallback.success'));
+        const joined = await completePendingInvite(api);
+        navigate(joined ? '/household' : '/');
       } catch (err) {
-        toast.error(err.message || 'Erreur lors de la connexion GitHub');
+        toast.error(err.message || t('githubCallback.genericError'));
         navigate('/login');
       }
     };
@@ -84,7 +88,7 @@ export default function GithubCallbackPage() {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Connexion avec GitHub...</p>
+        <p className="text-muted-foreground">{t('githubCallback.loading')}</p>
       </div>
     </div>
   );

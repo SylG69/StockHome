@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -43,25 +44,25 @@ const iconMap = {
   Car: Car,
 };
 
-const iconOptions = [
-  { value: 'Home', label: 'Maison' },
-  { value: 'ChefHat', label: 'Cuisine' },
-  { value: 'Snowflake', label: 'Réfrigérateur' },
-  { value: 'Bath', label: 'Salle de bain' },
-  { value: 'Warehouse', label: 'Garage' },
-  { value: 'Car', label: 'Voiture' },
-  { value: 'MapPin', label: 'Autre' },
+const getIconOptions = (t) => [
+  { value: 'Home', label: t('locations.icons.home') },
+  { value: 'ChefHat', label: t('locations.icons.kitchen') },
+  { value: 'Snowflake', label: t('locations.icons.fridge') },
+  { value: 'Bath', label: t('locations.icons.bathroom') },
+  { value: 'Warehouse', label: t('locations.icons.garage') },
+  { value: 'Car', label: t('locations.icons.car') },
+  { value: 'MapPin', label: t('locations.icons.other') },
 ];
 
-const colorOptions = [
-  { value: '#10B981', label: 'Vert' },
-  { value: '#3B82F6', label: 'Bleu' },
-  { value: '#8B5CF6', label: 'Violet' },
-  { value: '#F59E0B', label: 'Orange' },
-  { value: '#EF4444', label: 'Rouge' },
-  { value: '#6B7280', label: 'Gris' },
-  { value: '#EC4899', label: 'Rose' },
-  { value: '#14B8A6', label: 'Turquoise' },
+const getColorOptions = (t) => [
+  { value: '#10B981', label: t('locations.colors.green') },
+  { value: '#3B82F6', label: t('locations.colors.blue') },
+  { value: '#8B5CF6', label: t('locations.colors.purple') },
+  { value: '#F59E0B', label: t('locations.colors.orange') },
+  { value: '#EF4444', label: t('locations.colors.red') },
+  { value: '#6B7280', label: t('locations.colors.gray') },
+  { value: '#EC4899', label: t('locations.colors.pink') },
+  { value: '#14B8A6', label: t('locations.colors.turquoise') },
 ];
 
 // Section "Emplacements" de la page Configuration (voir ConfigurationPage.jsx).
@@ -74,7 +75,10 @@ const colorOptions = [
 //    dans ce fichier (aurait provoqué une erreur si jamais atteint) --
 //    remplacé par MapPin, cohérent avec le reste du fichier.
 export default function LocationsConfigSection() {
+  const { t } = useTranslation(['configuration', 'common']);
   const { api } = useAuth();
+  const iconOptions = getIconOptions(t);
+  const colorOptions = getColorOptions(t);
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -102,7 +106,7 @@ export default function LocationsConfigSection() {
       setLocations(response.data);
     } catch (error) {
       console.error('Erreur fetch:', error);
-      toast.error('Erreur lors du chargement des emplacements');
+      toast.error(t('locations.toast.loadError'));
     } finally {
       setLoading(false);
     }
@@ -131,7 +135,7 @@ export default function LocationsConfigSection() {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      toast.error("Le nom de l'emplacement est requis");
+      toast.error(t('locations.toast.nameRequired'));
       return;
     }
 
@@ -140,16 +144,16 @@ export default function LocationsConfigSection() {
       if (editingLocation) {
         const encodedId = encodeURIComponent(editingLocation.id);
         await api.put(`/locations/${encodedId}`, formData);
-        toast.success('Emplacement mis à jour');
+        toast.success(t('locations.toast.updated'));
       } else {
         await api.post('/locations', formData);
-        toast.success('Emplacement créé');
+        toast.success(t('locations.toast.created'));
       }
       setDialogOpen(false);
       await fetchLocations();
     } catch (error) {
       console.error(error);
-      toast.error("Erreur lors de l'enregistrement");
+      toast.error(t('common:errors.saveError'));
     } finally {
       setSaving(false);
     }
@@ -161,12 +165,12 @@ export default function LocationsConfigSection() {
     try {
       const encodedId = encodeURIComponent(locationToDelete.id);
       await api.delete(`/locations/${encodedId}`);
-      toast.success('Emplacement supprimé');
+      toast.success(t('locations.toast.deleted'));
       setDeleteDialogOpen(false);
       setLocationToDelete(null);
       fetchLocations();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('locations.toast.deleteError'));
     }
   };
 
@@ -182,14 +186,14 @@ export default function LocationsConfigSection() {
     <div className="space-y-6" data-testid="config-locations-section">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold">Emplacements</h2>
+          <h2 className="text-xl font-bold">{t('locations.title')}</h2>
           <p className="text-muted-foreground text-sm mt-1">
-            Gérez les emplacements de stockage
+            {t('locations.subtitle')}
           </p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="btn-glow" data-testid="add-location-btn">
           <Plus className="w-4 h-4 mr-2" />
-          Ajouter un emplacement
+          {t('locations.addButton')}
         </Button>
       </div>
 
@@ -224,7 +228,7 @@ export default function LocationsConfigSection() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleOpenDialog(location)}>
                           <Edit className="w-4 h-4 mr-2" />
-                          Modifier
+                          {t('common:actions.edit')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
@@ -234,7 +238,7 @@ export default function LocationsConfigSection() {
                           className="text-destructive"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
-                          Supprimer
+                          {t('common:actions.delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -254,13 +258,13 @@ export default function LocationsConfigSection() {
         <Card className="bg-card border-border">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <MapPin className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucun emplacement</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('locations.empty.title')}</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Créez des emplacements pour organiser vos produits
+              {t('locations.empty.description')}
             </p>
             <Button onClick={() => handleOpenDialog()} data-testid="add-first-location-btn">
               <Plus className="w-4 h-4 mr-2" />
-              Ajouter un emplacement
+              {t('locations.addButton')}
             </Button>
           </CardContent>
         </Card>
@@ -271,12 +275,12 @@ export default function LocationsConfigSection() {
         <DialogContent className="bg-card border-border">
           <DialogHeader>
             <DialogTitle>
-              {editingLocation ? "Modifier l'emplacement" : 'Ajouter un emplacement'}
+              {editingLocation ? t('locations.dialog.editTitle') : t('locations.dialog.addTitle')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="location-name">Nom *</Label>
+              <Label htmlFor="location-name">{t('locations.dialog.nameLabel')}</Label>
               <Input
                 id="location-name"
                 value={formData.name}
@@ -286,18 +290,18 @@ export default function LocationsConfigSection() {
               />
             </div>
             <div>
-              <Label htmlFor="location-description">Description</Label>
+              <Label htmlFor="location-description">{t('locations.dialog.descriptionLabel')}</Label>
               <Input
                 id="location-description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="bg-input border-border"
-                placeholder="Description optionnelle"
+                placeholder={t('locations.dialog.descriptionPlaceholder')}
                 data-testid="location-description-input"
               />
             </div>
             <div>
-              <Label>Icône</Label>
+              <Label>{t('locations.dialog.iconLabel')}</Label>
               <div className="grid grid-cols-7 gap-2 mt-2">
                 {iconOptions.map((option) => {
                   const Icon = iconMap[option.value];
@@ -321,7 +325,7 @@ export default function LocationsConfigSection() {
               </div>
             </div>
             <div>
-              <Label>Couleur</Label>
+              <Label>{t('locations.dialog.colorLabel')}</Label>
               <div className="grid grid-cols-8 gap-2 mt-2">
                 {colorOptions.map((option) => (
                   <button
@@ -341,7 +345,7 @@ export default function LocationsConfigSection() {
             </div>
             {/* Preview */}
             <div className="pt-4 border-t border-border">
-              <Label>Aperçu</Label>
+              <Label>{t('locations.dialog.previewLabel')}</Label>
               <div className="flex items-center gap-3 mt-2 p-4 rounded-lg bg-secondary/50">
                 <div
                   className="p-3 rounded-xl"
@@ -353,23 +357,23 @@ export default function LocationsConfigSection() {
                   })()}
                 </div>
                 <span className="font-semibold">
-                  {formData.name || "Nom de l'emplacement"}
+                  {formData.name || t('locations.dialog.previewPlaceholder')}
                 </span>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Annuler
+              {t('common:actions.cancel')}
             </Button>
             <Button onClick={handleSave} disabled={saving} data-testid="save-location-btn">
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Enregistrement...
+                  {t('common:status.saving')}
                 </>
               ) : (
-                'Enregistrer'
+                t('common:actions.save')
               )}
             </Button>
           </DialogFooter>
@@ -380,18 +384,17 @@ export default function LocationsConfigSection() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogTitle>{t('locations.deleteDialog.title')}</DialogTitle>
           </DialogHeader>
           <p className="text-muted-foreground">
-            Êtes-vous sûr de vouloir supprimer l'emplacement "{locationToDelete?.name}" ?
-            Les produits associés ne seront pas supprimés mais n'auront plus d'emplacement.
+            {t('locations.deleteDialog.message', { name: locationToDelete?.name })}
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Annuler
+              {t('common:actions.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete} data-testid="confirm-delete-location-btn">
-              Supprimer
+              {t('common:actions.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,0 +1,85 @@
+{
+  "switcher": {
+    "placeholder": "Hogar activo",
+    "personal": "Personal"
+  },
+  "joinPage": {
+    "processing": "Uniéndote a tu hogar..."
+  },
+  "page": {
+    "title": "Mi hogar",
+    "subtitle": "Comparte tu stock con otras cuentas invitándolas a tu hogar.",
+    "refresh": "Actualizar"
+  },
+  "card": {
+    "personalHousehold": "Hogar personal",
+    "roleAdmin": "Administrador",
+    "roleMember": "Miembro",
+    "inviteCodeLabel": "Código de invitación:",
+    "copy": "Copiar",
+    "regenerate": "Regenerar",
+    "showQrCode": "Mostrar código QR",
+    "hideQrCode": "Ocultar código QR",
+    "qrCodeHint": "Al escanearlo, te unes directamente a este hogar (tras iniciar sesión si es necesario).",
+    "membersTitle": "Miembros ({{count}})",
+    "self": "Yo",
+    "roleAdminShort": "Admin",
+    "roleMemberShort": "Miembro",
+    "remove": "Eliminar",
+    "leave": "Abandonar este hogar",
+    "delete": "Eliminar hogar"
+  },
+  "create": {
+    "title": "Crear un nuevo hogar",
+    "description": "Crea un hogar compartido e invita a otras cuentas a unirse.",
+    "namePlaceholder": "Nombre del hogar (ej: Casa)",
+    "submit": "Crear"
+  },
+  "join": {
+    "title": "Unirse a un hogar",
+    "description": "Introduce el código de invitación proporcionado por el administrador del hogar.",
+    "codePlaceholder": "Código de invitación",
+    "submit": "Unirse"
+  },
+  "transferDialog": {
+    "title": "¿Transferir tu stock a este nuevo hogar?",
+    "descriptionBefore": "Tus productos, categorías, ubicaciones y lista de la compra actualmente en",
+    "descriptionAfter": "pueden trasladarse a este nuevo hogar en cuanto se cree. Esta acción es reversible creando una nueva transferencia más adelante, pero traslada de inmediato todo el stock actual. Si transfieres, no se te propondrán después las categorías/ubicaciones por defecto (la transferencia ya aporta las tuyas).",
+    "targetPersonal": "tu hogar personal",
+    "targetNamed": "el hogar «{{name}}»",
+    "cancelAll": "Cancelar",
+    "skip": "No, no transferir",
+    "confirm": "Sí, transferir"
+  },
+  "deleteDialog": {
+    "title": "¿Eliminar este hogar?",
+    "description": "Esta acción eliminará definitivamente el hogar «{{name}}», todo su stock (productos, categorías, ubicaciones, lista de la compra) y retirará a todos sus miembros. Esta acción es irreversible.",
+    "cancel": "Cancelar",
+    "confirm": "Eliminar definitivamente"
+  },
+  "defaultsDialog": {
+    "title": "¿Crear las categorías y ubicaciones por defecto?",
+    "description": "Puedes empezar este hogar con un conjunto de categorías (Alimentación, Bebidas, Higiene...) y ubicaciones (Cocina, Nevera...) listas para usar, o partir de un hogar vacío.",
+    "cancel": "Cancelar",
+    "skip": "No, hogar vacío",
+    "confirm": "Sí, crear los valores por defecto"
+  },
+  "toast": {
+    "loadError": "Error al cargar el hogar",
+    "created": "Hogar creado",
+    "transferSuccess": "Stock transferido: cambia a este hogar para encontrarlo",
+    "transferError": "Error al transferir el stock",
+    "joined": "Te has unido al hogar",
+    "joinError": "Código de invitación no válido",
+    "codeRegenerated": "Código regenerado",
+    "regenerateError": "Error al regenerar el código",
+    "codeCopied": "Código copiado",
+    "memberRemoved": "Miembro eliminado",
+    "removeError": "Error al eliminar",
+    "left": "Has abandonado el hogar",
+    "leaveError": "Error al abandonar el hogar",
+    "createError": "Error al crear el hogar",
+    "deleted": "Hogar eliminado",
+    "deleteError": "Error al eliminar el hogar"
+  }
+}
