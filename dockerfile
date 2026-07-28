@@ -1,5 +1,5 @@
 # --- ÉTAPE 1 : Build du Frontend ---
-FROM node:20-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci --legacy-peer-deps
@@ -13,7 +13,7 @@ ENV VITE_APP_ENV=$APP_ENV
 RUN npm run build
 
 # --- ÉTAPE 2 : Build du Backend et Image Finale ---
-FROM python:3.11-slim
+FROM python:3.14-slim
 WORKDIR /app
 
 # Installation des dépendances Back
