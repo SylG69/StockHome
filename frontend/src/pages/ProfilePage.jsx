@@ -9,8 +9,9 @@ import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
-import { Lock, Save, ShieldCheck, User as UserIcon, Mail, Github, Apple, KeyRound, Home } from 'lucide-react';
+import { Lock, Save, ShieldCheck, User as UserIcon, Mail, Apple, KeyRound, Home } from 'lucide-react';
 import LanguageSelector from '../components/LanguageSelector';
+import GithubIcon from '../components/icons/GithubIcon';
 
 // lucide-react n'a pas d'icône de marque Google : petit logo officiel en SVG.
 function GoogleIcon(props) {
@@ -30,7 +31,7 @@ function GoogleIcon(props) {
 const AUTH_METHOD_INFO = {
   email: { labelKey: 'authMethods.email', icon: Mail },
   google: { labelKey: 'authMethods.google', icon: GoogleIcon },
-  github: { labelKey: 'authMethods.github', icon: Github },
+  github: { labelKey: 'authMethods.github', icon: GithubIcon },
   apple: { labelKey: 'authMethods.apple', icon: Apple },
 };
 
