@@ -106,6 +106,10 @@
       "turquoise": "Turquoise"
     }
   },
+  "module": {
+    "enabledLabel": "Enable the Tasks module",
+    "enabledDescription": "If disabled, the Tasks page is no longer accessible from the menu."
+  },
   "rewards": {
     "title": "Rewards",
     "subtitle": "Configure the weekly reset day for the rewards summary",

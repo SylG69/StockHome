@@ -14,6 +14,7 @@ import fr_loans from '../locales/fr/loans.json';
 import fr_household from '../locales/fr/household.json';
 import fr_profile from '../locales/fr/profile.json';
 import fr_users from '../locales/fr/users.json';
+import fr_admin from '../locales/fr/admin.json';
 import fr_static from '../locales/fr/static.json';
 
 import en_common from '../locales/en/common.json';
@@ -28,6 +29,7 @@ import en_loans from '../locales/en/loans.json';
 import en_household from '../locales/en/household.json';
 import en_profile from '../locales/en/profile.json';
 import en_users from '../locales/en/users.json';
+import en_admin from '../locales/en/admin.json';
 import en_static from '../locales/en/static.json';
 
 import es_common from '../locales/es/common.json';
@@ -42,6 +44,7 @@ import es_loans from '../locales/es/loans.json';
 import es_household from '../locales/es/household.json';
 import es_profile from '../locales/es/profile.json';
 import es_users from '../locales/es/users.json';
+import es_admin from '../locales/es/admin.json';
 import es_static from '../locales/es/static.json';
 
 // Ajouter une langue plus tard = ajouter un bloc "resources.xx" ici (imports
@@ -60,6 +63,7 @@ export const resources = {
     household: fr_household,
     profile: fr_profile,
     users: fr_users,
+    admin: fr_admin,
     static: fr_static,
   },
   en: {
@@ -75,6 +79,7 @@ export const resources = {
     household: en_household,
     profile: en_profile,
     users: en_users,
+    admin: en_admin,
     static: en_static,
   },
   es: {
@@ -90,6 +95,7 @@ export const resources = {
     household: es_household,
     profile: es_profile,
     users: es_users,
+    admin: es_admin,
     static: es_static,
   },
 };

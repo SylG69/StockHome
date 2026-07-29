@@ -106,6 +106,10 @@
       "turquoise": "Turquoise"
     }
   },
+  "module": {
+    "enabledLabel": "Activer le module Tâches",
+    "enabledDescription": "Si désactivé, la page Tâches n'est plus accessible dans le menu."
+  },
   "rewards": {
     "title": "Récompenses",
     "subtitle": "Configurez le jour de reset du récapitulatif hebdomadaire des récompenses",

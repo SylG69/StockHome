@@ -15,7 +15,7 @@ import ChoresPage from './pages/ChoresPage';
 import RewardsPage from './pages/RewardsPage';
 import LoansPage from './pages/LoansPage';
 import ScannerPage from './pages/ScannerPage';
-import UsersPage from './pages/UsersPage';
+import AdminPage from './pages/AdminPage';
 import HouseholdPage from './pages/HouseholdPage';
 import JoinHouseholdPage from './pages/JoinHouseholdPage';
 import ProfilePage from './pages/ProfilePage';
@@ -132,10 +132,10 @@ function AppRoutes() {
         <Route path="loans" element={<LoansPage />} />
         <Route path="scanner" element={<ScannerPage />} />
         <Route
-          path="users"
+          path="admin"
           element={
             <AdminRoute>
-              <UsersPage />
+              <AdminPage />
             </AdminRoute>
           }
         />

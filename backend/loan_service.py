@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import api_stats_service
 import models
 import schemas
 from auth import get_active_household, get_current_user
@@ -306,11 +307,19 @@ async def _fetch_google_book(isbn: str) -> tuple[Optional[dict], Optional[str]]:
         return None, None
 
 
-BOOK_SOURCES = [_fetch_bnf_book, _fetch_openlibrary_book, _fetch_google_book]
+BOOK_SOURCES = [
+    ("BnF", _fetch_bnf_book),
+    ("Open Library", _fetch_openlibrary_book),
+    ("Google Books", _fetch_google_book),
+]
 
 
 @router.get("/lookup/book/{isbn}", response_model=schemas.LoanLookupResult)
-async def lookup_book(isbn: str):
+async def lookup_book(
+    isbn: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Recherche un livre par ISBN/EAN-13, en cascade : BnF (précision
     française) -> Open Library -> Google Books, s'arrête à la première
     réponse trouvée. Si la BnF répond mais sans jaquette, on tente aussi la
@@ -319,8 +328,9 @@ async def lookup_book(isbn: str):
     result: Optional[dict] = None
     matched_source: Optional[str] = None
 
-    for fetch in BOOK_SOURCES:
+    for name, fetch in BOOK_SOURCES:
         data, source_name = await fetch(clean_isbn)
+        api_stats_service.log_api_call(db, current_user.id, name, success=data is not None)
         if data is None:
             continue
         if result is None:
@@ -389,13 +399,18 @@ async def _fetch_wikidata_videogame(barcode: str) -> tuple[Optional[dict], Optio
 
 
 @router.get("/lookup/videogame/{barcode}", response_model=schemas.LoanLookupResult)
-async def lookup_videogame(barcode: str):
+async def lookup_videogame(
+    barcode: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Recherche un jeu vidéo par EAN/UPC sur Wikidata. Si aucun résultat
     (couverture EAN inégale sur Wikidata pour les jeux vidéo), renvoie 404 :
     le frontend propose alors une saisie manuelle plutôt qu'un fallback API
     (pas de RAWG.io, qui n'indexe pas les codes-barres)."""
     clean_barcode = _normalize_barcode(barcode)
     result, matched_source = await _fetch_wikidata_videogame(clean_barcode)
+    api_stats_service.log_api_call(db, current_user.id, "Wikidata", success=result is not None)
     if result is None:
         raise HTTPException(
             status_code=404,

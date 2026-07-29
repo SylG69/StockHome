@@ -24,27 +24,36 @@ import {
   BookOpen,
 } from 'lucide-react';
 
-const navItems = [
+// Entrées de nav toujours affichées, plus celles pilotées par la
+// configuration du foyer actif (module désactivable, voir Tasks/LoansConfigSection).
+const BASE_NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, labelKey: 'common:nav.dashboard', exact: true },
   { to: '/products', icon: Package, labelKey: 'common:nav.products' },
   { to: '/shopping-list', icon: ShoppingCart, labelKey: 'common:nav.shoppingList' },
   { to: '/scanner', icon: ScanLine, labelKey: 'common:nav.scanner' },
-  { to: '/chores', icon: ListChecks, labelKey: 'common:nav.chores' },
-  { to: '/loans', icon: BookOpen, labelKey: 'common:nav.loans' },
 ];
+const choresNavItem = { to: '/chores', icon: ListChecks, labelKey: 'common:nav.chores' };
+const loansNavItem = { to: '/loans', icon: BookOpen, labelKey: 'common:nav.loans' };
+
+function buildNavItems(activeHousehold) {
+  const items = [...BASE_NAV_ITEMS];
+  if (activeHousehold?.chores_enabled !== false) items.push(choresNavItem);
+  if (activeHousehold?.loans_enabled !== false) items.push(loansNavItem);
+  return items;
+}
 
 const configNavItem = { to: '/configuration', icon: Settings, labelKey: 'common:nav.configuration' };
 const householdNavItem = { to: '/household', icon: Users, labelKey: 'common:nav.household' };
 
 // Entrée de menu affichée uniquement pour les administrateurs, en plus des
 // items ci-dessus (voir usage avec .filter dans le rendu de la nav).
-const adminNavItem = { to: '/users', icon: ShieldCheck, labelKey: 'common:nav.users' };
+const adminNavItem = { to: '/admin', icon: ShieldCheck, labelKey: 'common:nav.admin' };
 
 // Construit la liste des entrées de nav avec petits séparateurs : items
-// principaux, puis Configuration (toujours), puis Utilisateurs (admin
+// principaux, puis Configuration (toujours), puis Administrateur (admin
 // seulement) -- chacun précédé d'une fine ligne de séparation.
-function buildNavEntries(isAdmin) {
-  const entries = navItems.map((item) => ({ type: 'link', item }));
+function buildNavEntries(isAdmin, activeHousehold) {
+  const entries = buildNavItems(activeHousehold).map((item) => ({ type: 'link', item }));
   entries.push(
     { type: 'separator', key: 'sep-config' },
     { type: 'link', item: configNavItem },
@@ -112,12 +121,12 @@ function VersionBadge() {
 
 export default function Layout() {
   const { t } = useTranslation('common');
-  const { user, logout } = useAuth();
+  const { user, activeHousehold, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // La page "Gestion des utilisateurs" n'est visible que pour les admins.
-  const navEntries = buildNavEntries(user?.role === 'admin');
+  // La page "Administrateur" n'est visible que pour les admins applicatifs.
+  const navEntries = buildNavEntries(user?.role === 'admin', activeHousehold);
 
   // Nom affiché dans le menu : "Prénom Nom" si renseignés, sinon le username.
   const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username;

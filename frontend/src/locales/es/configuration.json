@@ -106,6 +106,10 @@
       "turquoise": "Turquesa"
     }
   },
+  "module": {
+    "enabledLabel": "Activar el módulo Tareas",
+    "enabledDescription": "Si se desactiva, la página Tareas deja de estar accesible desde el menú."
+  },
   "rewards": {
     "title": "Recompensas",
     "subtitle": "Configura el día de reinicio del resumen semanal de recompensas",

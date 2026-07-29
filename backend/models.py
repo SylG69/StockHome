@@ -110,6 +110,9 @@ class Household(Base):
     # Permet à un admin de désactiver entièrement la fonctionnalité récompenses
     # pour ce foyer (masque les champs/actions côté frontend).
     rewards_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Permet à un admin de désactiver tout le module Tâches pour ce foyer
+    # (masque l'entrée de menu correspondante côté frontend, voir Layout.jsx).
+    chores_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Délai (en jours) avant lequel un emprunt doit être rendu, à partir de sa
     # date d'emprunt -- configurable séparément par type car les durées de
@@ -398,3 +401,26 @@ class Loan(Base):
 
     user: Mapped["User"] = relationship(foreign_keys=[user_id])
     household: Mapped["Household"] = relationship()
+
+
+class ApiCallLog(Base):
+    """Trace un appel à une API externe (BnF, Open*Facts, Open Library,
+    Google Books, Wikidata...), pour les statistiques d'utilisation
+    affichées dans la page Administrateur."""
+
+    __tablename__ = "api_call_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    # NULL si l'utilisateur a été supprimé depuis (ON DELETE SET NULL) : le
+    # compteur global reste correct, seule l'attribution par compte se perd.
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Nom de la source interrogée ("Open Food Facts", "BnF", "Wikidata"...).
+    source: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    # True si l'appel a renvoyé un résultat exploitable (pas juste un HTTP 200
+    # vide/404/timeout).
+    success: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+    user: Mapped["User | None"] = relationship()

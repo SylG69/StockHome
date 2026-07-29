@@ -105,6 +105,7 @@ class HouseholdResponse(BaseModel):
     is_active: bool  # ce foyer est-il le foyer actif de l'utilisateur courant
     rewards_summary_weekday: int = 7  # ISO 1 (lundi) à 7 (dimanche)
     rewards_enabled: bool = True
+    chores_enabled: bool = True
     loan_book_duration_days: int = 21
     loan_game_duration_days: int = 14
     loans_enabled: bool = True
@@ -401,9 +402,11 @@ class RewardsSummaryResponse(BaseModel):
     members: List[MemberRewardsSummary] = []
 
 class HouseholdRewardsSettingsUpdate(BaseModel):
-    """Requête admin pour configurer les récompenses du foyer (jour de reset, activation)."""
+    """Requête admin pour configurer les tâches du foyer (récompenses : jour
+    de reset, activation ; et activation du module tâches dans son ensemble)."""
     weekday: Optional[int] = None  # ISO 1 (lundi) à 7 (dimanche)
-    enabled: Optional[bool] = None
+    enabled: Optional[bool] = None  # rewards_enabled
+    chores_enabled: Optional[bool] = None
 
 
 # ==================== LOANS ====================
@@ -467,3 +470,19 @@ class HouseholdLoansSettingsUpdate(BaseModel):
     loan_book_duration_days: Optional[int] = None
     loan_game_duration_days: Optional[int] = None
     enabled: Optional[bool] = None
+
+
+# ==================== ADMIN : STATISTIQUES API ====================
+
+class ApiCallStat(BaseModel):
+    """Nombre d'appels vers une source externe donnée."""
+    source: str
+    count: int
+    success_count: int
+
+class ApiCallStatByUser(ApiCallStat):
+    """Idem ApiCallStat, avec l'identité du compte à l'origine des appels
+    (None si le compte a été supprimé depuis)."""
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
