@@ -74,6 +74,7 @@ def _build_household_response(
         role=membership.role,
         member_count=_member_count(db, household.id),
         is_active=household.id == current_user.active_household_id,
+        rewards_summary_weekday=household.rewards_summary_weekday,
     )
 
 
@@ -239,6 +240,25 @@ def regenerate_invite_code(
     else:
         raise HTTPException(status_code=500, detail="Impossible de générer un code d'invitation unique")
 
+    db.commit()
+    db.refresh(household)
+    return _build_household_detail(db, household, membership, current_user)
+
+
+@router.patch("/{household_id}/rewards-settings", response_model=schemas.HouseholdDetailResponse)
+def update_rewards_settings(
+    household_id: str,
+    data: schemas.HouseholdRewardsSettingsUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change le jour de reset de la récapitulation des récompenses des
+    corvées du foyer (admin uniquement)."""
+    if not 1 <= data.weekday <= 7:
+        raise HTTPException(status_code=400, detail="weekday invalide (attendu 1 à 7, ISO lundi..dimanche)")
+    membership = _require_household_admin(db, household_id, current_user.id)
+    household = db.get(models.Household, household_id)
+    household.rewards_summary_weekday = data.weekday
     db.commit()
     db.refresh(household)
     return _build_household_detail(db, household, membership, current_user)

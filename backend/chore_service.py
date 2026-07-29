@@ -175,6 +175,7 @@ def _enrich_chore(chore: "models.Chore") -> schemas.ChoreResponse:
         yearly_month=chore.yearly_month,
         yearly_day=chore.yearly_day,
         due_time=chore.due_time,
+        reward=float(chore.reward) if chore.reward is not None else None,
         assignment_type=chore.assignment_type,
         assigned_user_id=chore.assigned_user_id,
         last_done_at=chore.last_done_at,
@@ -220,6 +221,20 @@ def _validate_due_time(due_time: Optional[str]) -> None:
         raise HTTPException(status_code=400, detail=f"due_time invalide (attendu HH:MM) : {due_time}")
 
 
+def _validate_reward(reward: Optional[float]) -> None:
+    if reward is not None and reward < 0:
+        raise HTTPException(status_code=400, detail="reward invalide : doit être positif ou nul")
+
+
+def _period_start(weekday: int, now: datetime) -> datetime:
+    """Renvoie le début (minuit) de la période de récompenses courante :
+    le dernier jour correspondant à `weekday` (ISO 1=lundi..7=dimanche),
+    aujourd'hui inclus si `now` tombe justement ce jour-là."""
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    diff = (today.isoweekday() - weekday) % 7
+    return today - timedelta(days=diff)
+
+
 @router.get("", response_model=list[schemas.ChoreResponse])
 def get_chores(
     active_household: models.Household = Depends(get_active_household),
@@ -234,6 +249,66 @@ def get_chores(
         .order_by(models.Chore.next_due_at.asc().nulls_last())
     ).scalars().all()
     return [_enrich_chore(c) for c in chores]
+
+
+@router.get("/rewards/summary", response_model=schemas.RewardsSummaryResponse)
+def get_rewards_summary(
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
+):
+    """Récapitule les récompenses gagnées par chaque membre actuel du foyer :
+    total depuis le dernier reset (rewards_summary_weekday) et total depuis
+    toujours, avec le détail des exécutions rémunérées."""
+    period_start = _period_start(active_household.rewards_summary_weekday, datetime.now(timezone.utc))
+
+    members_sorted = sorted(_get_household_members(db, active_household.id), key=lambda m: m.user.username.lower())
+
+    rows = db.execute(
+        select(models.ChoreLog, models.Chore.name)
+        .join(models.Chore, models.Chore.id == models.ChoreLog.chore_id)
+        .where(
+            models.ChoreLog.household_id == active_household.id,
+            models.ChoreLog.reward_amount.is_not(None),
+        )
+        .order_by(models.ChoreLog.executed_at.desc())
+    ).all()
+
+    entries_by_user: dict[str, list] = {}
+    for log, chore_name in rows:
+        if log.executed_by_user_id is None:
+            continue
+        entries_by_user.setdefault(log.executed_by_user_id, []).append((log, chore_name))
+
+    members = []
+    for member in members_sorted:
+        entries = entries_by_user.get(member.user_id, [])
+        total_all_time = sum(float(log.reward_amount) for log, _ in entries)
+        total_current_period = sum(
+            float(log.reward_amount) for log, _ in entries if log.executed_at >= period_start
+        )
+        members.append(
+            schemas.MemberRewardsSummary(
+                user_id=member.user_id,
+                username=member.user.username,
+                total_current_period=round(total_current_period, 2),
+                total_all_time=round(total_all_time, 2),
+                logs=[
+                    schemas.RewardLogEntry(
+                        chore_id=log.chore_id,
+                        chore_name=chore_name,
+                        executed_at=log.executed_at,
+                        reward_amount=float(log.reward_amount),
+                    )
+                    for log, chore_name in entries
+                ],
+            )
+        )
+
+    return schemas.RewardsSummaryResponse(
+        period_start=period_start,
+        weekday=active_household.rewards_summary_weekday,
+        members=members,
+    )
 
 
 @router.get("/{chore_id}", response_model=schemas.ChoreResponse)
@@ -258,6 +333,7 @@ def create_chore(
     échéance et son assignation initiale."""
     _validate_types(data.period_type, data.assignment_type)
     _validate_due_time(data.due_time)
+    _validate_reward(data.reward)
     if data.assigned_user_id:
         _validate_household_member(db, active_household.id, data.assigned_user_id)
 
@@ -294,6 +370,8 @@ def update_chore(
     _validate_types(update_data.get("period_type"), update_data.get("assignment_type"))
     if "due_time" in update_data:
         _validate_due_time(update_data["due_time"])
+    if "reward" in update_data:
+        _validate_reward(update_data["reward"])
     if update_data.get("assigned_user_id"):
         _validate_household_member(db, active_household.id, update_data["assigned_user_id"])
 
@@ -365,6 +443,7 @@ def execute_chore(
         previous_due_date=previous_due_date,
         previous_assigned_user_id=previous_assigned_user_id,
         new_due_date=chore.next_due_at,
+        reward_amount=chore.reward,
     )
     db.add(log)
     db.commit()
@@ -379,6 +458,7 @@ def execute_chore(
         executed_at=log.executed_at,
         previous_due_date=log.previous_due_date,
         new_due_date=log.new_due_date,
+        reward_amount=float(log.reward_amount) if log.reward_amount is not None else None,
     )
     return schemas.ChoreExecuteResponse(chore=_enrich_chore(chore), log=log_response)
 
@@ -406,6 +486,7 @@ def get_chore_logs(
             executed_at=log.executed_at,
             previous_due_date=log.previous_due_date,
             new_due_date=log.new_due_date,
+            reward_amount=float(log.reward_amount) if log.reward_amount is not None else None,
         )
         for log, username in rows
     ]

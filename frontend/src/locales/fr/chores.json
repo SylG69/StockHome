@@ -49,6 +49,8 @@
     "yearlyMonth": "Mois",
     "yearlyDay": "Jour",
     "dueTime": "Heure",
+    "reward": "Récompense (€)",
+    "rewardPlaceholder": "ex: 2.50",
     "assignmentType": "Règle d'attribution",
     "initialAssignee": "Assigné initial",
     "noInitialAssignee": "Aucun"
@@ -87,5 +89,14 @@
   "errors": {
     "loadError": "Erreur lors du chargement",
     "generic": "Une erreur est survenue"
+  },
+  "rewards": {
+    "viewButton": "Récompenses",
+    "title": "Récompenses",
+    "backToTasks": "Retour aux tâches",
+    "periodSince": "Semaine en cours depuis le {{date}}",
+    "totalAllTime": "Total depuis toujours : {{amount}}",
+    "empty": "Aucune tâche rémunérée effectuée",
+    "noMembers": "Aucun membre dans ce foyer"
   }
 }

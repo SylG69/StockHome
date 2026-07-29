@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Settings, FolderOpen, MapPin } from 'lucide-react';
+import { Settings, FolderOpen, MapPin, Gift } from 'lucide-react';
 import CategoriesConfigSection from './CategoriesConfigSection';
 import LocationsConfigSection from './LocationsConfigSection';
+import RewardsConfigSection from './RewardsConfigSection';
 
 // Sections de la page Configuration. Pour en ajouter une nouvelle à
 // l'avenir : créer le composant de section (voir CategoriesConfigSection.jsx
@@ -12,6 +13,7 @@ import LocationsConfigSection from './LocationsConfigSection';
 const CONFIG_SECTIONS = [
   { key: 'categories', labelKey: 'page.categories', icon: FolderOpen, component: CategoriesConfigSection },
   { key: 'locations', labelKey: 'page.locations', icon: MapPin, component: LocationsConfigSection },
+  { key: 'rewards', labelKey: 'page.rewards', icon: Gift, component: RewardsConfigSection },
 ];
 
 export default function ConfigurationPage() {

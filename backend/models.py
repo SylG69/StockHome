@@ -99,6 +99,10 @@ class Household(Base):
     invite_code: Mapped[str | None] = mapped_column(String(16), unique=True, nullable=True, index=True)
     created_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Jour de la semaine (ISO 1=lundi..7=dimanche) où la récapitulation des
+    # récompenses des corvées redémarre pour ce foyer -- configurable par un
+    # admin du foyer (voir chore_service._period_start). Dimanche par défaut.
+    rewards_summary_weekday: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
 
     members: Mapped[list["HouseholdMember"]] = relationship(
         back_populates="household", foreign_keys="HouseholdMember.household_id", cascade="all, delete-orphan"
@@ -255,7 +259,7 @@ class Chore(Base):
     # "hourly" | "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "manually".
     period_type: Mapped[str] = mapped_column(String(20), default="manually", nullable=False)
     period_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)  # hourly
-    period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # daily (recalculé depuis last_done_at : "sans dérive")
+    period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # daily ("sans dérive", recalculé depuis last_done_at)
     weekdays: Mapped[str | None] = mapped_column(String(20), nullable=True)  # weekly, ex "1,3,5" (ISO 1=lundi..7=dimanche)
     month_days: Mapped[str | None] = mapped_column(String(100), nullable=True)  # monthly, ex "1,15,28"
     yearly_month: Mapped[int | None] = mapped_column(Integer, nullable=True)  # yearly, 1-12
@@ -264,6 +268,8 @@ class Chore(Base):
     # next_due_at (sauf pour "hourly"/"manually", où elle n'a pas de sens) --
     # sans elle, l'heure suit simplement celle de la dernière exécution.
     due_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    # Montant (EUR) versé au membre qui effectue cette corvée, si définie.
+    reward: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     # "no-assignment" | "in-alphabetical-order" | "random" | "who-least-did-first".
     assignment_type: Mapped[str] = mapped_column(String(30), default="no-assignment", nullable=False)
@@ -300,6 +306,10 @@ class ChoreLog(Base):
     previous_due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     previous_assigned_user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     new_due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Copie de Chore.reward au moment de l'exécution : le montant gagné reste
+    # exact même si la récompense de la corvée change ensuite. NULL si la
+    # corvée n'avait pas de récompense définie à cet instant.
+    reward_amount: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

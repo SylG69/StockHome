@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -41,6 +42,7 @@ import {
   Undo2,
   User,
   CalendarDays,
+  Gift,
 } from 'lucide-react';
 
 const PERIOD_TYPES = ['manually', 'hourly', 'daily', 'weekly', 'biweekly', 'monthly', 'yearly'];
@@ -69,6 +71,7 @@ const EMPTY_FORM = {
   yearly_month: 1,
   yearly_day: 1,
   due_time: '',
+  reward: '',
   assignment_type: 'no-assignment',
   assigned_user_id: '',
 };
@@ -182,6 +185,7 @@ export default function ChoresPage() {
       yearly_month: chore.yearly_month || 1,
       yearly_day: chore.yearly_day || 1,
       due_time: chore.due_time || '',
+      reward: chore.reward != null ? String(chore.reward) : '',
       assignment_type: chore.assignment_type,
       assigned_user_id: chore.assigned_user_id || '',
     });
@@ -205,6 +209,7 @@ export default function ChoresPage() {
         yearly_month: form.period_type === 'yearly' ? Number(form.yearly_month) : null,
         yearly_day: form.period_type === 'yearly' ? Number(form.yearly_day) : null,
         due_time: TYPES_WITH_DUE_TIME.has(form.period_type) && form.due_time ? form.due_time : null,
+        reward: form.reward !== '' ? Number(form.reward) : null,
       };
 
       if (editingId) {
@@ -285,9 +290,16 @@ export default function ChoresPage() {
           <h1 className="text-3xl font-bold tracking-tight">{t('page.title')}</h1>
           <p className="text-muted-foreground mt-1 text-sm italic">{t('page.subtitle')}</p>
         </div>
-        <Button onClick={openCreateDialog} className="btn-glow">
-          <Plus className="w-4 h-4 mr-2" /> {t('add')}
-        </Button>
+        <div className="flex gap-2">
+          <Link to="/chores/rewards">
+            <Button variant="outline">
+              <Gift className="w-4 h-4 mr-2" /> {t('rewards.viewButton')}
+            </Button>
+          </Link>
+          <Button onClick={openCreateDialog} className="btn-glow">
+            <Plus className="w-4 h-4 mr-2" /> {t('add')}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -326,6 +338,11 @@ export default function ChoresPage() {
                     {chore.assigned_user_name && (
                       <Badge variant="secondary" className="text-xs">
                         <User className="w-3 h-3 mr-1" /> {chore.assigned_user_name}
+                      </Badge>
+                    )}
+                    {chore.reward != null && (
+                      <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-600">
+                        <Gift className="w-3 h-3 mr-1" /> {chore.reward.toFixed(2)} €
                       </Badge>
                     )}
                   </div>
@@ -495,6 +512,18 @@ export default function ChoresPage() {
                 <Input type="time" value={form.due_time} onChange={(e) => setForm((f) => ({ ...f, due_time: e.target.value }))} />
               </div>
             )}
+
+            <div className="space-y-1.5">
+              <Label>{t('form.reward')}</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.reward}
+                onChange={(e) => setForm((f) => ({ ...f, reward: e.target.value }))}
+                placeholder={t('form.rewardPlaceholder')}
+              />
+            </div>
 
             <div className="space-y-1.5">
               <Label>{t('form.assignmentType')}</Label>

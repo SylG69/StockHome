@@ -49,6 +49,8 @@
     "yearlyMonth": "Month",
     "yearlyDay": "Day",
     "dueTime": "Time",
+    "reward": "Reward (€)",
+    "rewardPlaceholder": "e.g. 2.50",
     "assignmentType": "Assignment rule",
     "initialAssignee": "Initial assignee",
     "noInitialAssignee": "None"
@@ -87,5 +89,14 @@
   "errors": {
     "loadError": "Error loading data",
     "generic": "Something went wrong"
+  },
+  "rewards": {
+    "viewButton": "Rewards",
+    "title": "Rewards",
+    "backToTasks": "Back to tasks",
+    "periodSince": "Current week since {{date}}",
+    "totalAllTime": "Total all-time: {{amount}}",
+    "empty": "No rewarded task completed",
+    "noMembers": "No members in this household"
   }
 }

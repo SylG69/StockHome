@@ -12,6 +12,7 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import ConfigurationPage from './pages/ConfigurationPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import ChoresPage from './pages/ChoresPage';
+import RewardsPage from './pages/RewardsPage';
 import ScannerPage from './pages/ScannerPage';
 import UsersPage from './pages/UsersPage';
 import HouseholdPage from './pages/HouseholdPage';
@@ -126,6 +127,7 @@ function AppRoutes() {
         <Route path="locations" element={<Navigate to="/configuration?section=locations" replace />} />
         <Route path="shopping-list" element={<ShoppingListPage />} />
         <Route path="chores" element={<ChoresPage />} />
+        <Route path="chores/rewards" element={<RewardsPage />} />
         <Route path="scanner" element={<ScannerPage />} />
         <Route
           path="users"

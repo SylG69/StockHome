@@ -103,6 +103,7 @@ class HouseholdResponse(BaseModel):
     role: str  # rôle de l'utilisateur courant dans ce foyer
     member_count: int
     is_active: bool  # ce foyer est-il le foyer actif de l'utilisateur courant
+    rewards_summary_weekday: int = 7  # ISO 1 (lundi) à 7 (dimanche)
 
 class HouseholdDetailResponse(HouseholdResponse):
     """Détail d'un foyer, avec code d'invitation (admin uniquement) et membres."""
@@ -299,6 +300,8 @@ class ChoreBase(BaseModel):
     yearly_day: Optional[int] = None  # yearly, 1-31
     # Heure d'échéance souhaitée ("HH:MM"), ignorée pour hourly/manually.
     due_time: Optional[str] = None
+    # Montant (EUR) versé au membre qui effectue cette corvée, si définie.
+    reward: Optional[float] = None
     assignment_type: str = "no-assignment"  # no-assignment | in-alphabetical-order | random | who-least-did-first
     assigned_user_id: Optional[str] = None  # assigné initial explicite (facultatif)
 
@@ -318,6 +321,7 @@ class ChoreUpdate(BaseModel):
     yearly_month: Optional[int] = None
     yearly_day: Optional[int] = None
     due_time: Optional[str] = None
+    reward: Optional[float] = None
     assignment_type: Optional[str] = None
     assigned_user_id: Optional[str] = None
 
@@ -345,8 +349,36 @@ class ChoreLogResponse(BaseModel):
     executed_at: datetime
     previous_due_date: Optional[datetime] = None
     new_due_date: Optional[datetime] = None
+    reward_amount: Optional[float] = None
 
 class ChoreExecuteResponse(BaseModel):
     """Réponse renvoyée après avoir marqué une corvée comme faite."""
     chore: ChoreResponse
     log: ChoreLogResponse
+
+# ==================== CHORE REWARDS ====================
+
+class RewardLogEntry(BaseModel):
+    """Une exécution rémunérée, telle qu'affichée dans le détail par membre."""
+    chore_id: str
+    chore_name: str
+    executed_at: datetime
+    reward_amount: float
+
+class MemberRewardsSummary(BaseModel):
+    """Récapitulatif des récompenses gagnées par un membre du foyer."""
+    user_id: str
+    username: str
+    total_current_period: float
+    total_all_time: float
+    logs: List[RewardLogEntry] = []
+
+class RewardsSummaryResponse(BaseModel):
+    """Réponse de GET /api/chores/rewards/summary."""
+    period_start: datetime
+    weekday: int  # ISO 1 (lundi) à 7 (dimanche), jour de reset configuré pour le foyer
+    members: List[MemberRewardsSummary] = []
+
+class HouseholdRewardsSettingsUpdate(BaseModel):
+    """Requête admin pour changer le jour de reset des récompenses du foyer."""
+    weekday: int  # ISO 1 (lundi) à 7 (dimanche)
