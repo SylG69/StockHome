@@ -299,6 +299,10 @@ class Chore(Base):
     assigned_user_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Restreint la rotation (alphabétique/aléatoire/qui l'a le moins fait) à
+    # ce sous-ensemble de membres du foyer, CSV d'user_id -- NULL/vide =
+    # tous les membres actuels sont éligibles (comportement historique).
+    eligible_user_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     last_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     next_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

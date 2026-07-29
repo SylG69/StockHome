@@ -59,8 +59,8 @@
     "assignmentType": "Assignment rule",
     "initialAssignee": "Initial assignee",
     "noInitialAssignee": "None",
-    "fixedAssignee": "Assigned person",
-    "fixedAssigneeRequired": "Select a person for the fixed assignment"
+    "eligibleMembers": "Restrict to specific members",
+    "eligibleMembersHint": "Optional: if none are checked, every household member is eligible for the rotation."
   },
   "periodType": {
     "manually": "Manual (no scheduling)",
@@ -75,8 +75,7 @@
     "no-assignment": "No assignment",
     "in-alphabetical-order": "Alphabetical order",
     "random": "Random",
-    "who-least-did-first": "Who did it least",
-    "fixed": "Fixed person"
+    "who-least-did-first": "Who did it least"
   },
   "weekday": {
     "1": "Mon",

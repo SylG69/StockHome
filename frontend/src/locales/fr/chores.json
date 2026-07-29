@@ -59,8 +59,8 @@
     "assignmentType": "Règle d'attribution",
     "initialAssignee": "Assigné initial",
     "noInitialAssignee": "Aucun",
-    "fixedAssignee": "Personne assignée",
-    "fixedAssigneeRequired": "Sélectionne une personne pour l'attribution fixe"
+    "eligibleMembers": "Restreindre à certains membres",
+    "eligibleMembersHint": "Optionnel : si aucun n'est coché, tous les membres du foyer sont éligibles à la rotation."
   },
   "periodType": {
     "manually": "Manuel (aucune planification)",
@@ -75,8 +75,7 @@
     "no-assignment": "Aucune attribution",
     "in-alphabetical-order": "Tour de rôle alphabétique",
     "random": "Aléatoire",
-    "who-least-did-first": "Celui qui l'a le moins fait",
-    "fixed": "Personne fixe"
+    "who-least-did-first": "Celui qui l'a le moins fait"
   },
   "weekday": {
     "1": "Lun",

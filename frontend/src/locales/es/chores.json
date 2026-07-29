@@ -59,8 +59,8 @@
     "assignmentType": "Regla de asignación",
     "initialAssignee": "Asignado inicial",
     "noInitialAssignee": "Ninguno",
-    "fixedAssignee": "Persona asignada",
-    "fixedAssigneeRequired": "Selecciona una persona para la asignación fija"
+    "eligibleMembers": "Restringir a miembros específicos",
+    "eligibleMembersHint": "Opcional: si no se marca ninguno, todos los miembros del hogar son elegibles para la rotación."
   },
   "periodType": {
     "manually": "Manual (sin planificación)",
@@ -75,8 +75,7 @@
     "no-assignment": "Sin asignación",
     "in-alphabetical-order": "Orden alfabético",
     "random": "Aleatorio",
-    "who-least-did-first": "Quien menos lo ha hecho",
-    "fixed": "Persona fija"
+    "who-least-did-first": "Quien menos lo ha hecho"
   },
   "weekday": {
     "1": "Lun",

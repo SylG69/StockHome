@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/chores", tags=["chores"])
 CHORE_NOT_FOUND = "Corvée non trouvée"
 
 VALID_PERIOD_TYPES = {"hourly", "daily", "weekly", "biweekly", "monthly", "yearly", "manually"}
-VALID_ASSIGNMENT_TYPES = {"no-assignment", "in-alphabetical-order", "random", "who-least-did-first", "fixed"}
+VALID_ASSIGNMENT_TYPES = {"no-assignment", "in-alphabetical-order", "random", "who-least-did-first"}
 
 DUE_TIME_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
@@ -41,6 +41,20 @@ def _serialize_int_list(value: Optional[list[int]]) -> Optional[str]:
     if not value:
         return None
     return ",".join(str(v) for v in sorted(set(value)))
+
+
+def _parse_str_list(value: Optional[str]) -> Optional[list[str]]:
+    """Convertit une chaîne CSV d'identifiants stockée en base en liste de chaînes."""
+    if not value:
+        return None
+    return [v for v in value.split(",") if v.strip()]
+
+
+def _serialize_str_list(value: Optional[list[str]]) -> Optional[str]:
+    """Convertit une liste d'identifiants en chaîne CSV dédupliquée, pour le stockage en base."""
+    if not value:
+        return None
+    return ",".join(sorted(set(value)))
 
 
 def _safe_date(year: int, month: int, day: int) -> date:
@@ -124,17 +138,18 @@ def _get_household_members(db: Session, household_id: str) -> list[models.Househ
 
 def _compute_next_assignee(db: Session, chore: "models.Chore") -> Optional[str]:
     """Détermine le prochain assigné selon assignment_type, parmi les membres
-    actuels du foyer (un membre retiré du foyer entre-temps n'est jamais
-    réassigné)."""
+    actuels du foyer éligibles (un membre retiré du foyer, ou exclu via
+    eligible_user_ids, n'est jamais réassigné). Si eligible_user_ids ne
+    contient plus qu'une seule personne encore membre du foyer, celle-ci est
+    donc systématiquement réassignée quel que soit assignment_type -- c'est
+    ainsi qu'on obtient une "personne fixe"."""
     if chore.assignment_type == "no-assignment":
         return None
 
-    if chore.assignment_type == "fixed":
-        # Toujours la même personne, choisie à la création/modification de la
-        # corvée -- jamais recalculée automatiquement.
-        return chore.assigned_user_id
-
     members = _get_household_members(db, chore.household_id)
+    eligible_ids = _parse_str_list(chore.eligible_user_ids)
+    if eligible_ids:
+        members = [m for m in members if m.user_id in eligible_ids]
     if not members:
         return None
     members_sorted = sorted(members, key=lambda m: m.user.username.lower())
@@ -202,6 +217,7 @@ def _enrich_chore(chore: "models.Chore") -> schemas.ChoreResponse:
         reward=float(chore.reward) if chore.reward is not None else None,
         assignment_type=chore.assignment_type,
         assigned_user_id=chore.assigned_user_id,
+        eligible_user_ids=_parse_str_list(chore.eligible_user_ids),
         last_done_at=chore.last_done_at,
         next_due_at=chore.next_due_at,
         status=_compute_status(chore.next_due_at, chore.done_until, datetime.now(timezone.utc)),
@@ -255,10 +271,12 @@ def _validate_reward(reward: Optional[float]) -> None:
         raise HTTPException(status_code=400, detail="reward invalide : doit être positif ou nul")
 
 
-def _validate_fixed_assignment(assignment_type: Optional[str], assigned_user_id: Optional[str]) -> None:
-    """L'attribution "fixed" (toujours la même personne) exige un assigned_user_id explicite."""
-    if assignment_type == "fixed" and not assigned_user_id:
-        raise HTTPException(status_code=400, detail="assigned_user_id requis pour l'attribution fixe")
+def _validate_eligible_members(db: Session, household_id: str, user_ids: Optional[list[str]]) -> None:
+    """Vérifie que chaque identifiant de eligible_user_ids appartient bien au foyer."""
+    if not user_ids:
+        return
+    for user_id in user_ids:
+        _validate_household_member(db, household_id, user_id)
 
 
 def _period_start(weekday: int, now: datetime) -> datetime:
@@ -433,13 +451,14 @@ def create_chore(
     _validate_types(data.period_type, data.assignment_type)
     _validate_due_time(data.due_time)
     _validate_reward(data.reward)
-    _validate_fixed_assignment(data.assignment_type, data.assigned_user_id)
     if data.assigned_user_id:
         _validate_household_member(db, active_household.id, data.assigned_user_id)
+    _validate_eligible_members(db, active_household.id, data.eligible_user_ids)
 
     payload = data.model_dump(exclude={"start_today"})
     payload["weekdays"] = _serialize_int_list(payload["weekdays"])
     payload["month_days"] = _serialize_int_list(payload["month_days"])
+    payload["eligible_user_ids"] = _serialize_str_list(payload["eligible_user_ids"])
 
     chore = models.Chore(**payload, user_id=current_user.id, household_id=active_household.id)
     now = datetime.now(timezone.utc)
@@ -447,7 +466,7 @@ def create_chore(
     db.add(chore)
     db.flush()
 
-    if not data.assigned_user_id and data.assignment_type not in ("no-assignment", "fixed"):
+    if not data.assigned_user_id and data.assignment_type != "no-assignment":
         chore.assigned_user_id = _compute_next_assignee(db, chore)
 
     db.commit()
@@ -472,12 +491,10 @@ def update_chore(
         _validate_due_time(update_data["due_time"])
     if "reward" in update_data:
         _validate_reward(update_data["reward"])
-    _validate_fixed_assignment(
-        update_data.get("assignment_type", chore.assignment_type),
-        update_data.get("assigned_user_id", chore.assigned_user_id),
-    )
     if update_data.get("assigned_user_id"):
         _validate_household_member(db, active_household.id, update_data["assigned_user_id"])
+    if "eligible_user_ids" in update_data:
+        _validate_eligible_members(db, active_household.id, update_data["eligible_user_ids"])
 
     schedule_changed = any(
         key in update_data
@@ -491,6 +508,8 @@ def update_chore(
         update_data["weekdays"] = _serialize_int_list(update_data["weekdays"])
     if "month_days" in update_data:
         update_data["month_days"] = _serialize_int_list(update_data["month_days"])
+    if "eligible_user_ids" in update_data:
+        update_data["eligible_user_ids"] = _serialize_str_list(update_data["eligible_user_ids"])
 
     for key, value in update_data.items():
         setattr(chore, key, value)

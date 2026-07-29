@@ -303,9 +303,12 @@ class ChoreBase(BaseModel):
     due_time: Optional[str] = None
     # Montant (EUR) versé au membre qui effectue cette corvée, si définie.
     reward: Optional[float] = None
-    # no-assignment | in-alphabetical-order | random | who-least-did-first | fixed
+    # no-assignment | in-alphabetical-order | random | who-least-did-first
     assignment_type: str = "no-assignment"
     assigned_user_id: Optional[str] = None  # assigné initial explicite (facultatif)
+    # Restreint la rotation à ce sous-ensemble de membres du foyer -- None/vide
+    # = tous les membres actuels du foyer sont éligibles.
+    eligible_user_ids: Optional[List[str]] = None
 
 class ChoreCreate(ChoreBase):
     """Requête de création d'une corvée."""
@@ -330,6 +333,7 @@ class ChoreUpdate(BaseModel):
     reward: Optional[float] = None
     assignment_type: Optional[str] = None
     assigned_user_id: Optional[str] = None
+    eligible_user_ids: Optional[List[str]] = None
 
 class ChoreResponse(ChoreBase):
     """Réponse API pour une corvée, avec état calculé (échéance, statut, assigné)."""

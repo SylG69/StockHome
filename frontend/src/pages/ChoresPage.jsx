@@ -51,7 +51,7 @@ const PERIOD_TYPES = ['manually', 'hourly', 'daily', 'weekly', 'biweekly', 'mont
 // Types pour lesquels choisir une heure d'échéance a du sens : "hourly" est
 // déjà un intervalle (pas une heure fixe) et "manually" n'a pas d'échéance.
 const TYPES_WITH_DUE_TIME = new Set(['daily', 'weekly', 'biweekly', 'monthly', 'yearly']);
-const ASSIGNMENT_TYPES = ['no-assignment', 'in-alphabetical-order', 'random', 'who-least-did-first', 'fixed'];
+const ASSIGNMENT_TYPES = ['no-assignment', 'in-alphabetical-order', 'random', 'who-least-did-first'];
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7]; // ISO : 1 = lundi ... 7 = dimanche
 
 const STATUS_STYLES = {
@@ -81,6 +81,7 @@ const EMPTY_FORM = {
   start_today: false,
   assignment_type: 'no-assignment',
   assigned_user_id: '',
+  eligible_user_ids: [],
 };
 
 function parseMonthDays(value) {
@@ -88,6 +89,26 @@ function parseMonthDays(value) {
     .split(',')
     .map((v) => parseInt(v.trim(), 10))
     .filter((v) => Number.isInteger(v) && v >= 1 && v <= 31);
+}
+
+// Le champ "due_time" est stocké côté backend en heure UTC (il est appliqué
+// tel quel à un next_due_at qui est toujours en UTC) -- mais l'input
+// <input type="time"> saisit/affiche toujours l'heure LOCALE du navigateur.
+// Sans conversion, "18:50" saisi localement serait stocké comme "18:50 UTC"
+// et réaffiché décalé (ex: 20:50 en été, heure française). On convertit donc
+// systématiquement local <-> UTC à la frontière saisie/affichage.
+function localTimeToUTC(hhmm) {
+  const [hour, minute] = hhmm.split(':').map(Number);
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+function utcTimeToLocal(hhmm) {
+  const [hour, minute] = hhmm.split(':').map(Number);
+  const d = new Date();
+  d.setUTCHours(hour, minute, 0, 0);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function formatDueDate(nextDueAt, locale) {
@@ -211,20 +232,17 @@ export default function ChoresPage() {
       month_days: (chore.month_days || []).join(','),
       yearly_month: chore.yearly_month || 1,
       yearly_day: chore.yearly_day || 1,
-      due_time: chore.due_time || '',
+      due_time: chore.due_time ? utcTimeToLocal(chore.due_time) : '',
       reward: chore.reward != null ? String(chore.reward) : '',
       assignment_type: chore.assignment_type,
       assigned_user_id: chore.assigned_user_id || '',
+      eligible_user_ids: chore.eligible_user_ids || [],
     });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
-    if (form.assignment_type === 'fixed' && !form.assigned_user_id) {
-      toast.error(t('form.fixedAssigneeRequired'));
-      return;
-    }
     setSaving(true);
     try {
       const payload = {
@@ -233,13 +251,16 @@ export default function ChoresPage() {
         period_type: form.period_type,
         assignment_type: form.assignment_type,
         assigned_user_id: form.assigned_user_id || null,
+        eligible_user_ids: form.assignment_type !== 'no-assignment' && form.eligible_user_ids.length > 0
+          ? form.eligible_user_ids
+          : null,
         period_hours: form.period_type === 'hourly' ? Number(form.period_hours) || 1 : null,
         period_days: form.period_type === 'daily' ? Number(form.period_days) || 1 : null,
         weekdays: TYPES_WITH_WEEKDAYS.has(form.period_type) ? form.weekdays.map(Number) : null,
         month_days: form.period_type === 'monthly' ? parseMonthDays(form.month_days) : null,
         yearly_month: form.period_type === 'yearly' ? Number(form.yearly_month) : null,
         yearly_day: form.period_type === 'yearly' ? Number(form.yearly_day) : null,
-        due_time: TYPES_WITH_DUE_TIME.has(form.period_type) && form.due_time ? form.due_time : null,
+        due_time: TYPES_WITH_DUE_TIME.has(form.period_type) && form.due_time ? localTimeToUTC(form.due_time) : null,
         reward: form.reward !== '' ? Number(form.reward) : null,
       };
 
@@ -655,21 +676,38 @@ export default function ChoresPage() {
 
             {form.assignment_type !== 'no-assignment' && members.length > 0 && (
               <div className="space-y-1.5">
-                <Label>{t(form.assignment_type === 'fixed' ? 'form.fixedAssignee' : 'form.initialAssignee')}</Label>
+                <Label>{t('form.initialAssignee')}</Label>
                 <Select
                   value={form.assigned_user_id || '__none__'}
                   onValueChange={(v) => setForm((f) => ({ ...f, assigned_user_id: v === '__none__' ? '' : v }))}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {form.assignment_type !== 'fixed' && (
-                      <SelectItem value="__none__">{t('form.noInitialAssignee')}</SelectItem>
-                    )}
+                    <SelectItem value="__none__">{t('form.noInitialAssignee')}</SelectItem>
                     {members.map((m) => (
                       <SelectItem key={m.user_id} value={m.user_id}>{m.username}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {form.assignment_type !== 'no-assignment' && members.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>{t('form.eligibleMembers')}</Label>
+                <p className="text-xs text-muted-foreground">{t('form.eligibleMembersHint')}</p>
+                <ToggleGroup
+                  type="multiple"
+                  value={form.eligible_user_ids}
+                  onValueChange={(v) => setForm((f) => ({ ...f, eligible_user_ids: v }))}
+                  className="flex-wrap justify-start"
+                >
+                  {members.map((m) => (
+                    <ToggleGroupItem key={m.user_id} value={m.user_id} className="text-xs">
+                      {m.username}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               </div>
             )}
           </div>
