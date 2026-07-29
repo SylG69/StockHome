@@ -1,25 +1,25 @@
 {
   "page": {
-    "title": "Corvées",
+    "title": "Tâches",
     "subtitle": "Tâches ménagères récurrentes du foyer"
   },
   "add": "Ajouter",
   "edit": "Modifier",
   "save": "Enregistrer",
-  "created": "Corvée créée",
-  "saved": "Corvée mise à jour",
-  "deleted": "Corvée supprimée",
+  "created": "Tâche créée",
+  "saved": "Tâche mise à jour",
+  "deleted": "Tâche supprimée",
   "markDone": "Marquer fait",
-  "markedDone": "Corvée marquée comme faite",
+  "markedDone": "Tâche marquée comme faite",
   "undone": "Exécution annulée",
-  "empty": "Aucune corvée pour le moment",
+  "empty": "Aucune tâche pour le moment",
   "stats": {
     "overdue": "En retard",
     "dueToday": "Aujourd'hui",
     "dueSoon": "Bientôt"
   },
   "list": {
-    "title": "Toutes les corvées"
+    "title": "Toutes les tâches"
   },
   "status": {
     "overdue": "En retard",
@@ -29,10 +29,10 @@
     "no_schedule": "Manuel"
   },
   "addDialog": {
-    "title": "Nouvelle corvée"
+    "title": "Nouvelle tâche"
   },
   "editDialog": {
-    "title": "Modifier la corvée"
+    "title": "Modifier la tâche"
   },
   "form": {
     "name": "Nom",

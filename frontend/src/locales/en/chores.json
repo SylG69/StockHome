@@ -1,25 +1,25 @@
 {
   "page": {
-    "title": "Chores",
+    "title": "Tasks",
     "subtitle": "Recurring household tasks"
   },
   "add": "Add",
   "edit": "Edit",
   "save": "Save",
-  "created": "Chore created",
-  "saved": "Chore updated",
-  "deleted": "Chore deleted",
+  "created": "Task created",
+  "saved": "Task updated",
+  "deleted": "Task deleted",
   "markDone": "Mark done",
-  "markedDone": "Chore marked as done",
+  "markedDone": "Task marked as done",
   "undone": "Execution undone",
-  "empty": "No chores yet",
+  "empty": "No tasks yet",
   "stats": {
     "overdue": "Overdue",
     "dueToday": "Due today",
     "dueSoon": "Due soon"
   },
   "list": {
-    "title": "All chores"
+    "title": "All tasks"
   },
   "status": {
     "overdue": "Overdue",
@@ -29,10 +29,10 @@
     "no_schedule": "Manual"
   },
   "addDialog": {
-    "title": "New chore"
+    "title": "New task"
   },
   "editDialog": {
-    "title": "Edit chore"
+    "title": "Edit task"
   },
   "form": {
     "name": "Name",

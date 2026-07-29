@@ -241,23 +241,23 @@ export default function ChoresPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-red-500/10"><AlarmClock className="w-6 h-6 text-red-600" /></div>
-            <div><p className="text-2xl font-bold">{overdueCount}</p><p className="text-sm text-muted-foreground">{t('stats.overdue')}</p></div>
+          <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-red-500/10 shrink-0"><AlarmClock className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" /></div>
+            <div className="min-w-0"><p className="text-xl sm:text-2xl font-bold">{overdueCount}</p><p className="text-xs sm:text-sm text-muted-foreground truncate">{t('stats.overdue')}</p></div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-blue-500/10"><Clock className="w-6 h-6 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold">{dueTodayCount}</p><p className="text-sm text-muted-foreground">{t('stats.dueToday')}</p></div>
+          <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-blue-500/10 shrink-0"><Clock className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" /></div>
+            <div className="min-w-0"><p className="text-xl sm:text-2xl font-bold">{dueTodayCount}</p><p className="text-xs sm:text-sm text-muted-foreground truncate">{t('stats.dueToday')}</p></div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-yellow-500/10"><ListChecks className="w-6 h-6 text-yellow-700" /></div>
-            <div><p className="text-2xl font-bold">{dueSoonCount}</p><p className="text-sm text-muted-foreground">{t('stats.dueSoon')}</p></div>
+          <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-yellow-500/10 shrink-0"><ListChecks className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-700" /></div>
+            <div className="min-w-0"><p className="text-xl sm:text-2xl font-bold">{dueSoonCount}</p><p className="text-xs sm:text-sm text-muted-foreground truncate">{t('stats.dueSoon')}</p></div>
           </CardContent>
         </Card>
       </div>
@@ -284,7 +284,7 @@ export default function ChoresPage() {
                     <p className="text-sm text-muted-foreground mt-1">{chore.description}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openJournal(chore)} title={t('journal.title')}>
                     <History className="w-4 h-4" />
                   </Button>
