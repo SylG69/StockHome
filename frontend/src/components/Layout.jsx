@@ -27,8 +27,8 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, labelKey: 'common:nav.dashboard', exact: true },
   { to: '/products', icon: Package, labelKey: 'common:nav.products' },
   { to: '/shopping-list', icon: ShoppingCart, labelKey: 'common:nav.shoppingList' },
-  { to: '/chores', icon: ListChecks, labelKey: 'common:nav.chores' },
   { to: '/scanner', icon: ScanLine, labelKey: 'common:nav.scanner' },
+  { to: '/chores', icon: ListChecks, labelKey: 'common:nav.chores' },
 ];
 
 const configNavItem = { to: '/configuration', icon: Settings, labelKey: 'common:nav.configuration' };

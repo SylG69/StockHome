@@ -103,6 +103,8 @@ class HouseholdResponse(BaseModel):
     role: str  # rôle de l'utilisateur courant dans ce foyer
     member_count: int
     is_active: bool  # ce foyer est-il le foyer actif de l'utilisateur courant
+    rewards_summary_weekday: int = 7  # ISO 1 (lundi) à 7 (dimanche)
+    rewards_enabled: bool = True
 
 class HouseholdDetailResponse(HouseholdResponse):
     """Détail d'un foyer, avec code d'invitation (admin uniquement) et membres."""
@@ -290,19 +292,31 @@ class ChoreBase(BaseModel):
     """Base décrivant les champs communs d'une corvée (planification + attribution)."""
     name: str
     description: Optional[str] = ""
-    period_type: str = "manually"  # hourly | daily | weekly | monthly | yearly | manually
+    period_type: str = "manually"  # hourly | daily | weekly | biweekly | monthly | yearly | manually
     period_hours: Optional[int] = None  # hourly
     period_days: Optional[int] = None  # daily
     weekdays: Optional[List[int]] = None  # weekly, ISO 1 (lundi) à 7 (dimanche)
     month_days: Optional[List[int]] = None  # monthly, jours du mois 1-31
     yearly_month: Optional[int] = None  # yearly, 1-12
     yearly_day: Optional[int] = None  # yearly, 1-31
-    assignment_type: str = "no-assignment"  # no-assignment | in-alphabetical-order | random | who-least-did-first
+    # Heure d'échéance souhaitée ("HH:MM"), ignorée pour hourly/manually.
+    due_time: Optional[str] = None
+    # Montant (EUR) versé au membre qui effectue cette corvée, si définie.
+    reward: Optional[float] = None
+    # no-assignment | in-alphabetical-order | random | who-least-did-first
+    assignment_type: str = "no-assignment"
     assigned_user_id: Optional[str] = None  # assigné initial explicite (facultatif)
+    # Restreint la rotation à ce sous-ensemble de membres du foyer -- None/vide
+    # = tous les membres actuels du foyer sont éligibles.
+    eligible_user_ids: Optional[List[str]] = None
 
 class ChoreCreate(ChoreBase):
     """Requête de création d'une corvée."""
-    pass
+    # Si True, la première échéance est fixée à aujourd'hui plutôt que
+    # calculée via la périodicité depuis la date de création (utile pour une
+    # corvée hebdomadaire/mensuelle qu'on veut voir apparaître dès le jour
+    # même, sans attendre la prochaine occurrence naturelle).
+    start_today: bool = False
 
 class ChoreUpdate(BaseModel):
     """Modèle de mise à jour partielle d'une corvée."""
@@ -315,8 +329,11 @@ class ChoreUpdate(BaseModel):
     month_days: Optional[List[int]] = None
     yearly_month: Optional[int] = None
     yearly_day: Optional[int] = None
+    due_time: Optional[str] = None
+    reward: Optional[float] = None
     assignment_type: Optional[str] = None
     assigned_user_id: Optional[str] = None
+    eligible_user_ids: Optional[List[str]] = None
 
 class ChoreResponse(ChoreBase):
     """Réponse API pour une corvée, avec état calculé (échéance, statut, assigné)."""
@@ -337,13 +354,50 @@ class ChoreLogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     chore_id: str
+    chore_name: Optional[str] = None
     executed_by_user_id: Optional[str] = None
     executed_by_username: Optional[str] = None
     executed_at: datetime
     previous_due_date: Optional[datetime] = None
     new_due_date: Optional[datetime] = None
+    reward_amount: Optional[float] = None
+    skipped: bool = False
 
 class ChoreExecuteResponse(BaseModel):
     """Réponse renvoyée après avoir marqué une corvée comme faite."""
     chore: ChoreResponse
     log: ChoreLogResponse
+
+class ChoreCalendarEntry(BaseModel):
+    """Une occurrence future projetée d'une corvée, pour l'affichage calendrier."""
+    chore_id: str
+    chore_name: str
+    due_at: datetime
+
+# ==================== CHORE REWARDS ====================
+
+class RewardLogEntry(BaseModel):
+    """Une exécution rémunérée, telle qu'affichée dans le détail par membre."""
+    chore_id: str
+    chore_name: str
+    executed_at: datetime
+    reward_amount: float
+
+class MemberRewardsSummary(BaseModel):
+    """Récapitulatif des récompenses gagnées par un membre du foyer."""
+    user_id: str
+    username: str
+    total_current_period: float
+    total_all_time: float
+    logs: List[RewardLogEntry] = []
+
+class RewardsSummaryResponse(BaseModel):
+    """Réponse de GET /api/chores/rewards/summary."""
+    period_start: datetime
+    weekday: int  # ISO 1 (lundi) à 7 (dimanche), jour de reset configuré pour le foyer
+    members: List[MemberRewardsSummary] = []
+
+class HouseholdRewardsSettingsUpdate(BaseModel):
+    """Requête admin pour configurer les récompenses du foyer (jour de reset, activation)."""
+    weekday: Optional[int] = None  # ISO 1 (lundi) à 7 (dimanche)
+    enabled: Optional[bool] = None

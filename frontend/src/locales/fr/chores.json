@@ -1,27 +1,34 @@
 {
   "page": {
-    "title": "Corvées",
+    "title": "Tâches",
     "subtitle": "Tâches ménagères récurrentes du foyer"
   },
   "add": "Ajouter",
   "edit": "Modifier",
   "save": "Enregistrer",
-  "created": "Corvée créée",
-  "saved": "Corvée mise à jour",
-  "deleted": "Corvée supprimée",
+  "created": "Tâche créée",
+  "saved": "Tâche mise à jour",
+  "deleted": "Tâche supprimée",
   "markDone": "Marquer fait",
-  "markedDone": "Corvée marquée comme faite",
+  "skip": "Passer",
+  "skipped": "Échéance passée",
+  "markedDone": "Tâche marquée comme faite",
+  "done": "Fait",
   "undone": "Exécution annulée",
-  "empty": "Aucune corvée pour le moment",
+  "empty": "Aucune tâche pour le moment",
   "stats": {
     "overdue": "En retard",
     "dueToday": "Aujourd'hui",
     "dueSoon": "Bientôt"
   },
   "list": {
-    "title": "Toutes les corvées"
+    "title": "Toutes les tâches"
+  },
+  "calendar": {
+    "title": "Calendrier"
   },
   "status": {
+    "done": "Terminé",
     "overdue": "En retard",
     "due_today": "Aujourd'hui",
     "due_soon": "Bientôt",
@@ -29,10 +36,10 @@
     "no_schedule": "Manuel"
   },
   "addDialog": {
-    "title": "Nouvelle corvée"
+    "title": "Nouvelle tâche"
   },
   "editDialog": {
-    "title": "Modifier la corvée"
+    "title": "Modifier la tâche"
   },
   "form": {
     "name": "Nom",
@@ -45,15 +52,22 @@
     "monthDays": "Jours du mois (séparés par des virgules)",
     "yearlyMonth": "Mois",
     "yearlyDay": "Jour",
+    "dueTime": "Heure",
+    "startToday": "Échéance dès aujourd'hui",
+    "reward": "Récompense (€)",
+    "rewardPlaceholder": "ex: 2.50",
     "assignmentType": "Règle d'attribution",
     "initialAssignee": "Assigné initial",
-    "noInitialAssignee": "Aucun"
+    "noInitialAssignee": "Aucun",
+    "eligibleMembers": "Restreindre à certains membres",
+    "eligibleMembersHint": "Optionnel : si aucun n'est coché, tous les membres du foyer sont éligibles à la rotation."
   },
   "periodType": {
     "manually": "Manuel (aucune planification)",
     "hourly": "Toutes les X heures",
     "daily": "Tous les X jours",
     "weekly": "Hebdomadaire",
+    "biweekly": "Toutes les deux semaines",
     "monthly": "Mensuel",
     "yearly": "Annuel"
   },
@@ -77,10 +91,22 @@
     "titleFor": "Journal de « {{name}} »",
     "empty": "Aucune exécution enregistrée",
     "unknownUser": "Utilisateur inconnu",
-    "undo": "Annuler"
+    "undo": "Annuler",
+    "skipped": "Passé",
+    "fullLogButton": "Journal complet",
+    "fullLogTitle": "Journal complet des tâches effectuées"
   },
   "errors": {
     "loadError": "Erreur lors du chargement",
     "generic": "Une erreur est survenue"
+  },
+  "rewards": {
+    "viewButton": "Récompenses",
+    "title": "Récompenses",
+    "backToTasks": "Retour aux tâches",
+    "periodSince": "Semaine en cours depuis le {{date}}",
+    "totalAllTime": "Total depuis toujours : {{amount}}",
+    "empty": "Aucune tâche rémunérée effectuée",
+    "noMembers": "Aucun membre dans ce foyer"
   }
 }

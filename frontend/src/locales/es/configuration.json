@@ -3,7 +3,8 @@
     "title": "Configuración",
     "subtitle": "Gestiona los ajustes de tu stock doméstico",
     "categories": "Categorías",
-    "locations": "Ubicaciones"
+    "locations": "Ubicaciones",
+    "tasks": "Tareas"
   },
   "categories": {
     "title": "Categorías",
@@ -102,6 +103,27 @@
       "gray": "Gris",
       "pink": "Rosa",
       "turquoise": "Turquesa"
+    }
+  },
+  "rewards": {
+    "title": "Recompensas",
+    "subtitle": "Configura el día de reinicio del resumen semanal de recompensas",
+    "weekdayLabel": "Día de reinicio semanal",
+    "description": "Cada semana, a partir de este día, un resumen de las recompensas ganadas por cada miembro del hogar está disponible desde la página Tareas.",
+    "enabledLabel": "Activar recompensas",
+    "enabledDescription": "Si se desactiva, no se ofrece ningún campo de recompensa en las tareas y el resumen deja de estar accesible.",
+    "adminOnly": "Solo un administrador del hogar puede cambiar este ajuste.",
+    "weekdayFull": {
+      "1": "Lunes",
+      "2": "Martes",
+      "3": "Miércoles",
+      "4": "Jueves",
+      "5": "Viernes",
+      "6": "Sábado",
+      "7": "Domingo"
+    },
+    "toast": {
+      "saved": "Ajuste guardado"
     }
   }
 }

@@ -32,6 +32,10 @@
     "calculatedOn_one": "Calculé sur {{count}} produit alimentaire avec Nutri-Score connu.",
     "calculatedOn_other": "Calculé sur {{count}} produits alimentaires avec Nutri-Score connu."
   },
+  "rewardsBanner": {
+    "message": "Le récapitulatif des récompenses de la semaine est disponible.",
+    "viewButton": "Voir"
+  },
   "recentProducts": {
     "title": "Produits Récents",
     "viewAll": "Voir tout",

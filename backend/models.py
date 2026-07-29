@@ -1,6 +1,6 @@
 """Définitions des modèles SQLAlchemy pour StockHome."""
 
-# pylint: disable=too-few-public-methods, missing-class-docstring
+# pylint: disable=too-few-public-methods
 
 import uuid
 from datetime import date, datetime, timezone
@@ -22,6 +22,8 @@ def utcnow() -> datetime:
 
 
 class User(Base):
+    """Compte utilisateur (identifiants, rôle, foyer actif/préféré)."""
+
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -85,6 +87,8 @@ class User(Base):
 
 
 class Household(Base):
+    """Foyer (personnel ou partagé) : regroupe le stock et les membres qui y accèdent."""
+
     __tablename__ = "households"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -99,6 +103,13 @@ class Household(Base):
     invite_code: Mapped[str | None] = mapped_column(String(16), unique=True, nullable=True, index=True)
     created_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Jour de la semaine (ISO 1=lundi..7=dimanche) où la récapitulation des
+    # récompenses des corvées redémarre pour ce foyer -- configurable par un
+    # admin du foyer (voir chore_service._period_start). Dimanche par défaut.
+    rewards_summary_weekday: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
+    # Permet à un admin de désactiver entièrement la fonctionnalité récompenses
+    # pour ce foyer (masque les champs/actions côté frontend).
+    rewards_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     members: Mapped[list["HouseholdMember"]] = relationship(
         back_populates="household", foreign_keys="HouseholdMember.household_id", cascade="all, delete-orphan"
@@ -111,6 +122,8 @@ class Household(Base):
 
 
 class HouseholdMember(Base):
+    """Table d'association : adhésion d'un utilisateur à un foyer, avec son rôle."""
+
     __tablename__ = "household_members"
     __table_args__ = (UniqueConstraint("household_id", "user_id", name="uq_household_members_household_user"),)
 
@@ -127,6 +140,8 @@ class HouseholdMember(Base):
 
 
 class Category(Base):
+    """Catégorie de produits (ex: Alimentaire, Hygiène), propre à un foyer."""
+
     __tablename__ = "categories"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -145,6 +160,8 @@ class Category(Base):
 
 
 class SubCategory(Base):
+    """Sous-catégorie de produits, avec son propre seuil de stock minimal."""
+
     __tablename__ = "sub_categories"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -163,6 +180,8 @@ class SubCategory(Base):
 
 
 class StorageLocation(Base):
+    """Emplacement de stockage physique (ex: Cuisine, Garage), propre à un foyer."""
+
     __tablename__ = "storage_locations"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -180,6 +199,8 @@ class StorageLocation(Base):
 
 
 class Product(Base):
+    """Un lot de produit en stock (quantité, péremption, prix, données Open*Facts)."""
+
     __tablename__ = "products"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -227,6 +248,8 @@ class Product(Base):
 
 
 class ShoppingListItem(Base):
+    """Item de la liste de courses d'un foyer (éventuellement lié à un produit existant)."""
+
     __tablename__ = "shopping_list"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -244,6 +267,8 @@ class ShoppingListItem(Base):
 
 
 class Chore(Base):
+    """Corvée récurrente du foyer : planification, attribution et récompense éventuelle."""
+
     __tablename__ = "chores"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -252,23 +277,40 @@ class Chore(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
 
-    # "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "manually".
+    # "hourly" | "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "manually".
     period_type: Mapped[str] = mapped_column(String(20), default="manually", nullable=False)
     period_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)  # hourly
-    period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # daily (recalculé depuis last_done_at : "sans dérive")
-    weekdays: Mapped[str | None] = mapped_column(String(20), nullable=True)  # weekly, ex "1,3,5" (ISO 1=lundi..7=dimanche)
+    # daily ("sans dérive", recalculé depuis last_done_at)
+    period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # weekly/biweekly, ex "1,3,5" (ISO 1=lundi..7=dimanche)
+    weekdays: Mapped[str | None] = mapped_column(String(20), nullable=True)
     month_days: Mapped[str | None] = mapped_column(String(100), nullable=True)  # monthly, ex "1,15,28"
     yearly_month: Mapped[int | None] = mapped_column(Integer, nullable=True)  # yearly, 1-12
     yearly_day: Mapped[int | None] = mapped_column(Integer, nullable=True)  # yearly, 1-31
+    # Heure d'échéance souhaitée ("HH:MM"), appliquée à chaque recalcul de
+    # next_due_at (sauf pour "hourly"/"manually", où elle n'a pas de sens) --
+    # sans elle, l'heure suit simplement celle de la dernière exécution.
+    due_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    # Montant (EUR) versé au membre qui effectue cette corvée, si définie.
+    reward: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     # "no-assignment" | "in-alphabetical-order" | "random" | "who-least-did-first".
     assignment_type: Mapped[str] = mapped_column(String(30), default="no-assignment", nullable=False)
     assigned_user_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Restreint la rotation (alphabétique/aléatoire/qui l'a le moins fait) à
+    # ce sous-ensemble de membres du foyer, CSV d'user_id -- NULL/vide =
+    # tous les membres actuels sont éligibles (comportement historique).
+    eligible_user_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     last_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     next_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Si renseignée et dans le futur, la corvée s'affiche "terminée" (statut
+    # "done") jusqu'à cette date -- correspond à l'échéance qui était en
+    # cours au moment du dernier "marquer fait" (voir chore_service.execute_chore).
+    # Devient automatiquement obsolète (ignorée) une fois cette date passée.
+    done_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -280,6 +322,8 @@ class Chore(Base):
 
 
 class ChoreLog(Base):
+    """Entrée de journal : une exécution effective d'une corvée, avec l'état avant/après pour permettre l'undo."""
+
     __tablename__ = "chore_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -295,7 +339,16 @@ class ChoreLog(Base):
     # précédent (voir chore_service.undo_chore_log).
     previous_due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     previous_assigned_user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    previous_done_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     new_due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Copie de Chore.reward au moment de l'exécution : le montant gagné reste
+    # exact même si la récompense de la corvée change ensuite. NULL si la
+    # corvée n'avait pas de récompense définie à cet instant.
+    reward_amount: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    # True si cette entrée correspond à un "passer" (échéance décalée sans
+    # exécution réelle) plutôt qu'un "marquer fait" -- exclu du comptage
+    # who-least-did-first et ne rapporte jamais de récompense.
+    skipped: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

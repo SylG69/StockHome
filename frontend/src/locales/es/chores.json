@@ -1,7 +1,7 @@
 {
   "page": {
-    "title": "Tareas domésticas",
-    "subtitle": "Tareas domésticas recurrentes del hogar"
+    "title": "Tareas",
+    "subtitle": "Tareas recurrentes del hogar"
   },
   "add": "Añadir",
   "edit": "Editar",
@@ -10,7 +10,10 @@
   "saved": "Tarea actualizada",
   "deleted": "Tarea eliminada",
   "markDone": "Marcar como hecha",
+  "skip": "Saltar",
+  "skipped": "Fecha límite saltada",
   "markedDone": "Tarea marcada como hecha",
+  "done": "Hecha",
   "undone": "Ejecución deshecha",
   "empty": "Todavía no hay tareas",
   "stats": {
@@ -21,7 +24,11 @@
   "list": {
     "title": "Todas las tareas"
   },
+  "calendar": {
+    "title": "Calendario"
+  },
   "status": {
+    "done": "Hecha",
     "overdue": "Atrasada",
     "due_today": "Hoy",
     "due_soon": "Pronto",
@@ -45,15 +52,22 @@
     "monthDays": "Días del mes (separados por comas)",
     "yearlyMonth": "Mes",
     "yearlyDay": "Día",
+    "dueTime": "Hora",
+    "startToday": "Vence desde hoy",
+    "reward": "Recompensa (€)",
+    "rewardPlaceholder": "ej: 2.50",
     "assignmentType": "Regla de asignación",
     "initialAssignee": "Asignado inicial",
-    "noInitialAssignee": "Ninguno"
+    "noInitialAssignee": "Ninguno",
+    "eligibleMembers": "Restringir a miembros específicos",
+    "eligibleMembersHint": "Opcional: si no se marca ninguno, todos los miembros del hogar son elegibles para la rotación."
   },
   "periodType": {
     "manually": "Manual (sin planificación)",
     "hourly": "Cada X horas",
     "daily": "Cada X días",
     "weekly": "Semanal",
+    "biweekly": "Cada dos semanas",
     "monthly": "Mensual",
     "yearly": "Anual"
   },
@@ -77,10 +91,22 @@
     "titleFor": "Historial de «{{name}}»",
     "empty": "Ninguna ejecución registrada",
     "unknownUser": "Usuario desconocido",
-    "undo": "Deshacer"
+    "undo": "Deshacer",
+    "skipped": "Saltado",
+    "fullLogButton": "Historial completo",
+    "fullLogTitle": "Historial completo de tareas realizadas"
   },
   "errors": {
     "loadError": "Error al cargar",
     "generic": "Se ha producido un error"
+  },
+  "rewards": {
+    "viewButton": "Recompensas",
+    "title": "Recompensas",
+    "backToTasks": "Volver a las tareas",
+    "periodSince": "Semana actual desde el {{date}}",
+    "totalAllTime": "Total histórico: {{amount}}",
+    "empty": "Ninguna tarea recompensada realizada",
+    "noMembers": "Ningún miembro en este hogar"
   }
 }

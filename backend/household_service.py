@@ -30,10 +30,12 @@ INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def _generate_invite_code() -> str:
+    """Génère un code d'invitation aléatoire de 8 caractères."""
     return "".join(secrets.choice(INVITE_CODE_ALPHABET) for _ in range(8))
 
 
 def _get_membership(db: Session, household_id: str, user_id: str) -> models.HouseholdMember | None:
+    """Renvoie l'adhésion de l'utilisateur à ce foyer, ou None s'il n'en fait pas partie."""
     return db.execute(
         select(models.HouseholdMember).where(
             models.HouseholdMember.household_id == household_id,
@@ -43,6 +45,7 @@ def _get_membership(db: Session, household_id: str, user_id: str) -> models.Hous
 
 
 def _require_membership(db: Session, household_id: str, user_id: str) -> models.HouseholdMember:
+    """Renvoie l'adhésion de l'utilisateur à ce foyer, ou lève une 403 s'il n'en fait pas partie."""
     membership = _get_membership(db, household_id, user_id)
     if membership is None:
         raise HTTPException(status_code=403, detail="Vous n'êtes pas membre de ce foyer")
@@ -50,6 +53,7 @@ def _require_membership(db: Session, household_id: str, user_id: str) -> models.
 
 
 def _require_household_admin(db: Session, household_id: str, user_id: str) -> models.HouseholdMember:
+    """Renvoie l'adhésion de l'utilisateur si elle a le rôle admin, sinon lève une 403."""
     membership = _require_membership(db, household_id, user_id)
     if membership.role != "admin":
         raise HTTPException(status_code=403, detail="Réservé à l'administrateur du foyer")
@@ -57,6 +61,7 @@ def _require_household_admin(db: Session, household_id: str, user_id: str) -> mo
 
 
 def _member_count(db: Session, household_id: str) -> int:
+    """Compte le nombre de membres du foyer."""
     return db.execute(
         select(func.count()).select_from(models.HouseholdMember).where(
             models.HouseholdMember.household_id == household_id
@@ -67,6 +72,7 @@ def _member_count(db: Session, household_id: str) -> int:
 def _build_household_response(
     db: Session, household: models.Household, membership: models.HouseholdMember, current_user: models.User
 ) -> schemas.HouseholdResponse:
+    """Construit la réponse API résumée d'un foyer, du point de vue de l'utilisateur courant."""
     return schemas.HouseholdResponse(
         id=household.id,
         name=household.name,
@@ -74,12 +80,15 @@ def _build_household_response(
         role=membership.role,
         member_count=_member_count(db, household.id),
         is_active=household.id == current_user.active_household_id,
+        rewards_summary_weekday=household.rewards_summary_weekday,
+        rewards_enabled=household.rewards_enabled,
     )
 
 
 def _build_household_detail(
     db: Session, household: models.Household, membership: models.HouseholdMember, current_user: models.User
 ) -> schemas.HouseholdDetailResponse:
+    """Construit la réponse API détaillée d'un foyer, avec la liste de ses membres."""
     members = db.execute(
         select(models.HouseholdMember, models.User.username)
         .join(models.User, models.User.id == models.HouseholdMember.user_id)
@@ -239,6 +248,29 @@ def regenerate_invite_code(
     else:
         raise HTTPException(status_code=500, detail="Impossible de générer un code d'invitation unique")
 
+    db.commit()
+    db.refresh(household)
+    return _build_household_detail(db, household, membership, current_user)
+
+
+@router.patch("/{household_id}/rewards-settings", response_model=schemas.HouseholdDetailResponse)
+def update_rewards_settings(
+    household_id: str,
+    data: schemas.HouseholdRewardsSettingsUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Configure les récompenses des corvées du foyer -- jour de reset et/ou
+    activation -- (admin uniquement). Chaque champ est optionnel : seuls
+    ceux fournis sont modifiés."""
+    if data.weekday is not None and not 1 <= data.weekday <= 7:
+        raise HTTPException(status_code=400, detail="weekday invalide (attendu 1 à 7, ISO lundi..dimanche)")
+    membership = _require_household_admin(db, household_id, current_user.id)
+    household = db.get(models.Household, household_id)
+    if data.weekday is not None:
+        household.rewards_summary_weekday = data.weekday
+    if data.enabled is not None:
+        household.rewards_enabled = data.enabled
     db.commit()
     db.refresh(household)
     return _build_household_detail(db, household, membership, current_user)

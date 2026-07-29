@@ -21,6 +21,7 @@ SENTINEL_TABLE = "users"
 
 
 def main() -> None:
+    """Réconcilie si besoin une base existante avec Alembic, puis applique les migrations en attente."""
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
     existing_tables = set(inspector.get_table_names())

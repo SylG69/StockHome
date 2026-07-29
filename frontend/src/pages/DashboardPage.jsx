@@ -20,11 +20,67 @@ import {
   BarChart3,
   Euro,
   CalendarClock,
+  Gift,
+  X,
 } from 'lucide-react';
+
+// Renvoie minuit (heure locale) du dernier jour correspondant à `weekday`
+// (ISO 1=lundi..7=dimanche), aujourd'hui inclus -- même logique que
+// chore_service._period_start côté backend, dupliquée ici pour décider
+// localement quand (ré)afficher la bannière récompenses sans appel API.
+function computeRewardsPeriodStart(weekday, now) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const isoWeekday = today.getDay() === 0 ? 7 : today.getDay();
+  const diff = (isoWeekday - weekday + 7) % 7;
+  today.setDate(today.getDate() - diff);
+  return today;
+}
+
+function RewardsBanner({ activeHousehold }) {
+  const { t } = useTranslation('dashboard');
+  const [dismissed, setDismissed] = useState(true);
+  const [dismissKey, setDismissKey] = useState(null);
+
+  useEffect(() => {
+    if (!activeHousehold) return;
+    const periodStart = computeRewardsPeriodStart(activeHousehold.rewards_summary_weekday || 7, new Date());
+    const key = `stockhome_rewards_banner_dismissed_${activeHousehold.id}_${periodStart.toISOString().slice(0, 10)}`;
+    setDismissKey(key);
+    setDismissed(localStorage.getItem(key) === 'true');
+  }, [activeHousehold]);
+
+  if (!activeHousehold || activeHousehold.rewards_enabled === false || dismissed) return null;
+
+  const handleDismiss = () => {
+    if (dismissKey) localStorage.setItem(dismissKey, 'true');
+    setDismissed(true);
+  };
+
+  return (
+    <Card className="bg-emerald-500/10 border-emerald-500/30">
+      <CardContent className="p-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2.5 rounded-xl bg-emerald-500/20 shrink-0">
+            <Gift className="w-5 h-5 text-emerald-600" />
+          </div>
+          <p className="text-sm font-medium truncate">{t('rewardsBanner.message')}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link to="/chores/rewards">
+            <Button size="sm" variant="outline">{t('rewardsBanner.viewButton')}</Button>
+          </Link>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleDismiss}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DashboardPage() {
   const { t } = useTranslation('dashboard');
-  const { api, user } = useAuth();
+  const { api, user, activeHousehold } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -168,6 +224,8 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      <RewardsBanner activeHousehold={activeHousehold} />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">

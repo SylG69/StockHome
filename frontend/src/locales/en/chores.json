@@ -1,27 +1,34 @@
 {
   "page": {
-    "title": "Chores",
+    "title": "Tasks",
     "subtitle": "Recurring household tasks"
   },
   "add": "Add",
   "edit": "Edit",
   "save": "Save",
-  "created": "Chore created",
-  "saved": "Chore updated",
-  "deleted": "Chore deleted",
+  "created": "Task created",
+  "saved": "Task updated",
+  "deleted": "Task deleted",
   "markDone": "Mark done",
-  "markedDone": "Chore marked as done",
+  "skip": "Skip",
+  "skipped": "Due date skipped",
+  "markedDone": "Task marked as done",
+  "done": "Done",
   "undone": "Execution undone",
-  "empty": "No chores yet",
+  "empty": "No tasks yet",
   "stats": {
     "overdue": "Overdue",
     "dueToday": "Due today",
     "dueSoon": "Due soon"
   },
   "list": {
-    "title": "All chores"
+    "title": "All tasks"
+  },
+  "calendar": {
+    "title": "Calendar"
   },
   "status": {
+    "done": "Done",
     "overdue": "Overdue",
     "due_today": "Due today",
     "due_soon": "Due soon",
@@ -29,10 +36,10 @@
     "no_schedule": "Manual"
   },
   "addDialog": {
-    "title": "New chore"
+    "title": "New task"
   },
   "editDialog": {
-    "title": "Edit chore"
+    "title": "Edit task"
   },
   "form": {
     "name": "Name",
@@ -45,15 +52,22 @@
     "monthDays": "Days of month (comma-separated)",
     "yearlyMonth": "Month",
     "yearlyDay": "Day",
+    "dueTime": "Time",
+    "startToday": "Due starting today",
+    "reward": "Reward (€)",
+    "rewardPlaceholder": "e.g. 2.50",
     "assignmentType": "Assignment rule",
     "initialAssignee": "Initial assignee",
-    "noInitialAssignee": "None"
+    "noInitialAssignee": "None",
+    "eligibleMembers": "Restrict to specific members",
+    "eligibleMembersHint": "Optional: if none are checked, every household member is eligible for the rotation."
   },
   "periodType": {
     "manually": "Manual (no scheduling)",
     "hourly": "Every X hours",
     "daily": "Every X days",
     "weekly": "Weekly",
+    "biweekly": "Every two weeks",
     "monthly": "Monthly",
     "yearly": "Yearly"
   },
@@ -77,10 +91,22 @@
     "titleFor": "Journal for \"{{name}}\"",
     "empty": "No execution recorded",
     "unknownUser": "Unknown user",
-    "undo": "Undo"
+    "undo": "Undo",
+    "skipped": "Skipped",
+    "fullLogButton": "Full log",
+    "fullLogTitle": "Full log of completed tasks"
   },
   "errors": {
     "loadError": "Error loading data",
     "generic": "Something went wrong"
+  },
+  "rewards": {
+    "viewButton": "Rewards",
+    "title": "Rewards",
+    "backToTasks": "Back to tasks",
+    "periodSince": "Current week since {{date}}",
+    "totalAllTime": "Total all-time: {{amount}}",
+    "empty": "No rewarded task completed",
+    "noMembers": "No members in this household"
   }
 }

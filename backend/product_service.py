@@ -17,6 +17,7 @@ PRODUCT_NOT_FOUND = "Produit non trouvé"
 
 
 def _enrich_product(product: models.Product) -> schemas.ProductResponse:
+    """Construit la réponse API d'un produit, en résolvant les noms de catégorie/sous-catégorie/emplacement."""
     data = schemas.ProductResponse.model_validate(product)
     data.category_name = product.category.name if product.category else None
     data.location_name = product.location.name if product.location else None
@@ -612,6 +613,7 @@ async def lookup_barcode(barcode: str):
     categories_str = product.get("categories", "")
 
     def clean_categories(raw: str) -> list[str]:
+        """Nettoie la chaîne "categories" d'Open Food Facts en liste de libellés lisibles."""
         if not raw or not isinstance(raw, str):
             return []
         cleaned = []

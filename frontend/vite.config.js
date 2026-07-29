@@ -50,6 +50,6 @@ export default defineConfig({
     outDir: 'dist',
   },
   server: {
-    port: 3000, // Pour garder ton habitude du port 3000
+    port: 3000,
   }
 })

@@ -2,6 +2,7 @@
 
 import calendar
 import random
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -18,8 +19,10 @@ router = APIRouter(prefix="/api/chores", tags=["chores"])
 
 CHORE_NOT_FOUND = "Corvée non trouvée"
 
-VALID_PERIOD_TYPES = {"hourly", "daily", "weekly", "monthly", "yearly", "manually"}
+VALID_PERIOD_TYPES = {"hourly", "daily", "weekly", "biweekly", "monthly", "yearly", "manually"}
 VALID_ASSIGNMENT_TYPES = {"no-assignment", "in-alphabetical-order", "random", "who-least-did-first"}
+
+DUE_TIME_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 # Fenêtre (en jours) au-delà de laquelle une échéance à venir n'est plus
 # considérée comme "bientôt due" (statut jaune) -- voir _compute_status.
@@ -27,15 +30,31 @@ DUE_SOON_THRESHOLD_DAYS = 2
 
 
 def _parse_int_list(value: Optional[str]) -> Optional[list[int]]:
+    """Convertit une chaîne CSV stockée en base (ex: "1,3,5") en liste d'entiers."""
     if not value:
         return None
     return [int(v) for v in value.split(",") if v.strip()]
 
 
 def _serialize_int_list(value: Optional[list[int]]) -> Optional[str]:
+    """Convertit une liste d'entiers en chaîne CSV triée et dédupliquée, pour le stockage en base."""
     if not value:
         return None
     return ",".join(str(v) for v in sorted(set(value)))
+
+
+def _parse_str_list(value: Optional[str]) -> Optional[list[str]]:
+    """Convertit une chaîne CSV d'identifiants stockée en base en liste de chaînes."""
+    if not value:
+        return None
+    return [v for v in value.split(",") if v.strip()]
+
+
+def _serialize_str_list(value: Optional[list[str]]) -> Optional[str]:
+    """Convertit une liste d'identifiants en chaîne CSV dédupliquée, pour le stockage en base."""
+    if not value:
+        return None
+    return ",".join(sorted(set(value)))
 
 
 def _safe_date(year: int, month: int, day: int) -> date:
@@ -45,37 +64,57 @@ def _safe_date(year: int, month: int, day: int) -> date:
     return date(year, month, min(day, last_day_of_month))
 
 
+def _apply_due_time(candidate: datetime, due_time: Optional[str]) -> datetime:
+    """Applique l'heure d'échéance souhaitée (HH:MM) à une date calculée, si
+    définie -- sinon la date garde l'heure héritée du calcul (comportement
+    historique : même heure que la dernière exécution)."""
+    if not due_time:
+        return candidate
+    hour, minute = (int(part) for part in due_time.split(":"))
+    return candidate.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+
 def _compute_next_due(chore: "models.Chore", from_dt: datetime) -> Optional[datetime]:
     """Calcule la prochaine échéance à partir de from_dt (dernière exécution
     réelle, ou date de création si la corvée n'a jamais été faite).
 
-    "daily" (comme "hourly") recalcule systématiquement depuis from_dt plutôt
-    que depuis un planning calendaire fixe : une exécution en retard décale
-    d'autant la prochaine échéance sans jamais s'accumuler -- c'est le
-    comportement "sans dérive" demandé, pas besoin d'un mode "adaptive"
-    séparé pour l'obtenir.
+    "daily"/"biweekly" (comme "hourly") recalculent systématiquement depuis
+    from_dt plutôt que depuis un planning calendaire fixe : une exécution en
+    retard décale d'autant la prochaine échéance sans jamais s'accumuler --
+    c'est le comportement "sans dérive" demandé, pas besoin d'un mode
+    "adaptive" séparé pour l'obtenir.
     """
     if chore.period_type == "manually":
         return None
     if chore.period_type == "hourly":
         return from_dt + timedelta(hours=chore.period_hours or 1)
     if chore.period_type == "daily":
-        return from_dt + timedelta(days=chore.period_days or 1)
+        return _apply_due_time(from_dt + timedelta(days=chore.period_days or 1), chore.due_time)
     if chore.period_type == "weekly":
         weekdays = _parse_int_list(chore.weekdays) or [from_dt.isoweekday()]
         for offset in range(1, 8):
             candidate = from_dt + timedelta(days=offset)
             if candidate.isoweekday() in weekdays:
-                return candidate
-        return from_dt + timedelta(days=7)
+                return _apply_due_time(candidate, chore.due_time)
+        return _apply_due_time(from_dt + timedelta(days=7), chore.due_time)
+    if chore.period_type == "biweekly":
+        # +14 jours (cadence "sans dérive"), puis ajusté au jour de semaine
+        # choisi le plus proche (recherché dans la semaine qui suit ce cap).
+        weekdays = _parse_int_list(chore.weekdays) or [from_dt.isoweekday()]
+        base = from_dt + timedelta(days=14)
+        for offset in range(0, 7):
+            candidate = base + timedelta(days=offset)
+            if candidate.isoweekday() in weekdays:
+                return _apply_due_time(candidate, chore.due_time)
+        return _apply_due_time(base, chore.due_time)
     if chore.period_type == "monthly":
         month_days = _parse_int_list(chore.month_days) or [from_dt.day]
         candidate = from_dt + timedelta(days=1)
         for _ in range(366):
             if candidate.day in month_days:
-                return candidate
+                return _apply_due_time(candidate, chore.due_time)
             candidate += timedelta(days=1)
-        return from_dt + timedelta(days=30)
+        return _apply_due_time(from_dt + timedelta(days=30), chore.due_time)
     if chore.period_type == "yearly":
         month = chore.yearly_month or from_dt.month
         day = chore.yearly_day or from_dt.day
@@ -84,11 +123,12 @@ def _compute_next_due(chore: "models.Chore", from_dt: datetime) -> Optional[date
             candidate = datetime.combine(
                 _safe_date(from_dt.year + 1, month, day), from_dt.time(), tzinfo=from_dt.tzinfo
             )
-        return candidate
+        return _apply_due_time(candidate, chore.due_time)
     return None
 
 
 def _get_household_members(db: Session, household_id: str) -> list[models.HouseholdMember]:
+    """Renvoie les membres actuels du foyer (avec l'utilisateur associé préchargé)."""
     return db.execute(
         select(models.HouseholdMember)
         .where(models.HouseholdMember.household_id == household_id)
@@ -98,12 +138,18 @@ def _get_household_members(db: Session, household_id: str) -> list[models.Househ
 
 def _compute_next_assignee(db: Session, chore: "models.Chore") -> Optional[str]:
     """Détermine le prochain assigné selon assignment_type, parmi les membres
-    actuels du foyer (un membre retiré du foyer entre-temps n'est jamais
-    réassigné)."""
+    actuels du foyer éligibles (un membre retiré du foyer, ou exclu via
+    eligible_user_ids, n'est jamais réassigné). Si eligible_user_ids ne
+    contient plus qu'une seule personne encore membre du foyer, celle-ci est
+    donc systématiquement réassignée quel que soit assignment_type -- c'est
+    ainsi qu'on obtient une "personne fixe"."""
     if chore.assignment_type == "no-assignment":
         return None
 
     members = _get_household_members(db, chore.household_id)
+    eligible_ids = _parse_str_list(chore.eligible_user_ids)
+    if eligible_ids:
+        members = [m for m in members if m.user_id in eligible_ids]
     if not members:
         return None
     members_sorted = sorted(members, key=lambda m: m.user.username.lower())
@@ -119,10 +165,12 @@ def _compute_next_assignee(db: Session, chore: "models.Chore") -> Optional[str]:
         return member_ids[0]
 
     if chore.assignment_type == "who-least-did-first":
+        # Les exécutions "passées" (skipped) ne comptent pas comme "faites"
+        # par personne : elles sont exclues du comptage.
         counts = dict(
             db.execute(
                 select(models.ChoreLog.executed_by_user_id, func.count())
-                .where(models.ChoreLog.chore_id == chore.id)
+                .where(models.ChoreLog.chore_id == chore.id, models.ChoreLog.skipped.is_(False))
                 .group_by(models.ChoreLog.executed_by_user_id)
             ).all()
         )
@@ -133,7 +181,12 @@ def _compute_next_assignee(db: Session, chore: "models.Chore") -> Optional[str]:
     return None
 
 
-def _compute_status(next_due_at: Optional[datetime], now: datetime) -> str:
+def _compute_status(next_due_at: Optional[datetime], done_until: Optional[datetime], now: datetime) -> str:
+    """Déduit le statut d'une corvée : "done" si elle vient d'être faite et
+    que son échéance précédente n'est pas encore passée, sinon le statut
+    couleur habituel (retard/aujourd'hui/bientôt/à venir/manuel)."""
+    if done_until is not None and now < done_until:
+        return "done"
     if next_due_at is None:
         return "no_schedule"
     if next_due_at < now:
@@ -146,6 +199,7 @@ def _compute_status(next_due_at: Optional[datetime], now: datetime) -> str:
 
 
 def _enrich_chore(chore: "models.Chore") -> schemas.ChoreResponse:
+    """Construit la réponse API d'une corvée, avec les champs calculés (statut, nom de l'assigné, listes désérialisées)."""
     return schemas.ChoreResponse(
         id=chore.id,
         user_id=chore.user_id,
@@ -159,11 +213,14 @@ def _enrich_chore(chore: "models.Chore") -> schemas.ChoreResponse:
         month_days=_parse_int_list(chore.month_days),
         yearly_month=chore.yearly_month,
         yearly_day=chore.yearly_day,
+        due_time=chore.due_time,
+        reward=float(chore.reward) if chore.reward is not None else None,
         assignment_type=chore.assignment_type,
         assigned_user_id=chore.assigned_user_id,
+        eligible_user_ids=_parse_str_list(chore.eligible_user_ids),
         last_done_at=chore.last_done_at,
         next_due_at=chore.next_due_at,
-        status=_compute_status(chore.next_due_at, datetime.now(timezone.utc)),
+        status=_compute_status(chore.next_due_at, chore.done_until, datetime.now(timezone.utc)),
         assigned_user_name=chore.assigned_user.username if chore.assigned_user else None,
         created_at=chore.created_at,
         updated_at=chore.updated_at,
@@ -171,6 +228,7 @@ def _enrich_chore(chore: "models.Chore") -> schemas.ChoreResponse:
 
 
 def _get_chore_or_404(db: Session, chore_id: str, household_id: str) -> models.Chore:
+    """Renvoie une corvée du foyer donné, ou lève une 404 si elle n'existe pas."""
     chore = db.execute(
         select(models.Chore)
         .where(models.Chore.id == chore_id, models.Chore.household_id == household_id)
@@ -182,6 +240,7 @@ def _get_chore_or_404(db: Session, chore_id: str, household_id: str) -> models.C
 
 
 def _validate_household_member(db: Session, household_id: str, user_id: str) -> None:
+    """Vérifie que l'utilisateur donné appartient bien au foyer, sinon lève une 400."""
     exists = db.execute(
         select(models.HouseholdMember.id).where(
             models.HouseholdMember.household_id == household_id,
@@ -193,10 +252,40 @@ def _validate_household_member(db: Session, household_id: str, user_id: str) -> 
 
 
 def _validate_types(period_type: Optional[str], assignment_type: Optional[str]) -> None:
+    """Vérifie que period_type et assignment_type (si fournis) sont des valeurs autorisées."""
     if period_type is not None and period_type not in VALID_PERIOD_TYPES:
         raise HTTPException(status_code=400, detail=f"period_type invalide : {period_type}")
     if assignment_type is not None and assignment_type not in VALID_ASSIGNMENT_TYPES:
         raise HTTPException(status_code=400, detail=f"assignment_type invalide : {assignment_type}")
+
+
+def _validate_due_time(due_time: Optional[str]) -> None:
+    """Vérifie que due_time (si fourni) respecte bien le format HH:MM."""
+    if due_time is not None and not DUE_TIME_PATTERN.match(due_time):
+        raise HTTPException(status_code=400, detail=f"due_time invalide (attendu HH:MM) : {due_time}")
+
+
+def _validate_reward(reward: Optional[float]) -> None:
+    """Vérifie que reward (si fourni) est bien positif ou nul."""
+    if reward is not None and reward < 0:
+        raise HTTPException(status_code=400, detail="reward invalide : doit être positif ou nul")
+
+
+def _validate_eligible_members(db: Session, household_id: str, user_ids: Optional[list[str]]) -> None:
+    """Vérifie que chaque identifiant de eligible_user_ids appartient bien au foyer."""
+    if not user_ids:
+        return
+    for user_id in user_ids:
+        _validate_household_member(db, household_id, user_id)
+
+
+def _period_start(weekday: int, now: datetime) -> datetime:
+    """Renvoie le début (minuit) de la période de récompenses courante :
+    le dernier jour correspondant à `weekday` (ISO 1=lundi..7=dimanche),
+    aujourd'hui inclus si `now` tombe justement ce jour-là."""
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    diff = (today.isoweekday() - weekday) % 7
+    return today - timedelta(days=diff)
 
 
 @router.get("", response_model=list[schemas.ChoreResponse])
@@ -213,6 +302,130 @@ def get_chores(
         .order_by(models.Chore.next_due_at.asc().nulls_last())
     ).scalars().all()
     return [_enrich_chore(c) for c in chores]
+
+
+@router.get("/rewards/summary", response_model=schemas.RewardsSummaryResponse)
+def get_rewards_summary(
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
+):
+    """Récapitule les récompenses gagnées par chaque membre actuel du foyer :
+    total depuis le dernier reset (rewards_summary_weekday) et total depuis
+    toujours, avec le détail des exécutions rémunérées."""
+    period_start = _period_start(active_household.rewards_summary_weekday, datetime.now(timezone.utc))
+
+    members_sorted = sorted(_get_household_members(db, active_household.id), key=lambda m: m.user.username.lower())
+
+    rows = db.execute(
+        select(models.ChoreLog, models.Chore.name)
+        .join(models.Chore, models.Chore.id == models.ChoreLog.chore_id)
+        .where(
+            models.ChoreLog.household_id == active_household.id,
+            models.ChoreLog.reward_amount.is_not(None),
+        )
+        .order_by(models.ChoreLog.executed_at.desc())
+    ).all()
+
+    entries_by_user: dict[str, list] = {}
+    for log, chore_name in rows:
+        if log.executed_by_user_id is None:
+            continue
+        entries_by_user.setdefault(log.executed_by_user_id, []).append((log, chore_name))
+
+    members = []
+    for member in members_sorted:
+        entries = entries_by_user.get(member.user_id, [])
+        total_all_time = sum(float(log.reward_amount) for log, _ in entries)
+        total_current_period = sum(
+            float(log.reward_amount) for log, _ in entries if log.executed_at >= period_start
+        )
+        members.append(
+            schemas.MemberRewardsSummary(
+                user_id=member.user_id,
+                username=member.user.username,
+                total_current_period=round(total_current_period, 2),
+                total_all_time=round(total_all_time, 2),
+                logs=[
+                    schemas.RewardLogEntry(
+                        chore_id=log.chore_id,
+                        chore_name=chore_name,
+                        executed_at=log.executed_at,
+                        reward_amount=float(log.reward_amount),
+                    )
+                    for log, chore_name in entries
+                ],
+            )
+        )
+
+    return schemas.RewardsSummaryResponse(
+        period_start=period_start,
+        weekday=active_household.rewards_summary_weekday,
+        members=members,
+    )
+
+
+@router.get("/logs", response_model=list[schemas.ChoreLogResponse])
+def get_all_chore_logs(
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
+):
+    """Journal complet de toutes les exécutions de corvées du foyer, toutes
+    tâches confondues, plus récent en premier."""
+    rows = db.execute(
+        select(models.ChoreLog, models.Chore.name, models.User.username)
+        .join(models.Chore, models.Chore.id == models.ChoreLog.chore_id)
+        .outerjoin(models.User, models.User.id == models.ChoreLog.executed_by_user_id)
+        .where(models.ChoreLog.household_id == active_household.id)
+        .order_by(models.ChoreLog.executed_at.desc())
+    ).all()
+    return [
+        schemas.ChoreLogResponse(
+            id=log.id,
+            chore_id=log.chore_id,
+            chore_name=chore_name,
+            executed_by_user_id=log.executed_by_user_id,
+            executed_by_username=username,
+            executed_at=log.executed_at,
+            previous_due_date=log.previous_due_date,
+            new_due_date=log.new_due_date,
+            reward_amount=float(log.reward_amount) if log.reward_amount is not None else None,
+            skipped=log.skipped,
+        )
+        for log, chore_name, username in rows
+    ]
+
+
+# Fenêtre du calendrier (voir get_chores_calendar) : doit correspondre à la
+# vue desktop du frontend (grille 7 colonnes réduite à 3 sur mobile).
+CALENDAR_HORIZON_DAYS = 7
+
+
+@router.get("/calendar", response_model=list[schemas.ChoreCalendarEntry])
+def get_chores_calendar(
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
+):
+    """Projette toutes les occurrences futures de chaque corvée récurrente
+    sur les prochains jours (voir CALENDAR_HORIZON_DAYS), pas seulement la
+    toute prochaine échéance -- une corvée quotidienne apparaît donc sur
+    plusieurs jours du calendrier, pas un seul."""
+    now = datetime.now(timezone.utc)
+    horizon_end = now.replace(hour=23, minute=59, second=59, microsecond=0) + timedelta(
+        days=CALENDAR_HORIZON_DAYS - 1
+    )
+
+    chores = db.execute(
+        select(models.Chore).where(models.Chore.household_id == active_household.id)
+    ).scalars().all()
+
+    entries = []
+    for chore in chores:
+        occurrence = chore.next_due_at
+        while occurrence is not None and occurrence <= horizon_end:
+            entries.append(schemas.ChoreCalendarEntry(chore_id=chore.id, chore_name=chore.name, due_at=occurrence))
+            occurrence = _compute_next_due(chore, occurrence)
+
+    return entries
 
 
 @router.get("/{chore_id}", response_model=schemas.ChoreResponse)
@@ -236,16 +449,20 @@ def create_chore(
     """Crée une nouvelle corvée dans le foyer actif : calcule sa première
     échéance et son assignation initiale."""
     _validate_types(data.period_type, data.assignment_type)
+    _validate_due_time(data.due_time)
+    _validate_reward(data.reward)
     if data.assigned_user_id:
         _validate_household_member(db, active_household.id, data.assigned_user_id)
+    _validate_eligible_members(db, active_household.id, data.eligible_user_ids)
 
-    payload = data.model_dump()
+    payload = data.model_dump(exclude={"start_today"})
     payload["weekdays"] = _serialize_int_list(payload["weekdays"])
     payload["month_days"] = _serialize_int_list(payload["month_days"])
+    payload["eligible_user_ids"] = _serialize_str_list(payload["eligible_user_ids"])
 
     chore = models.Chore(**payload, user_id=current_user.id, household_id=active_household.id)
     now = datetime.now(timezone.utc)
-    chore.next_due_at = _compute_next_due(chore, now)
+    chore.next_due_at = _apply_due_time(now, chore.due_time) if data.start_today else _compute_next_due(chore, now)
     db.add(chore)
     db.flush()
 
@@ -270,18 +487,29 @@ def update_chore(
     update_data = data.model_dump(exclude_unset=True)
 
     _validate_types(update_data.get("period_type"), update_data.get("assignment_type"))
+    if "due_time" in update_data:
+        _validate_due_time(update_data["due_time"])
+    if "reward" in update_data:
+        _validate_reward(update_data["reward"])
     if update_data.get("assigned_user_id"):
         _validate_household_member(db, active_household.id, update_data["assigned_user_id"])
+    if "eligible_user_ids" in update_data:
+        _validate_eligible_members(db, active_household.id, update_data["eligible_user_ids"])
 
     schedule_changed = any(
         key in update_data
-        for key in ("period_type", "period_hours", "period_days", "weekdays", "month_days", "yearly_month", "yearly_day")
+        for key in (
+            "period_type", "period_hours", "period_days", "weekdays", "month_days",
+            "yearly_month", "yearly_day", "due_time",
+        )
     )
 
     if "weekdays" in update_data:
         update_data["weekdays"] = _serialize_int_list(update_data["weekdays"])
     if "month_days" in update_data:
         update_data["month_days"] = _serialize_int_list(update_data["month_days"])
+    if "eligible_user_ids" in update_data:
+        update_data["eligible_user_ids"] = _serialize_str_list(update_data["eligible_user_ids"])
 
     for key, value in update_data.items():
         setattr(chore, key, value)
@@ -324,7 +552,13 @@ def execute_chore(
 
     previous_due_date = chore.next_due_at
     previous_assigned_user_id = chore.assigned_user_id
+    previous_done_until = chore.done_until
 
+    # "Terminé" tant que l'échéance qui était en cours n'est pas passée : si
+    # la corvée était déjà en retard (échéance déjà dépassée) au moment de
+    # l'exécuter, ce délai n'a pas de sens -- le nouveau statut s'affiche
+    # immédiatement d'après la prochaine échéance recalculée.
+    chore.done_until = previous_due_date if previous_due_date and previous_due_date > now else None
     chore.last_done_at = now
     chore.next_due_at = _compute_next_due(chore, now)
     chore.assigned_user_id = _compute_next_assignee(db, chore)
@@ -337,7 +571,9 @@ def execute_chore(
         executed_at=now,
         previous_due_date=previous_due_date,
         previous_assigned_user_id=previous_assigned_user_id,
+        previous_done_until=previous_done_until,
         new_due_date=chore.next_due_at,
+        reward_amount=chore.reward,
     )
     db.add(log)
     db.commit()
@@ -347,11 +583,69 @@ def execute_chore(
     log_response = schemas.ChoreLogResponse(
         id=log.id,
         chore_id=log.chore_id,
+        chore_name=chore.name,
         executed_by_user_id=log.executed_by_user_id,
         executed_by_username=current_user.username,
         executed_at=log.executed_at,
         previous_due_date=log.previous_due_date,
         new_due_date=log.new_due_date,
+        reward_amount=float(log.reward_amount) if log.reward_amount is not None else None,
+        skipped=log.skipped,
+    )
+    return schemas.ChoreExecuteResponse(chore=_enrich_chore(chore), log=log_response)
+
+
+@router.post("/{chore_id}/skip", response_model=schemas.ChoreExecuteResponse)
+def skip_chore(
+    chore_id: str,
+    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
+):
+    """Passe directement à la prochaine échéance sans marquer la corvée
+    comme faite : ni récompense, ni impact sur le comptage
+    "who-least-did-first", ni statut "terminé". L'attribution n'est pas
+    recalculée (personne n'a réellement effectué la corvée)."""
+    chore = _get_chore_or_404(db, chore_id, active_household.id)
+    if chore.next_due_at is None:
+        raise HTTPException(status_code=400, detail="Cette corvée n'a pas d'échéance à passer")
+    now = datetime.now(timezone.utc)
+
+    previous_due_date = chore.next_due_at
+    previous_assigned_user_id = chore.assigned_user_id
+    previous_done_until = chore.done_until
+
+    chore.done_until = None
+    chore.next_due_at = _compute_next_due(chore, previous_due_date)
+    chore.updated_at = now
+
+    log = models.ChoreLog(
+        chore_id=chore.id,
+        household_id=active_household.id,
+        executed_by_user_id=current_user.id,
+        executed_at=now,
+        previous_due_date=previous_due_date,
+        previous_assigned_user_id=previous_assigned_user_id,
+        previous_done_until=previous_done_until,
+        new_due_date=chore.next_due_at,
+        skipped=True,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(chore, attribute_names=["assigned_user"])
+    db.refresh(log)
+
+    log_response = schemas.ChoreLogResponse(
+        id=log.id,
+        chore_id=log.chore_id,
+        chore_name=chore.name,
+        executed_by_user_id=log.executed_by_user_id,
+        executed_by_username=current_user.username,
+        executed_at=log.executed_at,
+        previous_due_date=log.previous_due_date,
+        new_due_date=log.new_due_date,
+        reward_amount=None,
+        skipped=True,
     )
     return schemas.ChoreExecuteResponse(chore=_enrich_chore(chore), log=log_response)
 
@@ -363,7 +657,7 @@ def get_chore_logs(
     db: Session = Depends(get_db),
 ):
     """Renvoie le journal d'exécution d'une corvée, plus récent en premier."""
-    _get_chore_or_404(db, chore_id, active_household.id)
+    chore = _get_chore_or_404(db, chore_id, active_household.id)
     rows = db.execute(
         select(models.ChoreLog, models.User.username)
         .outerjoin(models.User, models.User.id == models.ChoreLog.executed_by_user_id)
@@ -374,11 +668,14 @@ def get_chore_logs(
         schemas.ChoreLogResponse(
             id=log.id,
             chore_id=log.chore_id,
+            chore_name=chore.name,
             executed_by_user_id=log.executed_by_user_id,
             executed_by_username=username,
             executed_at=log.executed_at,
             previous_due_date=log.previous_due_date,
             new_due_date=log.new_due_date,
+            reward_amount=float(log.reward_amount) if log.reward_amount is not None else None,
+            skipped=log.skipped,
         )
         for log, username in rows
     ]
@@ -413,16 +710,26 @@ def undo_chore_log(
 
     chore = db.get(models.Chore, log.chore_id)
 
-    previous_log = db.execute(
-        select(models.ChoreLog)
-        .where(models.ChoreLog.chore_id == log.chore_id, models.ChoreLog.id != log.id)
-        .order_by(models.ChoreLog.executed_at.desc())
-        .limit(1)
-    ).scalar_one_or_none()
-
     chore.next_due_at = log.previous_due_date
     chore.assigned_user_id = log.previous_assigned_user_id
-    chore.last_done_at = previous_log.executed_at if previous_log else None
+    chore.done_until = log.previous_done_until
+
+    # Un "passer" ne modifie jamais last_done_at : l'annuler ne doit donc pas
+    # y toucher non plus. Pour un "marquer fait" annulé, on le restaure à la
+    # dernière exécution réelle précédente (les "passer" ne comptent pas).
+    if not log.skipped:
+        previous_execute_log = db.execute(
+            select(models.ChoreLog)
+            .where(
+                models.ChoreLog.chore_id == log.chore_id,
+                models.ChoreLog.id != log.id,
+                models.ChoreLog.skipped.is_(False),
+            )
+            .order_by(models.ChoreLog.executed_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        chore.last_done_at = previous_execute_log.executed_at if previous_execute_log else None
+
     chore.updated_at = datetime.now(timezone.utc)
 
     db.delete(log)
