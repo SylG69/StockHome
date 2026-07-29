@@ -1,0 +1,80 @@
+{
+  "page": {
+    "title": "Emprunts",
+    "subtitle": "Livres et jeux vidéo empruntés à la médiathèque"
+  },
+  "type": {
+    "book": "Livre",
+    "videogame": "Jeu vidéo"
+  },
+  "status": {
+    "borrowed": "En cours",
+    "due_soon": "Bientôt dû",
+    "overdue": "En retard",
+    "returned": "Rendu"
+  },
+  "empty": "Aucun emprunt en cours",
+  "add": "Ajouter",
+  "addManual": "Saisir manuellement",
+  "scanButton": "Scanner un emprunt",
+  "markReturned": "Marquer comme rendu",
+  "returned": "Emprunt marqué comme rendu",
+  "created": "Emprunt ajouté",
+  "saved": "Emprunt mis à jour",
+  "deleted": "Emprunt supprimé",
+  "list": {
+    "title": "Emprunts en cours",
+    "dueOn": "À rendre le {{date}}",
+    "returnedOn": "Rendu le {{date}}"
+  },
+  "history": {
+    "title": "Historique des retours",
+    "empty": "Aucun emprunt rendu pour le moment"
+  },
+  "scan": {
+    "title": "Scanner un emprunt",
+    "chooseType": "Que scannez-vous ?",
+    "camera": {
+      "start": "Démarrer la caméra",
+      "stop": "Arrêter la caméra",
+      "disabled": "Caméra désactivée",
+      "accessError": "Impossible d'accéder à la caméra"
+    },
+    "manual": {
+      "title": "Saisie manuelle du code-barres",
+      "inputLabel": "Code-barres (EAN/ISBN)",
+      "inputPlaceholder": "ex: 9782070368228",
+      "search": "Rechercher"
+    }
+  },
+  "dialog": {
+    "addTitle": "Nouvel emprunt",
+    "editTitle": "Modifier l'emprunt",
+    "found": "Trouvé sur {{source}}",
+    "notFound": "Non trouvé automatiquement : complétez la fiche manuellement",
+    "type": "Type",
+    "title": "Titre",
+    "titlePlaceholder": "Titre du livre ou du jeu",
+    "authorBook": "Auteur",
+    "authorVideogame": "Plateforme",
+    "publisher": "Éditeur",
+    "barcode": "Code-barres",
+    "borrowedAt": "Date d'emprunt",
+    "dueAt": "À rendre avant le",
+    "notes": "Notes",
+    "notesPlaceholder": "Optionnel"
+  },
+  "toast": {
+    "titleRequired": "Le titre est requis",
+    "lookupBookNotFound": "Livre non trouvé pour ce code-barres",
+    "lookupGameNotFound": "Jeu vidéo non trouvé pour ce code-barres : complétez la fiche manuellement",
+    "saveError": "Erreur lors de l'enregistrement",
+    "loadError": "Erreur lors du chargement",
+    "deleteError": "Erreur lors de la suppression",
+    "returnError": "Erreur lors du marquage comme rendu"
+  },
+  "deleteDialog": {
+    "title": "Confirmer la suppression",
+    "message": "Êtes-vous sûr de vouloir supprimer l'emprunt \"{{title}}\" ?"
+  }
+}

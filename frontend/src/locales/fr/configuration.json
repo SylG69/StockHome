@@ -4,7 +4,8 @@
     "subtitle": "Gérez les paramètres de votre stock domestique",
     "categories": "Catégories",
     "locations": "Emplacements",
-    "tasks": "Tâches"
+    "tasks": "Tâches",
+    "loans": "Emprunts"
   },
   "categories": {
     "title": "Catégories",
@@ -122,6 +123,19 @@
       "6": "Samedi",
       "7": "Dimanche"
     },
+    "toast": {
+      "saved": "Paramètre enregistré"
+    }
+  },
+  "loans": {
+    "title": "Emprunts",
+    "subtitle": "Configurez les durées de prêt par type et l'activation de la fonctionnalité",
+    "enabledLabel": "Activer les emprunts",
+    "enabledDescription": "Si désactivé, la page Emprunts n'est plus accessible dans le menu.",
+    "bookDurationLabel": "Durée de prêt (livres)",
+    "gameDurationLabel": "Durée de prêt (jeux vidéo)",
+    "durationUnitDays": "jours",
+    "adminOnly": "Seul un administrateur du foyer peut modifier ce paramètre.",
     "toast": {
       "saved": "Paramètre enregistré"
     }

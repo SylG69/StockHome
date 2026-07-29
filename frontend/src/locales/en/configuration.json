@@ -4,7 +4,8 @@
     "subtitle": "Manage your household stock settings",
     "categories": "Categories",
     "locations": "Locations",
-    "tasks": "Tasks"
+    "tasks": "Tasks",
+    "loans": "Loans"
   },
   "categories": {
     "title": "Categories",
@@ -122,6 +123,19 @@
       "6": "Saturday",
       "7": "Sunday"
     },
+    "toast": {
+      "saved": "Setting saved"
+    }
+  },
+  "loans": {
+    "title": "Loans",
+    "subtitle": "Configure loan durations per type and enable the feature",
+    "enabledLabel": "Enable loans",
+    "enabledDescription": "If disabled, the Loans page is no longer accessible from the menu.",
+    "bookDurationLabel": "Loan duration (books)",
+    "gameDurationLabel": "Loan duration (video games)",
+    "durationUnitDays": "days",
+    "adminOnly": "Only a household admin can change this setting.",
     "toast": {
       "saved": "Setting saved"
     }

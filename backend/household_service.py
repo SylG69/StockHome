@@ -82,6 +82,9 @@ def _build_household_response(
         is_active=household.id == current_user.active_household_id,
         rewards_summary_weekday=household.rewards_summary_weekday,
         rewards_enabled=household.rewards_enabled,
+        loan_book_duration_days=household.loan_book_duration_days,
+        loan_game_duration_days=household.loan_game_duration_days,
+        loans_enabled=household.loans_enabled,
     )
 
 
@@ -271,6 +274,33 @@ def update_rewards_settings(
         household.rewards_summary_weekday = data.weekday
     if data.enabled is not None:
         household.rewards_enabled = data.enabled
+    db.commit()
+    db.refresh(household)
+    return _build_household_detail(db, household, membership, current_user)
+
+
+@router.patch("/{household_id}/loans-settings", response_model=schemas.HouseholdDetailResponse)
+def update_loans_settings(
+    household_id: str,
+    data: schemas.HouseholdLoansSettingsUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Configure les emprunts du foyer -- durées de prêt par type (livre/jeu
+    vidéo) et/ou activation -- (admin uniquement). Chaque champ est
+    optionnel : seuls ceux fournis sont modifiés."""
+    if data.loan_book_duration_days is not None and data.loan_book_duration_days < 1:
+        raise HTTPException(status_code=400, detail="loan_book_duration_days invalide : doit être positif")
+    if data.loan_game_duration_days is not None and data.loan_game_duration_days < 1:
+        raise HTTPException(status_code=400, detail="loan_game_duration_days invalide : doit être positif")
+    membership = _require_household_admin(db, household_id, current_user.id)
+    household = db.get(models.Household, household_id)
+    if data.loan_book_duration_days is not None:
+        household.loan_book_duration_days = data.loan_book_duration_days
+    if data.loan_game_duration_days is not None:
+        household.loan_game_duration_days = data.loan_game_duration_days
+    if data.enabled is not None:
+        household.loans_enabled = data.enabled
     db.commit()
     db.refresh(household)
     return _build_household_detail(db, household, membership, current_user)

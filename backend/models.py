@@ -111,6 +111,13 @@ class Household(Base):
     # pour ce foyer (masque les champs/actions côté frontend).
     rewards_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # Délai (en jours) avant lequel un emprunt doit être rendu, à partir de sa
+    # date d'emprunt -- configurable séparément par type car les durées de
+    # prêt médiathèque diffèrent usuellement entre livres et jeux vidéo.
+    loan_book_duration_days: Mapped[int] = mapped_column(Integer, default=21, nullable=False)
+    loan_game_duration_days: Mapped[int] = mapped_column(Integer, default=14, nullable=False)
+    loans_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
     members: Mapped[list["HouseholdMember"]] = relationship(
         back_populates="household", foreign_keys="HouseholdMember.household_id", cascade="all, delete-orphan"
     )
@@ -354,3 +361,40 @@ class ChoreLog(Base):
 
     chore: Mapped["Chore"] = relationship(back_populates="logs")
     executed_by: Mapped["User | None"] = relationship(foreign_keys=[executed_by_user_id])
+
+
+class Loan(Base):
+    """Emprunt (livre ou jeu vidéo) à la médiathèque, avec échéance de retour."""
+
+    __tablename__ = "loans"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    household_id: Mapped[str] = mapped_column(String(36), ForeignKey("households.id", ondelete="CASCADE"), index=True)
+
+    # "book" | "videogame".
+    type: Mapped[str] = mapped_column(String(20), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Auteur (livre) ou plateforme (jeu vidéo) -- champ libre, sens dépendant de `type`.
+    author: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    publisher: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cover_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # EAN-13/ISBN nettoyé (chiffres uniquement), tel que scanné -- nullable
+    # pour un emprunt saisi entièrement à la main sans code-barres.
+    barcode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Nom de la source ayant fourni les métadonnées ("BnF", "Open Library",
+    # "Google Books", "Wikidata"), ou None si saisie manuelle.
+    source: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+
+    borrowed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Calculée à la création depuis loan_book_duration_days/loan_game_duration_days
+    # (voir loan_service._compute_due_at), librement modifiable ensuite.
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    returned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
+    household: Mapped["Household"] = relationship()

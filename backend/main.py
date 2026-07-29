@@ -13,6 +13,7 @@ import chore_service
 import config_service
 import dashboard_service
 import household_service
+import loan_service
 import product_service
 import shopping_service
 
@@ -41,6 +42,7 @@ app.include_router(shopping_service.router)
 app.include_router(dashboard_service.router)
 app.include_router(household_service.router)
 app.include_router(chore_service.router)
+app.include_router(loan_service.router)
 
 
 @app.get("/api")

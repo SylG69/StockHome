@@ -21,6 +21,7 @@ import {
   Info,
   Heart,
   ListChecks,
+  BookOpen,
 } from 'lucide-react';
 
 const navItems = [
@@ -29,6 +30,7 @@ const navItems = [
   { to: '/shopping-list', icon: ShoppingCart, labelKey: 'common:nav.shoppingList' },
   { to: '/scanner', icon: ScanLine, labelKey: 'common:nav.scanner' },
   { to: '/chores', icon: ListChecks, labelKey: 'common:nav.chores' },
+  { to: '/loans', icon: BookOpen, labelKey: 'common:nav.loans' },
 ];
 
 const configNavItem = { to: '/configuration', icon: Settings, labelKey: 'common:nav.configuration' };
