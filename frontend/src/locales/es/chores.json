@@ -45,6 +45,7 @@
     "monthDays": "Días del mes (separados por comas)",
     "yearlyMonth": "Mes",
     "yearlyDay": "Día",
+    "dueTime": "Hora",
     "assignmentType": "Regla de asignación",
     "initialAssignee": "Asignado inicial",
     "noInitialAssignee": "Ninguno"
@@ -54,6 +55,7 @@
     "hourly": "Cada X horas",
     "daily": "Cada X días",
     "weekly": "Semanal",
+    "biweekly": "Cada dos semanas",
     "monthly": "Mensual",
     "yearly": "Anual"
   },

@@ -45,6 +45,7 @@
     "monthDays": "Jours du mois (séparés par des virgules)",
     "yearlyMonth": "Mois",
     "yearlyDay": "Jour",
+    "dueTime": "Heure",
     "assignmentType": "Règle d'attribution",
     "initialAssignee": "Assigné initial",
     "noInitialAssignee": "Aucun"
@@ -54,6 +55,7 @@
     "hourly": "Toutes les X heures",
     "daily": "Tous les X jours",
     "weekly": "Hebdomadaire",
+    "biweekly": "Toutes les deux semaines",
     "monthly": "Mensuel",
     "yearly": "Annuel"
   },

@@ -252,7 +252,7 @@ class Chore(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
 
-    # "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "manually".
+    # "hourly" | "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "manually".
     period_type: Mapped[str] = mapped_column(String(20), default="manually", nullable=False)
     period_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)  # hourly
     period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # daily (recalculé depuis last_done_at : "sans dérive")
@@ -260,6 +260,10 @@ class Chore(Base):
     month_days: Mapped[str | None] = mapped_column(String(100), nullable=True)  # monthly, ex "1,15,28"
     yearly_month: Mapped[int | None] = mapped_column(Integer, nullable=True)  # yearly, 1-12
     yearly_day: Mapped[int | None] = mapped_column(Integer, nullable=True)  # yearly, 1-31
+    # Heure d'échéance souhaitée ("HH:MM"), appliquée à chaque recalcul de
+    # next_due_at (sauf pour "hourly"/"manually", où elle n'a pas de sens) --
+    # sans elle, l'heure suit simplement celle de la dernière exécution.
+    due_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
 
     # "no-assignment" | "in-alphabetical-order" | "random" | "who-least-did-first".
     assignment_type: Mapped[str] = mapped_column(String(30), default="no-assignment", nullable=False)

@@ -40,9 +40,13 @@ import {
   History,
   Undo2,
   User,
+  CalendarDays,
 } from 'lucide-react';
 
-const PERIOD_TYPES = ['manually', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'];
+const PERIOD_TYPES = ['manually', 'hourly', 'daily', 'weekly', 'biweekly', 'monthly', 'yearly'];
+// Types pour lesquels choisir une heure d'échéance a du sens : "hourly" est
+// déjà un intervalle (pas une heure fixe) et "manually" n'a pas d'échéance.
+const TYPES_WITH_DUE_TIME = new Set(['daily', 'weekly', 'biweekly', 'monthly', 'yearly']);
 const ASSIGNMENT_TYPES = ['no-assignment', 'in-alphabetical-order', 'random', 'who-least-did-first'];
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7]; // ISO : 1 = lundi ... 7 = dimanche
 
@@ -64,6 +68,7 @@ const EMPTY_FORM = {
   month_days: '',
   yearly_month: 1,
   yearly_day: 1,
+  due_time: '',
   assignment_type: 'no-assignment',
   assigned_user_id: '',
 };
@@ -75,8 +80,16 @@ function parseMonthDays(value) {
     .filter((v) => Number.isInteger(v) && v >= 1 && v <= 31);
 }
 
+function formatDueDate(nextDueAt, locale) {
+  if (!nextDueAt) return null;
+  const date = new Date(nextDueAt);
+  const dateStr = date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
+  const timeStr = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  return `${dateStr.charAt(0).toUpperCase()}${dateStr.slice(1)} · ${timeStr}`;
+}
+
 export default function ChoresPage() {
-  const { t } = useTranslation('chores');
+  const { t, i18n } = useTranslation('chores');
   const { api, activeHousehold } = useAuth();
   const [chores, setChores] = useState([]);
   const [members, setMembers] = useState([]);
@@ -135,6 +148,7 @@ export default function ChoresPage() {
       month_days: (chore.month_days || []).join(','),
       yearly_month: chore.yearly_month || 1,
       yearly_day: chore.yearly_day || 1,
+      due_time: chore.due_time || '',
       assignment_type: chore.assignment_type,
       assigned_user_id: chore.assigned_user_id || '',
     });
@@ -157,6 +171,7 @@ export default function ChoresPage() {
         month_days: form.period_type === 'monthly' ? parseMonthDays(form.month_days) : null,
         yearly_month: form.period_type === 'yearly' ? Number(form.yearly_month) : null,
         yearly_day: form.period_type === 'yearly' ? Number(form.yearly_day) : null,
+        due_time: TYPES_WITH_DUE_TIME.has(form.period_type) && form.due_time ? form.due_time : null,
       };
 
       if (editingId) {
@@ -280,6 +295,12 @@ export default function ChoresPage() {
                       </Badge>
                     )}
                   </div>
+                  {chore.next_due_at && (
+                    <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+                      <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+                      {formatDueDate(chore.next_due_at, i18n.language)}
+                    </p>
+                  )}
                   {chore.description && (
                     <p className="text-sm text-muted-foreground mt-1">{chore.description}</p>
                   )}
@@ -386,6 +407,13 @@ export default function ChoresPage() {
                   <Label>{t('form.yearlyDay')}</Label>
                   <Input type="number" min={1} max={31} value={form.yearly_day} onChange={(e) => setForm((f) => ({ ...f, yearly_day: e.target.value }))} />
                 </div>
+              </div>
+            )}
+
+            {TYPES_WITH_DUE_TIME.has(form.period_type) && (
+              <div className="space-y-1.5">
+                <Label>{t('form.dueTime')}</Label>
+                <Input type="time" value={form.due_time} onChange={(e) => setForm((f) => ({ ...f, due_time: e.target.value }))} />
               </div>
             )}
 

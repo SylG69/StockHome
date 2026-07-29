@@ -2,6 +2,7 @@
 
 import calendar
 import random
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -18,8 +19,10 @@ router = APIRouter(prefix="/api/chores", tags=["chores"])
 
 CHORE_NOT_FOUND = "Corvée non trouvée"
 
-VALID_PERIOD_TYPES = {"hourly", "daily", "weekly", "monthly", "yearly", "manually"}
+VALID_PERIOD_TYPES = {"hourly", "daily", "weekly", "biweekly", "monthly", "yearly", "manually"}
 VALID_ASSIGNMENT_TYPES = {"no-assignment", "in-alphabetical-order", "random", "who-least-did-first"}
+
+DUE_TIME_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 # Fenêtre (en jours) au-delà de laquelle une échéance à venir n'est plus
 # considérée comme "bientôt due" (statut jaune) -- voir _compute_status.
@@ -45,37 +48,49 @@ def _safe_date(year: int, month: int, day: int) -> date:
     return date(year, month, min(day, last_day_of_month))
 
 
+def _apply_due_time(candidate: datetime, due_time: Optional[str]) -> datetime:
+    """Applique l'heure d'échéance souhaitée (HH:MM) à une date calculée, si
+    définie -- sinon la date garde l'heure héritée du calcul (comportement
+    historique : même heure que la dernière exécution)."""
+    if not due_time:
+        return candidate
+    hour, minute = (int(part) for part in due_time.split(":"))
+    return candidate.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+
 def _compute_next_due(chore: "models.Chore", from_dt: datetime) -> Optional[datetime]:
     """Calcule la prochaine échéance à partir de from_dt (dernière exécution
     réelle, ou date de création si la corvée n'a jamais été faite).
 
-    "daily" (comme "hourly") recalcule systématiquement depuis from_dt plutôt
-    que depuis un planning calendaire fixe : une exécution en retard décale
-    d'autant la prochaine échéance sans jamais s'accumuler -- c'est le
-    comportement "sans dérive" demandé, pas besoin d'un mode "adaptive"
-    séparé pour l'obtenir.
+    "daily"/"biweekly" (comme "hourly") recalculent systématiquement depuis
+    from_dt plutôt que depuis un planning calendaire fixe : une exécution en
+    retard décale d'autant la prochaine échéance sans jamais s'accumuler --
+    c'est le comportement "sans dérive" demandé, pas besoin d'un mode
+    "adaptive" séparé pour l'obtenir.
     """
     if chore.period_type == "manually":
         return None
     if chore.period_type == "hourly":
         return from_dt + timedelta(hours=chore.period_hours or 1)
     if chore.period_type == "daily":
-        return from_dt + timedelta(days=chore.period_days or 1)
+        return _apply_due_time(from_dt + timedelta(days=chore.period_days or 1), chore.due_time)
+    if chore.period_type == "biweekly":
+        return _apply_due_time(from_dt + timedelta(days=14), chore.due_time)
     if chore.period_type == "weekly":
         weekdays = _parse_int_list(chore.weekdays) or [from_dt.isoweekday()]
         for offset in range(1, 8):
             candidate = from_dt + timedelta(days=offset)
             if candidate.isoweekday() in weekdays:
-                return candidate
-        return from_dt + timedelta(days=7)
+                return _apply_due_time(candidate, chore.due_time)
+        return _apply_due_time(from_dt + timedelta(days=7), chore.due_time)
     if chore.period_type == "monthly":
         month_days = _parse_int_list(chore.month_days) or [from_dt.day]
         candidate = from_dt + timedelta(days=1)
         for _ in range(366):
             if candidate.day in month_days:
-                return candidate
+                return _apply_due_time(candidate, chore.due_time)
             candidate += timedelta(days=1)
-        return from_dt + timedelta(days=30)
+        return _apply_due_time(from_dt + timedelta(days=30), chore.due_time)
     if chore.period_type == "yearly":
         month = chore.yearly_month or from_dt.month
         day = chore.yearly_day or from_dt.day
@@ -84,7 +99,7 @@ def _compute_next_due(chore: "models.Chore", from_dt: datetime) -> Optional[date
             candidate = datetime.combine(
                 _safe_date(from_dt.year + 1, month, day), from_dt.time(), tzinfo=from_dt.tzinfo
             )
-        return candidate
+        return _apply_due_time(candidate, chore.due_time)
     return None
 
 
@@ -159,6 +174,7 @@ def _enrich_chore(chore: "models.Chore") -> schemas.ChoreResponse:
         month_days=_parse_int_list(chore.month_days),
         yearly_month=chore.yearly_month,
         yearly_day=chore.yearly_day,
+        due_time=chore.due_time,
         assignment_type=chore.assignment_type,
         assigned_user_id=chore.assigned_user_id,
         last_done_at=chore.last_done_at,
@@ -199,6 +215,11 @@ def _validate_types(period_type: Optional[str], assignment_type: Optional[str]) 
         raise HTTPException(status_code=400, detail=f"assignment_type invalide : {assignment_type}")
 
 
+def _validate_due_time(due_time: Optional[str]) -> None:
+    if due_time is not None and not DUE_TIME_PATTERN.match(due_time):
+        raise HTTPException(status_code=400, detail=f"due_time invalide (attendu HH:MM) : {due_time}")
+
+
 @router.get("", response_model=list[schemas.ChoreResponse])
 def get_chores(
     active_household: models.Household = Depends(get_active_household),
@@ -236,6 +257,7 @@ def create_chore(
     """Crée une nouvelle corvée dans le foyer actif : calcule sa première
     échéance et son assignation initiale."""
     _validate_types(data.period_type, data.assignment_type)
+    _validate_due_time(data.due_time)
     if data.assigned_user_id:
         _validate_household_member(db, active_household.id, data.assigned_user_id)
 
@@ -270,12 +292,17 @@ def update_chore(
     update_data = data.model_dump(exclude_unset=True)
 
     _validate_types(update_data.get("period_type"), update_data.get("assignment_type"))
+    if "due_time" in update_data:
+        _validate_due_time(update_data["due_time"])
     if update_data.get("assigned_user_id"):
         _validate_household_member(db, active_household.id, update_data["assigned_user_id"])
 
     schedule_changed = any(
         key in update_data
-        for key in ("period_type", "period_hours", "period_days", "weekdays", "month_days", "yearly_month", "yearly_day")
+        for key in (
+            "period_type", "period_hours", "period_days", "weekdays", "month_days",
+            "yearly_month", "yearly_day", "due_time",
+        )
     )
 
     if "weekdays" in update_data:

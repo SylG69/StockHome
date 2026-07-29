@@ -290,13 +290,15 @@ class ChoreBase(BaseModel):
     """Base décrivant les champs communs d'une corvée (planification + attribution)."""
     name: str
     description: Optional[str] = ""
-    period_type: str = "manually"  # hourly | daily | weekly | monthly | yearly | manually
+    period_type: str = "manually"  # hourly | daily | weekly | biweekly | monthly | yearly | manually
     period_hours: Optional[int] = None  # hourly
     period_days: Optional[int] = None  # daily
     weekdays: Optional[List[int]] = None  # weekly, ISO 1 (lundi) à 7 (dimanche)
     month_days: Optional[List[int]] = None  # monthly, jours du mois 1-31
     yearly_month: Optional[int] = None  # yearly, 1-12
     yearly_day: Optional[int] = None  # yearly, 1-31
+    # Heure d'échéance souhaitée ("HH:MM"), ignorée pour hourly/manually.
+    due_time: Optional[str] = None
     assignment_type: str = "no-assignment"  # no-assignment | in-alphabetical-order | random | who-least-did-first
     assigned_user_id: Optional[str] = None  # assigné initial explicite (facultatif)
 
@@ -315,6 +317,7 @@ class ChoreUpdate(BaseModel):
     month_days: Optional[List[int]] = None
     yearly_month: Optional[int] = None
     yearly_day: Optional[int] = None
+    due_time: Optional[str] = None
     assignment_type: Optional[str] = None
     assigned_user_id: Optional[str] = None
 
