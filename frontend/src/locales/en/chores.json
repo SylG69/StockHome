@@ -51,6 +51,7 @@
     "yearlyMonth": "Month",
     "yearlyDay": "Day",
     "dueTime": "Time",
+    "startToday": "Due starting today",
     "reward": "Reward (€)",
     "rewardPlaceholder": "e.g. 2.50",
     "assignmentType": "Assignment rule",

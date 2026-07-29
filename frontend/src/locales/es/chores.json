@@ -51,6 +51,7 @@
     "yearlyMonth": "Mes",
     "yearlyDay": "Día",
     "dueTime": "Hora",
+    "startToday": "Vence desde hoy",
     "reward": "Recompensa (€)",
     "rewardPlaceholder": "ej: 2.50",
     "assignmentType": "Regla de asignación",

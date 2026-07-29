@@ -51,6 +51,7 @@
     "yearlyMonth": "Mois",
     "yearlyDay": "Jour",
     "dueTime": "Heure",
+    "startToday": "Échéance dès aujourd'hui",
     "reward": "Récompense (€)",
     "rewardPlaceholder": "ex: 2.50",
     "assignmentType": "Règle d'attribution",

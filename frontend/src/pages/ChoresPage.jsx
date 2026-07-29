@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
+import { Checkbox } from '../components/ui/checkbox';
 import { Badge } from '../components/ui/badge';
 import { Label } from '../components/ui/label';
 import {
@@ -76,6 +77,7 @@ const EMPTY_FORM = {
   yearly_day: 1,
   due_time: '',
   reward: '',
+  start_today: false,
   assignment_type: 'no-assignment',
   assigned_user_id: '',
 };
@@ -239,7 +241,7 @@ export default function ChoresPage() {
       if (editingId) {
         await api.put(`/chores/${editingId}`, payload);
       } else {
-        await api.post('/chores', payload);
+        await api.post('/chores', { ...payload, start_today: form.start_today });
       }
       setDialogOpen(false);
       await fetchChores();
@@ -297,6 +299,35 @@ export default function ChoresPage() {
       toast.error(error.response?.data?.detail || t('errors.generic'));
     }
   };
+
+  const handleUndoFromFullLog = async (logId) => {
+    try {
+      await api.delete(`/chores/logs/${logId}`);
+      toast.success(t('undone'));
+      const response = await api.get('/chores/logs');
+      setFullLogs(response.data);
+      await fetchChores();
+      await fetchCalendar();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('errors.generic'));
+    }
+  };
+
+  // Dans le journal global (toutes tâches mêlées), seule la dernière
+  // exécution de CHAQUE tâche peut être annulée (même contrainte que le
+  // backend) -- comme fullLogs est trié du plus récent au plus ancien, la
+  // première occurrence rencontrée par chore_id est cette dernière exécution.
+  const latestLogIdByChore = useMemo(() => {
+    const seenChoreIds = new Set();
+    const latestIds = new Set();
+    fullLogs.forEach((log) => {
+      if (!seenChoreIds.has(log.chore_id)) {
+        seenChoreIds.add(log.chore_id);
+        latestIds.add(log.id);
+      }
+    });
+    return latestIds;
+  }, [fullLogs]);
 
   const openFullLog = async () => {
     setFullLogOpen(true);
@@ -503,6 +534,19 @@ export default function ChoresPage() {
               </Select>
             </div>
 
+            {!editingId && form.period_type !== 'manually' && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-secondary/30">
+                <Checkbox
+                  id="start-today"
+                  checked={form.start_today}
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, start_today: !!v }))}
+                />
+                <Label htmlFor="start-today" className="text-sm font-normal cursor-pointer">
+                  {t('form.startToday')}
+                </Label>
+              </div>
+            )}
+
             {form.period_type === 'hourly' && (
               <div className="space-y-1.5">
                 <Label>{t('form.periodHours')}</Label>
@@ -661,11 +705,18 @@ export default function ChoresPage() {
                       {log.executed_by_username || t('journal.unknownUser')} · {new Date(log.executed_at).toLocaleString()}
                     </p>
                   </div>
-                  {rewardsEnabled && log.reward_amount != null && (
-                    <span className="text-sm font-semibold text-emerald-600 shrink-0 ml-2">
-                      {log.reward_amount.toFixed(2)} €
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {rewardsEnabled && log.reward_amount != null && (
+                      <span className="text-sm font-semibold text-emerald-600">
+                        {log.reward_amount.toFixed(2)} €
+                      </span>
+                    )}
+                    {latestLogIdByChore.has(log.id) && (
+                      <Button variant="ghost" size="sm" onClick={() => handleUndoFromFullLog(log.id)}>
+                        <Undo2 className="w-4 h-4 mr-1" /> {t('journal.undo')}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))
             )}

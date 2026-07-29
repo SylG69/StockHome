@@ -422,13 +422,13 @@ def create_chore(
     if data.assigned_user_id:
         _validate_household_member(db, active_household.id, data.assigned_user_id)
 
-    payload = data.model_dump()
+    payload = data.model_dump(exclude={"start_today"})
     payload["weekdays"] = _serialize_int_list(payload["weekdays"])
     payload["month_days"] = _serialize_int_list(payload["month_days"])
 
     chore = models.Chore(**payload, user_id=current_user.id, household_id=active_household.id)
     now = datetime.now(timezone.utc)
-    chore.next_due_at = _compute_next_due(chore, now)
+    chore.next_due_at = _apply_due_time(now, chore.due_time) if data.start_today else _compute_next_due(chore, now)
     db.add(chore)
     db.flush()
 

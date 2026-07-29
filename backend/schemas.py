@@ -308,7 +308,11 @@ class ChoreBase(BaseModel):
 
 class ChoreCreate(ChoreBase):
     """Requête de création d'une corvée."""
-    pass
+    # Si True, la première échéance est fixée à aujourd'hui plutôt que
+    # calculée via la périodicité depuis la date de création (utile pour une
+    # corvée hebdomadaire/mensuelle qu'on veut voir apparaître dès le jour
+    # même, sans attendre la prochaine occurrence naturelle).
+    start_today: bool = False
 
 class ChoreUpdate(BaseModel):
     """Modèle de mise à jour partielle d'une corvée."""
