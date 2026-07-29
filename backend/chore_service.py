@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/chores", tags=["chores"])
 CHORE_NOT_FOUND = "Corvée non trouvée"
 
 VALID_PERIOD_TYPES = {"hourly", "daily", "weekly", "biweekly", "monthly", "yearly", "manually"}
-VALID_ASSIGNMENT_TYPES = {"no-assignment", "in-alphabetical-order", "random", "who-least-did-first"}
+VALID_ASSIGNMENT_TYPES = {"no-assignment", "in-alphabetical-order", "random", "who-least-did-first", "fixed"}
 
 DUE_TIME_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
@@ -129,6 +129,11 @@ def _compute_next_assignee(db: Session, chore: "models.Chore") -> Optional[str]:
     if chore.assignment_type == "no-assignment":
         return None
 
+    if chore.assignment_type == "fixed":
+        # Toujours la même personne, choisie à la création/modification de la
+        # corvée -- jamais recalculée automatiquement.
+        return chore.assigned_user_id
+
     members = _get_household_members(db, chore.household_id)
     if not members:
         return None
@@ -145,10 +150,12 @@ def _compute_next_assignee(db: Session, chore: "models.Chore") -> Optional[str]:
         return member_ids[0]
 
     if chore.assignment_type == "who-least-did-first":
+        # Les exécutions "passées" (skipped) ne comptent pas comme "faites"
+        # par personne : elles sont exclues du comptage.
         counts = dict(
             db.execute(
                 select(models.ChoreLog.executed_by_user_id, func.count())
-                .where(models.ChoreLog.chore_id == chore.id)
+                .where(models.ChoreLog.chore_id == chore.id, models.ChoreLog.skipped.is_(False))
                 .group_by(models.ChoreLog.executed_by_user_id)
             ).all()
         )
@@ -246,6 +253,12 @@ def _validate_reward(reward: Optional[float]) -> None:
     """Vérifie que reward (si fourni) est bien positif ou nul."""
     if reward is not None and reward < 0:
         raise HTTPException(status_code=400, detail="reward invalide : doit être positif ou nul")
+
+
+def _validate_fixed_assignment(assignment_type: Optional[str], assigned_user_id: Optional[str]) -> None:
+    """L'attribution "fixed" (toujours la même personne) exige un assigned_user_id explicite."""
+    if assignment_type == "fixed" and not assigned_user_id:
+        raise HTTPException(status_code=400, detail="assigned_user_id requis pour l'attribution fixe")
 
 
 def _period_start(weekday: int, now: datetime) -> datetime:
@@ -358,6 +371,7 @@ def get_all_chore_logs(
             previous_due_date=log.previous_due_date,
             new_due_date=log.new_due_date,
             reward_amount=float(log.reward_amount) if log.reward_amount is not None else None,
+            skipped=log.skipped,
         )
         for log, chore_name, username in rows
     ]
@@ -419,6 +433,7 @@ def create_chore(
     _validate_types(data.period_type, data.assignment_type)
     _validate_due_time(data.due_time)
     _validate_reward(data.reward)
+    _validate_fixed_assignment(data.assignment_type, data.assigned_user_id)
     if data.assigned_user_id:
         _validate_household_member(db, active_household.id, data.assigned_user_id)
 
@@ -432,7 +447,7 @@ def create_chore(
     db.add(chore)
     db.flush()
 
-    if not data.assigned_user_id and data.assignment_type != "no-assignment":
+    if not data.assigned_user_id and data.assignment_type not in ("no-assignment", "fixed"):
         chore.assigned_user_id = _compute_next_assignee(db, chore)
 
     db.commit()
@@ -457,6 +472,10 @@ def update_chore(
         _validate_due_time(update_data["due_time"])
     if "reward" in update_data:
         _validate_reward(update_data["reward"])
+    _validate_fixed_assignment(
+        update_data.get("assignment_type", chore.assignment_type),
+        update_data.get("assigned_user_id", chore.assigned_user_id),
+    )
     if update_data.get("assigned_user_id"):
         _validate_household_member(db, active_household.id, update_data["assigned_user_id"])
 
@@ -552,6 +571,62 @@ def execute_chore(
         previous_due_date=log.previous_due_date,
         new_due_date=log.new_due_date,
         reward_amount=float(log.reward_amount) if log.reward_amount is not None else None,
+        skipped=log.skipped,
+    )
+    return schemas.ChoreExecuteResponse(chore=_enrich_chore(chore), log=log_response)
+
+
+@router.post("/{chore_id}/skip", response_model=schemas.ChoreExecuteResponse)
+def skip_chore(
+    chore_id: str,
+    current_user: models.User = Depends(get_current_user),
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
+):
+    """Passe directement à la prochaine échéance sans marquer la corvée
+    comme faite : ni récompense, ni impact sur le comptage
+    "who-least-did-first", ni statut "terminé". L'attribution n'est pas
+    recalculée (personne n'a réellement effectué la corvée)."""
+    chore = _get_chore_or_404(db, chore_id, active_household.id)
+    if chore.next_due_at is None:
+        raise HTTPException(status_code=400, detail="Cette corvée n'a pas d'échéance à passer")
+    now = datetime.now(timezone.utc)
+
+    previous_due_date = chore.next_due_at
+    previous_assigned_user_id = chore.assigned_user_id
+    previous_done_until = chore.done_until
+
+    chore.done_until = None
+    chore.next_due_at = _compute_next_due(chore, previous_due_date)
+    chore.updated_at = now
+
+    log = models.ChoreLog(
+        chore_id=chore.id,
+        household_id=active_household.id,
+        executed_by_user_id=current_user.id,
+        executed_at=now,
+        previous_due_date=previous_due_date,
+        previous_assigned_user_id=previous_assigned_user_id,
+        previous_done_until=previous_done_until,
+        new_due_date=chore.next_due_at,
+        skipped=True,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(chore, attribute_names=["assigned_user"])
+    db.refresh(log)
+
+    log_response = schemas.ChoreLogResponse(
+        id=log.id,
+        chore_id=log.chore_id,
+        chore_name=chore.name,
+        executed_by_user_id=log.executed_by_user_id,
+        executed_by_username=current_user.username,
+        executed_at=log.executed_at,
+        previous_due_date=log.previous_due_date,
+        new_due_date=log.new_due_date,
+        reward_amount=None,
+        skipped=True,
     )
     return schemas.ChoreExecuteResponse(chore=_enrich_chore(chore), log=log_response)
 
@@ -581,6 +656,7 @@ def get_chore_logs(
             previous_due_date=log.previous_due_date,
             new_due_date=log.new_due_date,
             reward_amount=float(log.reward_amount) if log.reward_amount is not None else None,
+            skipped=log.skipped,
         )
         for log, username in rows
     ]
@@ -615,17 +691,26 @@ def undo_chore_log(
 
     chore = db.get(models.Chore, log.chore_id)
 
-    previous_log = db.execute(
-        select(models.ChoreLog)
-        .where(models.ChoreLog.chore_id == log.chore_id, models.ChoreLog.id != log.id)
-        .order_by(models.ChoreLog.executed_at.desc())
-        .limit(1)
-    ).scalar_one_or_none()
-
     chore.next_due_at = log.previous_due_date
     chore.assigned_user_id = log.previous_assigned_user_id
     chore.done_until = log.previous_done_until
-    chore.last_done_at = previous_log.executed_at if previous_log else None
+
+    # Un "passer" ne modifie jamais last_done_at : l'annuler ne doit donc pas
+    # y toucher non plus. Pour un "marquer fait" annulé, on le restaure à la
+    # dernière exécution réelle précédente (les "passer" ne comptent pas).
+    if not log.skipped:
+        previous_execute_log = db.execute(
+            select(models.ChoreLog)
+            .where(
+                models.ChoreLog.chore_id == log.chore_id,
+                models.ChoreLog.id != log.id,
+                models.ChoreLog.skipped.is_(False),
+            )
+            .order_by(models.ChoreLog.executed_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        chore.last_done_at = previous_execute_log.executed_at if previous_execute_log else None
+
     chore.updated_at = datetime.now(timezone.utc)
 
     db.delete(log)

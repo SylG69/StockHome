@@ -10,6 +10,8 @@
   "saved": "Task updated",
   "deleted": "Task deleted",
   "markDone": "Mark done",
+  "skip": "Skip",
+  "skipped": "Due date skipped",
   "markedDone": "Task marked as done",
   "done": "Done",
   "undone": "Execution undone",
@@ -56,7 +58,9 @@
     "rewardPlaceholder": "e.g. 2.50",
     "assignmentType": "Assignment rule",
     "initialAssignee": "Initial assignee",
-    "noInitialAssignee": "None"
+    "noInitialAssignee": "None",
+    "fixedAssignee": "Assigned person",
+    "fixedAssigneeRequired": "Select a person for the fixed assignment"
   },
   "periodType": {
     "manually": "Manual (no scheduling)",
@@ -71,7 +75,8 @@
     "no-assignment": "No assignment",
     "in-alphabetical-order": "Alphabetical order",
     "random": "Random",
-    "who-least-did-first": "Who did it least"
+    "who-least-did-first": "Who did it least",
+    "fixed": "Fixed person"
   },
   "weekday": {
     "1": "Mon",
@@ -88,6 +93,7 @@
     "empty": "No execution recorded",
     "unknownUser": "Unknown user",
     "undo": "Undo",
+    "skipped": "Skipped",
     "fullLogButton": "Full log",
     "fullLogTitle": "Full log of completed tasks"
   },

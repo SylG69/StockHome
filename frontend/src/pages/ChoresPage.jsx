@@ -44,13 +44,14 @@ import {
   User,
   CalendarDays,
   Gift,
+  SkipForward,
 } from 'lucide-react';
 
 const PERIOD_TYPES = ['manually', 'hourly', 'daily', 'weekly', 'biweekly', 'monthly', 'yearly'];
 // Types pour lesquels choisir une heure d'échéance a du sens : "hourly" est
 // déjà un intervalle (pas une heure fixe) et "manually" n'a pas d'échéance.
 const TYPES_WITH_DUE_TIME = new Set(['daily', 'weekly', 'biweekly', 'monthly', 'yearly']);
-const ASSIGNMENT_TYPES = ['no-assignment', 'in-alphabetical-order', 'random', 'who-least-did-first'];
+const ASSIGNMENT_TYPES = ['no-assignment', 'in-alphabetical-order', 'random', 'who-least-did-first', 'fixed'];
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7]; // ISO : 1 = lundi ... 7 = dimanche
 
 const STATUS_STYLES = {
@@ -220,6 +221,10 @@ export default function ChoresPage() {
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
+    if (form.assignment_type === 'fixed' && !form.assigned_user_id) {
+      toast.error(t('form.fixedAssigneeRequired'));
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -271,6 +276,17 @@ export default function ChoresPage() {
       toast.success(t('markedDone'));
     } catch (error) {
       toast.error(t('errors.generic'));
+    }
+  };
+
+  const handleSkip = async (choreId) => {
+    try {
+      const response = await api.post(`/chores/${choreId}/skip`);
+      setChores((prev) => prev.map((c) => (c.id === choreId ? response.data.chore : c)));
+      await fetchCalendar();
+      toast.success(t('skipped'));
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('errors.generic'));
     }
   };
 
@@ -443,6 +459,11 @@ export default function ChoresPage() {
                   >
                     <Check className="w-4 h-4 mr-1" /> {chore.status === 'done' ? t('done') : t('markDone')}
                   </Button>
+                  {chore.next_due_at && chore.status !== 'done' && (
+                    <Button variant="ghost" size="sm" onClick={() => handleSkip(chore.id)} title={t('skip')}>
+                      <SkipForward className="w-4 h-4 mr-1" /> {t('skip')}
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => openEditDialog(chore)}>
                     {t('edit')}
                   </Button>
@@ -634,11 +655,16 @@ export default function ChoresPage() {
 
             {form.assignment_type !== 'no-assignment' && members.length > 0 && (
               <div className="space-y-1.5">
-                <Label>{t('form.initialAssignee')}</Label>
-                <Select value={form.assigned_user_id || '__none__'} onValueChange={(v) => setForm((f) => ({ ...f, assigned_user_id: v === '__none__' ? '' : v }))}>
+                <Label>{t(form.assignment_type === 'fixed' ? 'form.fixedAssignee' : 'form.initialAssignee')}</Label>
+                <Select
+                  value={form.assigned_user_id || '__none__'}
+                  onValueChange={(v) => setForm((f) => ({ ...f, assigned_user_id: v === '__none__' ? '' : v }))}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">{t('form.noInitialAssignee')}</SelectItem>
+                    {form.assignment_type !== 'fixed' && (
+                      <SelectItem value="__none__">{t('form.noInitialAssignee')}</SelectItem>
+                    )}
                     {members.map((m) => (
                       <SelectItem key={m.user_id} value={m.user_id}>{m.username}</SelectItem>
                     ))}
@@ -670,7 +696,14 @@ export default function ChoresPage() {
               journalLogs.map((log, index) => (
                 <div key={log.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
                   <div>
-                    <p className="text-sm font-medium">{log.executed_by_username || t('journal.unknownUser')}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{log.executed_by_username || t('journal.unknownUser')}</p>
+                      {log.skipped && (
+                        <Badge variant="secondary" className="text-[10px] bg-secondary text-muted-foreground">
+                          {t('journal.skipped')}
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">{new Date(log.executed_at).toLocaleString()}</p>
                   </div>
                   {index === 0 && (
@@ -700,7 +733,14 @@ export default function ChoresPage() {
               fullLogs.map((log) => (
                 <div key={log.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{log.chore_name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{log.chore_name}</p>
+                      {log.skipped && (
+                        <Badge variant="secondary" className="text-[10px] bg-secondary text-muted-foreground shrink-0">
+                          {t('journal.skipped')}
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {log.executed_by_username || t('journal.unknownUser')} · {new Date(log.executed_at).toLocaleString()}
                     </p>

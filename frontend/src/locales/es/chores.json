@@ -10,6 +10,8 @@
   "saved": "Tarea actualizada",
   "deleted": "Tarea eliminada",
   "markDone": "Marcar como hecha",
+  "skip": "Saltar",
+  "skipped": "Fecha límite saltada",
   "markedDone": "Tarea marcada como hecha",
   "done": "Hecha",
   "undone": "Ejecución deshecha",
@@ -56,7 +58,9 @@
     "rewardPlaceholder": "ej: 2.50",
     "assignmentType": "Regla de asignación",
     "initialAssignee": "Asignado inicial",
-    "noInitialAssignee": "Ninguno"
+    "noInitialAssignee": "Ninguno",
+    "fixedAssignee": "Persona asignada",
+    "fixedAssigneeRequired": "Selecciona una persona para la asignación fija"
   },
   "periodType": {
     "manually": "Manual (sin planificación)",
@@ -71,7 +75,8 @@
     "no-assignment": "Sin asignación",
     "in-alphabetical-order": "Orden alfabético",
     "random": "Aleatorio",
-    "who-least-did-first": "Quien menos lo ha hecho"
+    "who-least-did-first": "Quien menos lo ha hecho",
+    "fixed": "Persona fija"
   },
   "weekday": {
     "1": "Lun",
@@ -88,6 +93,7 @@
     "empty": "Ninguna ejecución registrada",
     "unknownUser": "Usuario desconocido",
     "undo": "Deshacer",
+    "skipped": "Saltado",
     "fullLogButton": "Historial completo",
     "fullLogTitle": "Historial completo de tareas realizadas"
   },

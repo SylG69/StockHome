@@ -303,7 +303,8 @@ class ChoreBase(BaseModel):
     due_time: Optional[str] = None
     # Montant (EUR) versé au membre qui effectue cette corvée, si définie.
     reward: Optional[float] = None
-    assignment_type: str = "no-assignment"  # no-assignment | in-alphabetical-order | random | who-least-did-first
+    # no-assignment | in-alphabetical-order | random | who-least-did-first | fixed
+    assignment_type: str = "no-assignment"
     assigned_user_id: Optional[str] = None  # assigné initial explicite (facultatif)
 
 class ChoreCreate(ChoreBase):
@@ -356,6 +357,7 @@ class ChoreLogResponse(BaseModel):
     previous_due_date: Optional[datetime] = None
     new_due_date: Optional[datetime] = None
     reward_amount: Optional[float] = None
+    skipped: bool = False
 
 class ChoreExecuteResponse(BaseModel):
     """Réponse renvoyée après avoir marqué une corvée comme faite."""

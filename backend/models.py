@@ -341,6 +341,10 @@ class ChoreLog(Base):
     # exact même si la récompense de la corvée change ensuite. NULL si la
     # corvée n'avait pas de récompense définie à cet instant.
     reward_amount: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    # True si cette entrée correspond à un "passer" (échéance décalée sans
+    # exécution réelle) plutôt qu'un "marquer fait" -- exclu du comptage
+    # who-least-did-first et ne rapporte jamais de récompense.
+    skipped: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
