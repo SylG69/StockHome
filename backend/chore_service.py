@@ -30,12 +30,14 @@ DUE_SOON_THRESHOLD_DAYS = 2
 
 
 def _parse_int_list(value: Optional[str]) -> Optional[list[int]]:
+    """Convertit une chaîne CSV stockée en base (ex: "1,3,5") en liste d'entiers."""
     if not value:
         return None
     return [int(v) for v in value.split(",") if v.strip()]
 
 
 def _serialize_int_list(value: Optional[list[int]]) -> Optional[str]:
+    """Convertit une liste d'entiers en chaîne CSV triée et dédupliquée, pour le stockage en base."""
     if not value:
         return None
     return ",".join(str(v) for v in sorted(set(value)))
@@ -104,6 +106,7 @@ def _compute_next_due(chore: "models.Chore", from_dt: datetime) -> Optional[date
 
 
 def _get_household_members(db: Session, household_id: str) -> list[models.HouseholdMember]:
+    """Renvoie les membres actuels du foyer (avec l'utilisateur associé préchargé)."""
     return db.execute(
         select(models.HouseholdMember)
         .where(models.HouseholdMember.household_id == household_id)
@@ -149,6 +152,7 @@ def _compute_next_assignee(db: Session, chore: "models.Chore") -> Optional[str]:
 
 
 def _compute_status(next_due_at: Optional[datetime], now: datetime) -> str:
+    """Déduit le statut couleur d'une corvée (retard/aujourd'hui/bientôt/à venir/manuel) à partir de son échéance."""
     if next_due_at is None:
         return "no_schedule"
     if next_due_at < now:
@@ -161,6 +165,7 @@ def _compute_status(next_due_at: Optional[datetime], now: datetime) -> str:
 
 
 def _enrich_chore(chore: "models.Chore") -> schemas.ChoreResponse:
+    """Construit la réponse API d'une corvée, avec les champs calculés (statut, nom de l'assigné, listes désérialisées)."""
     return schemas.ChoreResponse(
         id=chore.id,
         user_id=chore.user_id,
@@ -188,6 +193,7 @@ def _enrich_chore(chore: "models.Chore") -> schemas.ChoreResponse:
 
 
 def _get_chore_or_404(db: Session, chore_id: str, household_id: str) -> models.Chore:
+    """Renvoie une corvée du foyer donné, ou lève une 404 si elle n'existe pas."""
     chore = db.execute(
         select(models.Chore)
         .where(models.Chore.id == chore_id, models.Chore.household_id == household_id)
@@ -199,6 +205,7 @@ def _get_chore_or_404(db: Session, chore_id: str, household_id: str) -> models.C
 
 
 def _validate_household_member(db: Session, household_id: str, user_id: str) -> None:
+    """Vérifie que l'utilisateur donné appartient bien au foyer, sinon lève une 400."""
     exists = db.execute(
         select(models.HouseholdMember.id).where(
             models.HouseholdMember.household_id == household_id,
@@ -210,6 +217,7 @@ def _validate_household_member(db: Session, household_id: str, user_id: str) -> 
 
 
 def _validate_types(period_type: Optional[str], assignment_type: Optional[str]) -> None:
+    """Vérifie que period_type et assignment_type (si fournis) sont des valeurs autorisées."""
     if period_type is not None and period_type not in VALID_PERIOD_TYPES:
         raise HTTPException(status_code=400, detail=f"period_type invalide : {period_type}")
     if assignment_type is not None and assignment_type not in VALID_ASSIGNMENT_TYPES:
@@ -217,11 +225,13 @@ def _validate_types(period_type: Optional[str], assignment_type: Optional[str]) 
 
 
 def _validate_due_time(due_time: Optional[str]) -> None:
+    """Vérifie que due_time (si fourni) respecte bien le format HH:MM."""
     if due_time is not None and not DUE_TIME_PATTERN.match(due_time):
         raise HTTPException(status_code=400, detail=f"due_time invalide (attendu HH:MM) : {due_time}")
 
 
 def _validate_reward(reward: Optional[float]) -> None:
+    """Vérifie que reward (si fourni) est bien positif ou nul."""
     if reward is not None and reward < 0:
         raise HTTPException(status_code=400, detail="reward invalide : doit être positif ou nul")
 

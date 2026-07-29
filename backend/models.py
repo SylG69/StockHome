@@ -1,6 +1,6 @@
 """Définitions des modèles SQLAlchemy pour StockHome."""
 
-# pylint: disable=too-few-public-methods, missing-class-docstring
+# pylint: disable=too-few-public-methods
 
 import uuid
 from datetime import date, datetime, timezone
@@ -22,6 +22,8 @@ def utcnow() -> datetime:
 
 
 class User(Base):
+    """Compte utilisateur (identifiants, rôle, foyer actif/préféré)."""
+
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -85,6 +87,8 @@ class User(Base):
 
 
 class Household(Base):
+    """Foyer (personnel ou partagé) : regroupe le stock et les membres qui y accèdent."""
+
     __tablename__ = "households"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -115,6 +119,8 @@ class Household(Base):
 
 
 class HouseholdMember(Base):
+    """Table d'association : adhésion d'un utilisateur à un foyer, avec son rôle."""
+
     __tablename__ = "household_members"
     __table_args__ = (UniqueConstraint("household_id", "user_id", name="uq_household_members_household_user"),)
 
@@ -131,6 +137,8 @@ class HouseholdMember(Base):
 
 
 class Category(Base):
+    """Catégorie de produits (ex: Alimentaire, Hygiène), propre à un foyer."""
+
     __tablename__ = "categories"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -149,6 +157,8 @@ class Category(Base):
 
 
 class SubCategory(Base):
+    """Sous-catégorie de produits, avec son propre seuil de stock minimal."""
+
     __tablename__ = "sub_categories"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -167,6 +177,8 @@ class SubCategory(Base):
 
 
 class StorageLocation(Base):
+    """Emplacement de stockage physique (ex: Cuisine, Garage), propre à un foyer."""
+
     __tablename__ = "storage_locations"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -184,6 +196,8 @@ class StorageLocation(Base):
 
 
 class Product(Base):
+    """Un lot de produit en stock (quantité, péremption, prix, données Open*Facts)."""
+
     __tablename__ = "products"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -231,6 +245,8 @@ class Product(Base):
 
 
 class ShoppingListItem(Base):
+    """Item de la liste de courses d'un foyer (éventuellement lié à un produit existant)."""
+
     __tablename__ = "shopping_list"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -248,6 +264,8 @@ class ShoppingListItem(Base):
 
 
 class Chore(Base):
+    """Corvée récurrente du foyer : planification, attribution et récompense éventuelle."""
+
     __tablename__ = "chores"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
@@ -290,6 +308,8 @@ class Chore(Base):
 
 
 class ChoreLog(Base):
+    """Entrée de journal : une exécution effective d'une corvée, avec l'état avant/après pour permettre l'undo."""
+
     __tablename__ = "chore_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
