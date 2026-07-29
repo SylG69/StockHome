@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -86,6 +86,39 @@ function formatDueDate(nextDueAt, locale) {
   const dateStr = date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
   const timeStr = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   return `${dateStr.charAt(0).toUpperCase()}${dateStr.slice(1)} · ${timeStr}`;
+}
+
+// Vue calendrier sous la liste : une semaine complète sur desktop, réduite
+// aux 3 premiers jours sur mobile (colonnes 4 à 7 masquées en dessous du
+// breakpoint sm -- voir le rendu, "hidden sm:flex" sur ces colonnes).
+const CALENDAR_TOTAL_DAYS = 7;
+
+function startOfDay(value) {
+  const d = new Date(value);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function buildCalendarDays(chores) {
+  const today = startOfDay(new Date());
+  const days = Array.from({ length: CALENDAR_TOTAL_DAYS }, (_, i) => {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    return { date, chores: [] };
+  });
+
+  chores.forEach((chore) => {
+    if (!chore.next_due_at) return;
+    const due = startOfDay(chore.next_due_at);
+    const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+    if (diffDays > CALENDAR_TOTAL_DAYS - 1) return;
+    // Une tâche en retard (diffDays < 0) est regroupée sur "aujourd'hui" :
+    // sans ça elle disparaîtrait simplement du calendrier.
+    days[Math.max(0, diffDays)].chores.push(chore);
+  });
+
+  days.forEach((day) => day.chores.sort((a, b) => new Date(a.next_due_at) - new Date(b.next_due_at)));
+  return days;
 }
 
 export default function ChoresPage() {
@@ -237,6 +270,7 @@ export default function ChoresPage() {
   const overdueCount = chores.filter((c) => c.status === 'overdue').length;
   const dueTodayCount = chores.filter((c) => c.status === 'due_today').length;
   const dueSoonCount = chores.filter((c) => c.status === 'due_soon').length;
+  const calendarDays = useMemo(() => buildCalendarDays(chores), [chores]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -327,6 +361,51 @@ export default function ChoresPage() {
         <Card className="bg-card border-border border-dashed py-16 text-center">
           <ListChecks className="w-16 h-16 mx-auto text-muted-foreground/20 mb-4" />
           <p className="text-muted-foreground">{t('empty')}</p>
+        </Card>
+      )}
+
+      {chores.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <CalendarDays className="w-5 h-5" /> {t('calendar.title')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 sm:gap-3">
+              {calendarDays.map((day, index) => (
+                <div
+                  key={day.date.toISOString()}
+                  className={`rounded-lg border p-2 min-h-[110px] flex-col ${index >= 3 ? 'hidden sm:flex' : 'flex'} ${
+                    index === 0 ? 'border-primary/50 bg-primary/5' : 'border-border bg-secondary/20'
+                  }`}
+                >
+                  <div className="text-center mb-2 shrink-0">
+                    <p className="text-[10px] uppercase text-muted-foreground">
+                      {day.date.toLocaleDateString(i18n.language, { weekday: 'short' })}
+                    </p>
+                    <p className={`text-sm font-bold ${index === 0 ? 'text-primary' : ''}`}>{day.date.getDate()}</p>
+                  </div>
+                  <div className="space-y-1 flex-1 overflow-y-auto">
+                    {day.chores.length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground text-center">—</p>
+                    ) : (
+                      day.chores.map((chore) => (
+                        <div
+                          key={chore.id}
+                          className="text-[10px] leading-tight px-1.5 py-1 rounded bg-primary/10 text-primary truncate"
+                          title={chore.name}
+                        >
+                          {new Date(chore.next_due_at).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}
+                          {' '}{chore.name}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
         </Card>
       )}
 

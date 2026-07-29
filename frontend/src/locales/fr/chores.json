@@ -21,6 +21,9 @@
   "list": {
     "title": "Toutes les tâches"
   },
+  "calendar": {
+    "title": "Calendrier"
+  },
   "status": {
     "overdue": "En retard",
     "due_today": "Aujourd'hui",
