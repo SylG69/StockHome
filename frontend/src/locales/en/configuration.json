@@ -4,7 +4,7 @@
     "subtitle": "Manage your household stock settings",
     "categories": "Categories",
     "locations": "Locations",
-    "rewards": "Rewards"
+    "tasks": "Tasks"
   },
   "categories": {
     "title": "Categories",
@@ -110,6 +110,8 @@
     "subtitle": "Configure the weekly reset day for the rewards summary",
     "weekdayLabel": "Weekly reset day",
     "description": "Each week, starting on this day, a summary of the rewards earned by each household member is available from the Tasks page.",
+    "enabledLabel": "Enable rewards",
+    "enabledDescription": "If disabled, no reward field is offered on tasks and the summary is no longer accessible.",
     "adminOnly": "Only a household admin can change this setting.",
     "weekdayFull": {
       "1": "Monday",

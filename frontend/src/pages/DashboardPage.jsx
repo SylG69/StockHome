@@ -49,7 +49,7 @@ function RewardsBanner({ activeHousehold }) {
     setDismissed(localStorage.getItem(key) === 'true');
   }, [activeHousehold]);
 
-  if (!activeHousehold || dismissed) return null;
+  if (!activeHousehold || activeHousehold.rewards_enabled === false || dismissed) return null;
 
   const handleDismiss = () => {
     if (dismissKey) localStorage.setItem(dismissKey, 'true');

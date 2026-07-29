@@ -11,6 +11,7 @@
   "deleted": "Tâche supprimée",
   "markDone": "Marquer fait",
   "markedDone": "Tâche marquée comme faite",
+  "done": "Fait",
   "undone": "Exécution annulée",
   "empty": "Aucune tâche pour le moment",
   "stats": {
@@ -25,6 +26,7 @@
     "title": "Calendrier"
   },
   "status": {
+    "done": "Terminé",
     "overdue": "En retard",
     "due_today": "Aujourd'hui",
     "due_soon": "Bientôt",
@@ -84,7 +86,9 @@
     "titleFor": "Journal de « {{name}} »",
     "empty": "Aucune exécution enregistrée",
     "unknownUser": "Utilisateur inconnu",
-    "undo": "Annuler"
+    "undo": "Annuler",
+    "fullLogButton": "Journal complet",
+    "fullLogTitle": "Journal complet des tâches effectuées"
   },
   "errors": {
     "loadError": "Erreur lors du chargement",

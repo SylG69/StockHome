@@ -104,6 +104,7 @@ class HouseholdResponse(BaseModel):
     member_count: int
     is_active: bool  # ce foyer est-il le foyer actif de l'utilisateur courant
     rewards_summary_weekday: int = 7  # ISO 1 (lundi) à 7 (dimanche)
+    rewards_enabled: bool = True
 
 class HouseholdDetailResponse(HouseholdResponse):
     """Détail d'un foyer, avec code d'invitation (admin uniquement) et membres."""
@@ -344,6 +345,7 @@ class ChoreLogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     chore_id: str
+    chore_name: Optional[str] = None
     executed_by_user_id: Optional[str] = None
     executed_by_username: Optional[str] = None
     executed_at: datetime
@@ -355,6 +357,12 @@ class ChoreExecuteResponse(BaseModel):
     """Réponse renvoyée après avoir marqué une corvée comme faite."""
     chore: ChoreResponse
     log: ChoreLogResponse
+
+class ChoreCalendarEntry(BaseModel):
+    """Une occurrence future projetée d'une corvée, pour l'affichage calendrier."""
+    chore_id: str
+    chore_name: str
+    due_at: datetime
 
 # ==================== CHORE REWARDS ====================
 
@@ -380,5 +388,6 @@ class RewardsSummaryResponse(BaseModel):
     members: List[MemberRewardsSummary] = []
 
 class HouseholdRewardsSettingsUpdate(BaseModel):
-    """Requête admin pour changer le jour de reset des récompenses du foyer."""
-    weekday: int  # ISO 1 (lundi) à 7 (dimanche)
+    """Requête admin pour configurer les récompenses du foyer (jour de reset, activation)."""
+    weekday: Optional[int] = None  # ISO 1 (lundi) à 7 (dimanche)
+    enabled: Optional[bool] = None

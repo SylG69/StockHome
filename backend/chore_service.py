@@ -76,8 +76,6 @@ def _compute_next_due(chore: "models.Chore", from_dt: datetime) -> Optional[date
         return from_dt + timedelta(hours=chore.period_hours or 1)
     if chore.period_type == "daily":
         return _apply_due_time(from_dt + timedelta(days=chore.period_days or 1), chore.due_time)
-    if chore.period_type == "biweekly":
-        return _apply_due_time(from_dt + timedelta(days=14), chore.due_time)
     if chore.period_type == "weekly":
         weekdays = _parse_int_list(chore.weekdays) or [from_dt.isoweekday()]
         for offset in range(1, 8):
@@ -85,6 +83,16 @@ def _compute_next_due(chore: "models.Chore", from_dt: datetime) -> Optional[date
             if candidate.isoweekday() in weekdays:
                 return _apply_due_time(candidate, chore.due_time)
         return _apply_due_time(from_dt + timedelta(days=7), chore.due_time)
+    if chore.period_type == "biweekly":
+        # +14 jours (cadence "sans dérive"), puis ajusté au jour de semaine
+        # choisi le plus proche (recherché dans la semaine qui suit ce cap).
+        weekdays = _parse_int_list(chore.weekdays) or [from_dt.isoweekday()]
+        base = from_dt + timedelta(days=14)
+        for offset in range(0, 7):
+            candidate = base + timedelta(days=offset)
+            if candidate.isoweekday() in weekdays:
+                return _apply_due_time(candidate, chore.due_time)
+        return _apply_due_time(base, chore.due_time)
     if chore.period_type == "monthly":
         month_days = _parse_int_list(chore.month_days) or [from_dt.day]
         candidate = from_dt + timedelta(days=1)
@@ -151,8 +159,12 @@ def _compute_next_assignee(db: Session, chore: "models.Chore") -> Optional[str]:
     return None
 
 
-def _compute_status(next_due_at: Optional[datetime], now: datetime) -> str:
-    """Déduit le statut couleur d'une corvée (retard/aujourd'hui/bientôt/à venir/manuel) à partir de son échéance."""
+def _compute_status(next_due_at: Optional[datetime], done_until: Optional[datetime], now: datetime) -> str:
+    """Déduit le statut d'une corvée : "done" si elle vient d'être faite et
+    que son échéance précédente n'est pas encore passée, sinon le statut
+    couleur habituel (retard/aujourd'hui/bientôt/à venir/manuel)."""
+    if done_until is not None and now < done_until:
+        return "done"
     if next_due_at is None:
         return "no_schedule"
     if next_due_at < now:
@@ -185,7 +197,7 @@ def _enrich_chore(chore: "models.Chore") -> schemas.ChoreResponse:
         assigned_user_id=chore.assigned_user_id,
         last_done_at=chore.last_done_at,
         next_due_at=chore.next_due_at,
-        status=_compute_status(chore.next_due_at, datetime.now(timezone.utc)),
+        status=_compute_status(chore.next_due_at, chore.done_until, datetime.now(timezone.utc)),
         assigned_user_name=chore.assigned_user.username if chore.assigned_user else None,
         created_at=chore.created_at,
         updated_at=chore.updated_at,
@@ -321,6 +333,69 @@ def get_rewards_summary(
     )
 
 
+@router.get("/logs", response_model=list[schemas.ChoreLogResponse])
+def get_all_chore_logs(
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
+):
+    """Journal complet de toutes les exécutions de corvées du foyer, toutes
+    tâches confondues, plus récent en premier."""
+    rows = db.execute(
+        select(models.ChoreLog, models.Chore.name, models.User.username)
+        .join(models.Chore, models.Chore.id == models.ChoreLog.chore_id)
+        .outerjoin(models.User, models.User.id == models.ChoreLog.executed_by_user_id)
+        .where(models.ChoreLog.household_id == active_household.id)
+        .order_by(models.ChoreLog.executed_at.desc())
+    ).all()
+    return [
+        schemas.ChoreLogResponse(
+            id=log.id,
+            chore_id=log.chore_id,
+            chore_name=chore_name,
+            executed_by_user_id=log.executed_by_user_id,
+            executed_by_username=username,
+            executed_at=log.executed_at,
+            previous_due_date=log.previous_due_date,
+            new_due_date=log.new_due_date,
+            reward_amount=float(log.reward_amount) if log.reward_amount is not None else None,
+        )
+        for log, chore_name, username in rows
+    ]
+
+
+# Fenêtre du calendrier (voir get_chores_calendar) : doit correspondre à la
+# vue desktop du frontend (grille 7 colonnes réduite à 3 sur mobile).
+CALENDAR_HORIZON_DAYS = 7
+
+
+@router.get("/calendar", response_model=list[schemas.ChoreCalendarEntry])
+def get_chores_calendar(
+    active_household: models.Household = Depends(get_active_household),
+    db: Session = Depends(get_db),
+):
+    """Projette toutes les occurrences futures de chaque corvée récurrente
+    sur les prochains jours (voir CALENDAR_HORIZON_DAYS), pas seulement la
+    toute prochaine échéance -- une corvée quotidienne apparaît donc sur
+    plusieurs jours du calendrier, pas un seul."""
+    now = datetime.now(timezone.utc)
+    horizon_end = now.replace(hour=23, minute=59, second=59, microsecond=0) + timedelta(
+        days=CALENDAR_HORIZON_DAYS - 1
+    )
+
+    chores = db.execute(
+        select(models.Chore).where(models.Chore.household_id == active_household.id)
+    ).scalars().all()
+
+    entries = []
+    for chore in chores:
+        occurrence = chore.next_due_at
+        while occurrence is not None and occurrence <= horizon_end:
+            entries.append(schemas.ChoreCalendarEntry(chore_id=chore.id, chore_name=chore.name, due_at=occurrence))
+            occurrence = _compute_next_due(chore, occurrence)
+
+    return entries
+
+
 @router.get("/{chore_id}", response_model=schemas.ChoreResponse)
 def get_chore(
     chore_id: str,
@@ -439,7 +514,13 @@ def execute_chore(
 
     previous_due_date = chore.next_due_at
     previous_assigned_user_id = chore.assigned_user_id
+    previous_done_until = chore.done_until
 
+    # "Terminé" tant que l'échéance qui était en cours n'est pas passée : si
+    # la corvée était déjà en retard (échéance déjà dépassée) au moment de
+    # l'exécuter, ce délai n'a pas de sens -- le nouveau statut s'affiche
+    # immédiatement d'après la prochaine échéance recalculée.
+    chore.done_until = previous_due_date if previous_due_date and previous_due_date > now else None
     chore.last_done_at = now
     chore.next_due_at = _compute_next_due(chore, now)
     chore.assigned_user_id = _compute_next_assignee(db, chore)
@@ -452,6 +533,7 @@ def execute_chore(
         executed_at=now,
         previous_due_date=previous_due_date,
         previous_assigned_user_id=previous_assigned_user_id,
+        previous_done_until=previous_done_until,
         new_due_date=chore.next_due_at,
         reward_amount=chore.reward,
     )
@@ -463,6 +545,7 @@ def execute_chore(
     log_response = schemas.ChoreLogResponse(
         id=log.id,
         chore_id=log.chore_id,
+        chore_name=chore.name,
         executed_by_user_id=log.executed_by_user_id,
         executed_by_username=current_user.username,
         executed_at=log.executed_at,
@@ -480,7 +563,7 @@ def get_chore_logs(
     db: Session = Depends(get_db),
 ):
     """Renvoie le journal d'exécution d'une corvée, plus récent en premier."""
-    _get_chore_or_404(db, chore_id, active_household.id)
+    chore = _get_chore_or_404(db, chore_id, active_household.id)
     rows = db.execute(
         select(models.ChoreLog, models.User.username)
         .outerjoin(models.User, models.User.id == models.ChoreLog.executed_by_user_id)
@@ -491,6 +574,7 @@ def get_chore_logs(
         schemas.ChoreLogResponse(
             id=log.id,
             chore_id=log.chore_id,
+            chore_name=chore.name,
             executed_by_user_id=log.executed_by_user_id,
             executed_by_username=username,
             executed_at=log.executed_at,
@@ -540,6 +624,7 @@ def undo_chore_log(
 
     chore.next_due_at = log.previous_due_date
     chore.assigned_user_id = log.previous_assigned_user_id
+    chore.done_until = log.previous_done_until
     chore.last_done_at = previous_log.executed_at if previous_log else None
     chore.updated_at = datetime.now(timezone.utc)
 

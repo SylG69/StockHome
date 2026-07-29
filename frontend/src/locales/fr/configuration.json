@@ -4,7 +4,7 @@
     "subtitle": "Gérez les paramètres de votre stock domestique",
     "categories": "Catégories",
     "locations": "Emplacements",
-    "rewards": "Récompenses"
+    "tasks": "Tâches"
   },
   "categories": {
     "title": "Catégories",
@@ -110,6 +110,8 @@
     "subtitle": "Configurez le jour de reset du récapitulatif hebdomadaire des récompenses",
     "weekdayLabel": "Jour de reset hebdomadaire",
     "description": "Chaque semaine, à partir de ce jour, un récapitulatif des récompenses gagnées par chaque membre du foyer est disponible depuis la page Tâches.",
+    "enabledLabel": "Activer les récompenses",
+    "enabledDescription": "Si désactivé, aucun champ récompense n'est proposé sur les tâches et le récapitulatif n'est plus accessible.",
     "adminOnly": "Seul un administrateur du foyer peut modifier ce paramètre.",
     "weekdayFull": {
       "1": "Lundi",

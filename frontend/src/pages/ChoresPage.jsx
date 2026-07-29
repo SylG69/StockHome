@@ -53,12 +53,16 @@ const ASSIGNMENT_TYPES = ['no-assignment', 'in-alphabetical-order', 'random', 'w
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7]; // ISO : 1 = lundi ... 7 = dimanche
 
 const STATUS_STYLES = {
+  done: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
   overdue: 'bg-red-500/10 text-red-600 border-red-500/30',
   due_today: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
   due_soon: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30',
   upcoming: 'bg-secondary text-muted-foreground border-transparent',
   no_schedule: 'bg-secondary text-muted-foreground border-transparent',
 };
+
+// Types pour lesquels le sélecteur de jours de la semaine a du sens.
+const TYPES_WITH_WEEKDAYS = new Set(['weekly', 'biweekly']);
 
 const EMPTY_FORM = {
   name: '',
@@ -102,25 +106,27 @@ function startOfDay(value) {
   return d;
 }
 
-function buildCalendarDays(chores) {
+function buildCalendarDays(entries) {
   const today = startOfDay(new Date());
   const days = Array.from({ length: CALENDAR_TOTAL_DAYS }, (_, i) => {
     const date = new Date(today);
     date.setDate(date.getDate() + i);
-    return { date, chores: [] };
+    return { date, entries: [] };
   });
 
-  chores.forEach((chore) => {
-    if (!chore.next_due_at) return;
-    const due = startOfDay(chore.next_due_at);
+  entries.forEach((entry) => {
+    if (!entry.due_at) return;
+    const due = startOfDay(entry.due_at);
     const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
     if (diffDays > CALENDAR_TOTAL_DAYS - 1) return;
-    // Une tâche en retard (diffDays < 0) est regroupée sur "aujourd'hui" :
-    // sans ça elle disparaîtrait simplement du calendrier.
-    days[Math.max(0, diffDays)].chores.push(chore);
+    // Une occurrence en retard (diffDays < 0) est regroupée sur
+    // "aujourd'hui" : sans ça elle disparaîtrait simplement du calendrier.
+    days[Math.max(0, diffDays)].entries.push(entry);
   });
 
-  days.forEach((day) => day.chores.sort((a, b) => new Date(a.next_due_at) - new Date(b.next_due_at)));
+  days.forEach((day) => {
+    day.entries = [...day.entries].sort((a, b) => new Date(a.due_at) - new Date(b.due_at));
+  });
   return days;
 }
 
@@ -140,6 +146,14 @@ export default function ChoresPage() {
   const [journalLogs, setJournalLogs] = useState([]);
   const [journalLoading, setJournalLoading] = useState(false);
 
+  const [fullLogOpen, setFullLogOpen] = useState(false);
+  const [fullLogs, setFullLogs] = useState([]);
+  const [fullLogLoading, setFullLogLoading] = useState(false);
+
+  const [calendarEntries, setCalendarEntries] = useState([]);
+
+  const rewardsEnabled = activeHousehold?.rewards_enabled !== false;
+
   const fetchChores = useCallback(async () => {
     try {
       const response = await api.get('/chores');
@@ -150,6 +164,15 @@ export default function ChoresPage() {
       setLoading(false);
     }
   }, [api, t]);
+
+  const fetchCalendar = useCallback(async () => {
+    try {
+      const response = await api.get('/chores/calendar');
+      setCalendarEntries(response.data);
+    } catch (error) {
+      // Silencieux : le calendrier est une vue secondaire, pas bloquante.
+    }
+  }, [api]);
 
   const fetchMembers = useCallback(async () => {
     if (!activeHousehold) return;
@@ -164,7 +187,8 @@ export default function ChoresPage() {
   useEffect(() => {
     fetchChores();
     fetchMembers();
-  }, [fetchChores, fetchMembers]);
+    fetchCalendar();
+  }, [fetchChores, fetchMembers, fetchCalendar]);
 
   const openCreateDialog = () => {
     setEditingId(null);
@@ -204,7 +228,7 @@ export default function ChoresPage() {
         assigned_user_id: form.assigned_user_id || null,
         period_hours: form.period_type === 'hourly' ? Number(form.period_hours) || 1 : null,
         period_days: form.period_type === 'daily' ? Number(form.period_days) || 1 : null,
-        weekdays: form.period_type === 'weekly' ? form.weekdays.map(Number) : null,
+        weekdays: TYPES_WITH_WEEKDAYS.has(form.period_type) ? form.weekdays.map(Number) : null,
         month_days: form.period_type === 'monthly' ? parseMonthDays(form.month_days) : null,
         yearly_month: form.period_type === 'yearly' ? Number(form.yearly_month) : null,
         yearly_day: form.period_type === 'yearly' ? Number(form.yearly_day) : null,
@@ -241,6 +265,7 @@ export default function ChoresPage() {
     try {
       const response = await api.post(`/chores/${choreId}/execute`);
       setChores((prev) => prev.map((c) => (c.id === choreId ? response.data.chore : c)));
+      await fetchCalendar();
       toast.success(t('markedDone'));
     } catch (error) {
       toast.error(t('errors.generic'));
@@ -267,15 +292,29 @@ export default function ChoresPage() {
       const response = await api.get(`/chores/${journalChore.id}/logs`);
       setJournalLogs(response.data);
       await fetchChores();
+      await fetchCalendar();
     } catch (error) {
       toast.error(error.response?.data?.detail || t('errors.generic'));
+    }
+  };
+
+  const openFullLog = async () => {
+    setFullLogOpen(true);
+    setFullLogLoading(true);
+    try {
+      const response = await api.get('/chores/logs');
+      setFullLogs(response.data);
+    } catch (error) {
+      toast.error(t('errors.loadError'));
+    } finally {
+      setFullLogLoading(false);
     }
   };
 
   const overdueCount = chores.filter((c) => c.status === 'overdue').length;
   const dueTodayCount = chores.filter((c) => c.status === 'due_today').length;
   const dueSoonCount = chores.filter((c) => c.status === 'due_soon').length;
-  const calendarDays = useMemo(() => buildCalendarDays(chores), [chores]);
+  const calendarDays = useMemo(() => buildCalendarDays(calendarEntries), [calendarEntries]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -290,12 +329,17 @@ export default function ChoresPage() {
           <h1 className="text-3xl font-bold tracking-tight">{t('page.title')}</h1>
           <p className="text-muted-foreground mt-1 text-sm italic">{t('page.subtitle')}</p>
         </div>
-        <div className="flex gap-2">
-          <Link to="/chores/rewards">
-            <Button variant="outline">
-              <Gift className="w-4 h-4 mr-2" /> {t('rewards.viewButton')}
-            </Button>
-          </Link>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={openFullLog}>
+            <History className="w-4 h-4 mr-2" /> {t('journal.fullLogButton')}
+          </Button>
+          {rewardsEnabled && (
+            <Link to="/chores/rewards">
+              <Button variant="outline">
+                <Gift className="w-4 h-4 mr-2" /> {t('rewards.viewButton')}
+              </Button>
+            </Link>
+          )}
           <Button onClick={openCreateDialog} className="btn-glow">
             <Plus className="w-4 h-4 mr-2" /> {t('add')}
           </Button>
@@ -340,7 +384,7 @@ export default function ChoresPage() {
                         <User className="w-3 h-3 mr-1" /> {chore.assigned_user_name}
                       </Badge>
                     )}
-                    {chore.reward != null && (
+                    {rewardsEnabled && chore.reward != null && (
                       <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-600">
                         <Gift className="w-3 h-3 mr-1" /> {chore.reward.toFixed(2)} €
                       </Badge>
@@ -360,8 +404,13 @@ export default function ChoresPage() {
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openJournal(chore)} title={t('journal.title')}>
                     <History className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleExecute(chore.id)}>
-                    <Check className="w-4 h-4 mr-1" /> {t('markDone')}
+                  <Button
+                    variant={chore.status === 'done' ? 'secondary' : 'outline'}
+                    size="sm"
+                    onClick={() => handleExecute(chore.id)}
+                    disabled={chore.status === 'done'}
+                  >
+                    <Check className="w-4 h-4 mr-1" /> {chore.status === 'done' ? t('done') : t('markDone')}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => openEditDialog(chore)}>
                     {t('edit')}
@@ -404,17 +453,17 @@ export default function ChoresPage() {
                     <p className={`text-sm font-bold ${index === 0 ? 'text-primary' : ''}`}>{day.date.getDate()}</p>
                   </div>
                   <div className="space-y-1 flex-1 overflow-y-auto">
-                    {day.chores.length === 0 ? (
+                    {day.entries.length === 0 ? (
                       <p className="text-[10px] text-muted-foreground text-center">—</p>
                     ) : (
-                      day.chores.map((chore) => (
+                      day.entries.map((entry, entryIndex) => (
                         <div
-                          key={chore.id}
+                          key={`${entry.chore_id}-${entry.due_at}-${entryIndex}`}
                           className="text-[10px] leading-tight px-1.5 py-1 rounded bg-primary/10 text-primary truncate"
-                          title={chore.name}
+                          title={entry.chore_name}
                         >
-                          {new Date(chore.next_due_at).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}
-                          {' '}{chore.name}
+                          {new Date(entry.due_at).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}
+                          {' '}{entry.chore_name}
                         </div>
                       ))
                     )}
@@ -468,7 +517,7 @@ export default function ChoresPage() {
               </div>
             )}
 
-            {form.period_type === 'weekly' && (
+            {TYPES_WITH_WEEKDAYS.has(form.period_type) && (
               <div className="space-y-1.5">
                 <Label>{t('form.weekdays')}</Label>
                 <ToggleGroup
@@ -513,17 +562,19 @@ export default function ChoresPage() {
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <Label>{t('form.reward')}</Label>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.reward}
-                onChange={(e) => setForm((f) => ({ ...f, reward: e.target.value }))}
-                placeholder={t('form.rewardPlaceholder')}
-              />
-            </div>
+            {rewardsEnabled && (
+              <div className="space-y-1.5">
+                <Label>{t('form.reward')}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.reward}
+                  onChange={(e) => setForm((f) => ({ ...f, reward: e.target.value }))}
+                  placeholder={t('form.rewardPlaceholder')}
+                />
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>{t('form.assignmentType')}</Label>
@@ -582,6 +633,38 @@ export default function ChoresPage() {
                     <Button variant="ghost" size="sm" onClick={() => handleUndo(log.id)}>
                       <Undo2 className="w-4 h-4 mr-1" /> {t('journal.undo')}
                     </Button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Journal complet, toutes tâches confondues */}
+      <Sheet open={fullLogOpen} onOpenChange={setFullLogOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{t('journal.fullLogTitle')}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-2 max-h-[85vh] overflow-y-auto">
+            {fullLogLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+            ) : fullLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">{t('journal.empty')}</p>
+            ) : (
+              fullLogs.map((log) => (
+                <div key={log.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{log.chore_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {log.executed_by_username || t('journal.unknownUser')} · {new Date(log.executed_at).toLocaleString()}
+                    </p>
+                  </div>
+                  {rewardsEnabled && log.reward_amount != null && (
+                    <span className="text-sm font-semibold text-emerald-600 shrink-0 ml-2">
+                      {log.reward_amount.toFixed(2)} €
+                    </span>
                   )}
                 </div>
               ))

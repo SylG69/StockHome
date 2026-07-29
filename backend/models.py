@@ -107,6 +107,9 @@ class Household(Base):
     # récompenses des corvées redémarre pour ce foyer -- configurable par un
     # admin du foyer (voir chore_service._period_start). Dimanche par défaut.
     rewards_summary_weekday: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
+    # Permet à un admin de désactiver entièrement la fonctionnalité récompenses
+    # pour ce foyer (masque les champs/actions côté frontend).
+    rewards_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     members: Mapped[list["HouseholdMember"]] = relationship(
         back_populates="household", foreign_keys="HouseholdMember.household_id", cascade="all, delete-orphan"
@@ -277,8 +280,10 @@ class Chore(Base):
     # "hourly" | "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "manually".
     period_type: Mapped[str] = mapped_column(String(20), default="manually", nullable=False)
     period_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)  # hourly
-    period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # daily ("sans dérive", recalculé depuis last_done_at)
-    weekdays: Mapped[str | None] = mapped_column(String(20), nullable=True)  # weekly, ex "1,3,5" (ISO 1=lundi..7=dimanche)
+    # daily ("sans dérive", recalculé depuis last_done_at)
+    period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # weekly/biweekly, ex "1,3,5" (ISO 1=lundi..7=dimanche)
+    weekdays: Mapped[str | None] = mapped_column(String(20), nullable=True)
     month_days: Mapped[str | None] = mapped_column(String(100), nullable=True)  # monthly, ex "1,15,28"
     yearly_month: Mapped[int | None] = mapped_column(Integer, nullable=True)  # yearly, 1-12
     yearly_day: Mapped[int | None] = mapped_column(Integer, nullable=True)  # yearly, 1-31
@@ -297,6 +302,11 @@ class Chore(Base):
 
     last_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     next_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Si renseignée et dans le futur, la corvée s'affiche "terminée" (statut
+    # "done") jusqu'à cette date -- correspond à l'échéance qui était en
+    # cours au moment du dernier "marquer fait" (voir chore_service.execute_chore).
+    # Devient automatiquement obsolète (ignorée) une fois cette date passée.
+    done_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -325,6 +335,7 @@ class ChoreLog(Base):
     # précédent (voir chore_service.undo_chore_log).
     previous_due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     previous_assigned_user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    previous_done_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     new_due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Copie de Chore.reward au moment de l'exécution : le montant gagné reste
     # exact même si la récompense de la corvée change ensuite. NULL si la

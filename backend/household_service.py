@@ -81,6 +81,7 @@ def _build_household_response(
         member_count=_member_count(db, household.id),
         is_active=household.id == current_user.active_household_id,
         rewards_summary_weekday=household.rewards_summary_weekday,
+        rewards_enabled=household.rewards_enabled,
     )
 
 
@@ -259,13 +260,17 @@ def update_rewards_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Change le jour de reset de la récapitulation des récompenses des
-    corvées du foyer (admin uniquement)."""
-    if not 1 <= data.weekday <= 7:
+    """Configure les récompenses des corvées du foyer -- jour de reset et/ou
+    activation -- (admin uniquement). Chaque champ est optionnel : seuls
+    ceux fournis sont modifiés."""
+    if data.weekday is not None and not 1 <= data.weekday <= 7:
         raise HTTPException(status_code=400, detail="weekday invalide (attendu 1 à 7, ISO lundi..dimanche)")
     membership = _require_household_admin(db, household_id, current_user.id)
     household = db.get(models.Household, household_id)
-    household.rewards_summary_weekday = data.weekday
+    if data.weekday is not None:
+        household.rewards_summary_weekday = data.weekday
+    if data.enabled is not None:
+        household.rewards_enabled = data.enabled
     db.commit()
     db.refresh(household)
     return _build_household_detail(db, household, membership, current_user)

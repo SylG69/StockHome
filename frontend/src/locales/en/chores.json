@@ -11,6 +11,7 @@
   "deleted": "Task deleted",
   "markDone": "Mark done",
   "markedDone": "Task marked as done",
+  "done": "Done",
   "undone": "Execution undone",
   "empty": "No tasks yet",
   "stats": {
@@ -25,6 +26,7 @@
     "title": "Calendar"
   },
   "status": {
+    "done": "Done",
     "overdue": "Overdue",
     "due_today": "Due today",
     "due_soon": "Due soon",
@@ -84,7 +86,9 @@
     "titleFor": "Journal for \"{{name}}\"",
     "empty": "No execution recorded",
     "unknownUser": "Unknown user",
-    "undo": "Undo"
+    "undo": "Undo",
+    "fullLogButton": "Full log",
+    "fullLogTitle": "Full log of completed tasks"
   },
   "errors": {
     "loadError": "Error loading data",
