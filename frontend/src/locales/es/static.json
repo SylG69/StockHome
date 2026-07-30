@@ -11,6 +11,14 @@
       "openPetFoodFacts": "Alimentación para mascotas.",
       "openProductsFacts": "Base de datos generalista, usada como último recurso para los productos no cubiertos anteriormente."
     },
+    "loanSourcesTitle": "Fuentes de los datos de préstamos (libros y videojuegos)",
+    "loanSourcesIntro": "Cuando escaneas un préstamo, StockHome consulta automáticamente estas bases de datos: para libros, la BnF, luego Open Library y luego Google Books, en este orden, hasta obtener una respuesta; para videojuegos, Wikidata.",
+    "loanSources": {
+      "bnf": "Catálogo de la Biblioteca Nacional de Francia (búsqueda por ISBN/EAN, mediante su API SRU): la fuente más fiable para libros publicados o distribuidos en Francia.",
+      "openLibrary": "Base de datos colaborativa y abierta (Internet Archive), usada como complemento si la BnF no devuelve nada o para completar la portada.",
+      "googleBooks": "Cobertura internacional, usada como último recurso para libros.",
+      "wikidata": "Base de conocimiento libre y colaborativa, la única fuente usada para identificar un videojuego por su código de barras (EAN/UPC)."
+    },
     "licensesTitle": "Licencias y atribución",
     "licensesIntro": "De acuerdo con las condiciones de uso de Open Food Facts, indicamos que toda la información de productos mostrada en StockHome (nombre, marca, categorías, Nutri-Score, fotos...) proviene de estas bases de datos colaborativas y de código abierto.",
     "licenseDbBefore": "La base de datos está disponible bajo licencia",

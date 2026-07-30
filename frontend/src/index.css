@@ -42,6 +42,23 @@
         box-sizing: border-box;
     }
 
+    /* Garde-fou anti-débordement horizontal : en PWA standalone (pas de
+       barre de défilement visible), un élément ne serait-ce qu'un pixel
+       plus large que l'écran ferait glisser toute la page horizontalement,
+       donnant l'impression que le contenu est "coupé" sur le côté. Les
+       zones qui doivent scroller horizontalement (onglets Configuration,
+       tableaux...) le font déjà via leur propre overflow-x-auto, qui reste
+       actif indépendamment de cette règle globale. */
+    html, body, #root {
+        overflow-x: hidden;
+        width: 100%;
+    }
+
+    html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
     body {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         -webkit-font-smoothing: antialiased;

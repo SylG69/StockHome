@@ -105,6 +105,10 @@ class HouseholdResponse(BaseModel):
     is_active: bool  # ce foyer est-il le foyer actif de l'utilisateur courant
     rewards_summary_weekday: int = 7  # ISO 1 (lundi) à 7 (dimanche)
     rewards_enabled: bool = True
+    chores_enabled: bool = True
+    loan_book_duration_days: int = 21
+    loan_game_duration_days: int = 14
+    loans_enabled: bool = True
 
 class HouseholdDetailResponse(HouseholdResponse):
     """Détail d'un foyer, avec code d'invitation (admin uniquement) et membres."""
@@ -398,6 +402,87 @@ class RewardsSummaryResponse(BaseModel):
     members: List[MemberRewardsSummary] = []
 
 class HouseholdRewardsSettingsUpdate(BaseModel):
-    """Requête admin pour configurer les récompenses du foyer (jour de reset, activation)."""
+    """Requête admin pour configurer les tâches du foyer (récompenses : jour
+    de reset, activation ; et activation du module tâches dans son ensemble)."""
     weekday: Optional[int] = None  # ISO 1 (lundi) à 7 (dimanche)
+    enabled: Optional[bool] = None  # rewards_enabled
+    chores_enabled: Optional[bool] = None
+
+
+# ==================== LOANS ====================
+
+class LoanBase(BaseModel):
+    """Base décrivant les champs communs d'un emprunt (livre ou jeu vidéo)."""
+    type: str  # book | videogame
+    title: str
+    author: Optional[str] = None  # auteur (livre) ou plateforme (jeu vidéo)
+    publisher: Optional[str] = None
+    cover_url: Optional[str] = None
+    barcode: Optional[str] = None
+    source: Optional[str] = None  # "BnF" | "Open Library" | "Google Books" | "Wikidata" | None (saisie manuelle)
+    notes: Optional[str] = ""
+
+class LoanCreate(LoanBase):
+    """Requête de création d'un emprunt. due_at est calculée automatiquement
+    depuis la configuration du foyer (loan_book_duration_days /
+    loan_game_duration_days) si non fournie explicitement."""
+    borrowed_at: Optional[datetime] = None
+    due_at: Optional[datetime] = None
+
+class LoanUpdate(BaseModel):
+    """Modèle de mise à jour partielle d'un emprunt."""
+    type: Optional[str] = None
+    title: Optional[str] = None
+    author: Optional[str] = None
+    publisher: Optional[str] = None
+    cover_url: Optional[str] = None
+    barcode: Optional[str] = None
+    notes: Optional[str] = None
+    borrowed_at: Optional[datetime] = None
+    due_at: Optional[datetime] = None
+
+class LoanResponse(LoanBase):
+    """Réponse API pour un emprunt, avec état calculé (statut, date de retour)."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    user_id: str
+    household_id: str
+    borrowed_at: datetime
+    due_at: datetime
+    returned_at: Optional[datetime] = None
+    # "borrowed" | "due_soon" | "overdue" | "returned"
+    status: str = "borrowed"
+    created_at: datetime
+    updated_at: datetime
+
+class LoanLookupResult(BaseModel):
+    """Résultat normalisé d'une recherche par code-barres/ISBN sur les API
+    externes (BnF/Open Library/Google Books pour les livres, Wikidata pour
+    les jeux vidéo)."""
+    title: Optional[str] = None
+    author: Optional[str] = None
+    publisher: Optional[str] = None
+    cover_url: Optional[str] = None
+    source: Optional[str] = None
+
+class HouseholdLoansSettingsUpdate(BaseModel):
+    """Requête admin pour configurer les emprunts du foyer (durées par type, activation)."""
+    loan_book_duration_days: Optional[int] = None
+    loan_game_duration_days: Optional[int] = None
     enabled: Optional[bool] = None
+
+
+# ==================== ADMIN : STATISTIQUES API ====================
+
+class ApiCallStat(BaseModel):
+    """Nombre d'appels vers une source externe donnée."""
+    source: str
+    count: int
+    success_count: int
+
+class ApiCallStatByUser(ApiCallStat):
+    """Idem ApiCallStat, avec l'identité du compte à l'origine des appels
+    (None si le compte a été supprimé depuis)."""
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None

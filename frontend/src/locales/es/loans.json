@@ -1,0 +1,80 @@
+{
+  "page": {
+    "title": "Préstamos",
+    "subtitle": "Libros y videojuegos prestados por la mediateca"
+  },
+  "type": {
+    "book": "Libro",
+    "videogame": "Videojuego"
+  },
+  "status": {
+    "borrowed": "En curso",
+    "due_soon": "Vence pronto",
+    "overdue": "Atrasado",
+    "returned": "Devuelto"
+  },
+  "empty": "No hay préstamos en curso",
+  "add": "Añadir",
+  "addManual": "Introducir manualmente",
+  "scanButton": "Escanear un préstamo",
+  "markReturned": "Marcar como devuelto",
+  "returned": "Préstamo marcado como devuelto",
+  "created": "Préstamo añadido",
+  "saved": "Préstamo actualizado",
+  "deleted": "Préstamo eliminado",
+  "list": {
+    "title": "Préstamos en curso",
+    "dueOn": "Devolver antes del {{date}}",
+    "returnedOn": "Devuelto el {{date}}"
+  },
+  "history": {
+    "title": "Historial de devoluciones",
+    "empty": "Todavía no hay préstamos devueltos"
+  },
+  "scan": {
+    "title": "Escanear un préstamo",
+    "chooseType": "¿Qué estás escaneando?",
+    "camera": {
+      "start": "Iniciar cámara",
+      "stop": "Detener cámara",
+      "disabled": "Cámara desactivada",
+      "accessError": "No se pudo acceder a la cámara"
+    },
+    "manual": {
+      "title": "Introducción manual del código de barras",
+      "inputLabel": "Código de barras (EAN/ISBN)",
+      "inputPlaceholder": "ej: 9782070368228",
+      "search": "Buscar"
+    }
+  },
+  "dialog": {
+    "addTitle": "Nuevo préstamo",
+    "editTitle": "Editar préstamo",
+    "found": "Encontrado en {{source}}",
+    "notFound": "No encontrado automáticamente: completa la ficha manualmente",
+    "type": "Tipo",
+    "title": "Título",
+    "titlePlaceholder": "Título del libro o del juego",
+    "authorBook": "Autor",
+    "authorVideogame": "Plataforma",
+    "publisher": "Editorial",
+    "barcode": "Código de barras",
+    "borrowedAt": "Fecha de préstamo",
+    "dueAt": "Devolver antes del",
+    "notes": "Notas",
+    "notesPlaceholder": "Opcional"
+  },
+  "toast": {
+    "titleRequired": "El título es obligatorio",
+    "lookupBookNotFound": "Libro no encontrado para este código de barras",
+    "lookupGameNotFound": "Videojuego no encontrado para este código de barras: completa la ficha manualmente",
+    "saveError": "Error al guardar",
+    "loadError": "Error al cargar",
+    "deleteError": "Error al eliminar",
+    "returnError": "Error al marcar como devuelto"
+  },
+  "deleteDialog": {
+    "title": "Confirmar eliminación",
+    "message": "¿Seguro que quieres eliminar el préstamo \"{{title}}\"?"
+  }
+}

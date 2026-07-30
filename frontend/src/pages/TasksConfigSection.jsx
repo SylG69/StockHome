@@ -26,19 +26,25 @@ export default function TasksConfigSection() {
   const isAdmin = activeHousehold?.role === 'admin';
   const [weekday, setWeekday] = useState(activeHousehold?.rewards_summary_weekday || 7);
   const [enabled, setEnabled] = useState(activeHousehold?.rewards_enabled !== false);
+  const [moduleEnabled, setModuleEnabled] = useState(activeHousehold?.chores_enabled !== false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!activeHousehold) return;
     setWeekday(activeHousehold.rewards_summary_weekday || 7);
     setEnabled(activeHousehold.rewards_enabled !== false);
+    setModuleEnabled(activeHousehold.chores_enabled !== false);
   }, [activeHousehold]);
 
   const handleSave = async () => {
     if (!activeHousehold) return;
     setSaving(true);
     try {
-      await api.patch(`/households/${activeHousehold.id}/rewards-settings`, { weekday, enabled });
+      await api.patch(`/households/${activeHousehold.id}/rewards-settings`, {
+        weekday,
+        enabled,
+        chores_enabled: moduleEnabled,
+      });
       await fetchHouseholds();
       toast.success(t('rewards.toast.saved'));
     } catch (error) {
@@ -58,6 +64,23 @@ export default function TasksConfigSection() {
       </div>
 
       <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <ListChecks className="w-5 h-5 text-primary" /> {t('page.tasks')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+            <div>
+              <Label>{t('module.enabledLabel')}</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('module.enabledDescription')}</p>
+            </div>
+            <Switch checked={moduleEnabled} onCheckedChange={setModuleEnabled} disabled={!isAdmin} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className={`bg-card border-border ${!moduleEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
         <CardHeader>
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <Gift className="w-5 h-5 text-primary" /> {t('rewards.title')}
@@ -86,15 +109,16 @@ export default function TasksConfigSection() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleSave} disabled={!isAdmin || saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common:actions.save')}
-            </Button>
           </div>
-          {!isAdmin && (
-            <p className="text-xs text-muted-foreground italic">{t('rewards.adminOnly')}</p>
-          )}
         </CardContent>
       </Card>
+
+      <Button onClick={handleSave} disabled={!isAdmin || saving}>
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common:actions.save')}
+      </Button>
+      {!isAdmin && (
+        <p className="text-xs text-muted-foreground italic">{t('rewards.adminOnly')}</p>
+      )}
     </div>
   );
 }

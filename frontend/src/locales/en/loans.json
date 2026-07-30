@@ -1,0 +1,80 @@
+{
+  "page": {
+    "title": "Loans",
+    "subtitle": "Books and video games borrowed from the library"
+  },
+  "type": {
+    "book": "Book",
+    "videogame": "Video game"
+  },
+  "status": {
+    "borrowed": "Borrowed",
+    "due_soon": "Due soon",
+    "overdue": "Overdue",
+    "returned": "Returned"
+  },
+  "empty": "No loans in progress",
+  "add": "Add",
+  "addManual": "Enter manually",
+  "scanButton": "Scan a loan",
+  "markReturned": "Mark as returned",
+  "returned": "Loan marked as returned",
+  "created": "Loan added",
+  "saved": "Loan updated",
+  "deleted": "Loan deleted",
+  "list": {
+    "title": "Current loans",
+    "dueOn": "Due on {{date}}",
+    "returnedOn": "Returned on {{date}}"
+  },
+  "history": {
+    "title": "Return history",
+    "empty": "No returned loans yet"
+  },
+  "scan": {
+    "title": "Scan a loan",
+    "chooseType": "What are you scanning?",
+    "camera": {
+      "start": "Start camera",
+      "stop": "Stop camera",
+      "disabled": "Camera disabled",
+      "accessError": "Unable to access the camera"
+    },
+    "manual": {
+      "title": "Manual barcode entry",
+      "inputLabel": "Barcode (EAN/ISBN)",
+      "inputPlaceholder": "e.g. 9782070368228",
+      "search": "Search"
+    }
+  },
+  "dialog": {
+    "addTitle": "New loan",
+    "editTitle": "Edit loan",
+    "found": "Found on {{source}}",
+    "notFound": "Not found automatically: fill in the details manually",
+    "type": "Type",
+    "title": "Title",
+    "titlePlaceholder": "Book or game title",
+    "authorBook": "Author",
+    "authorVideogame": "Platform",
+    "publisher": "Publisher",
+    "barcode": "Barcode",
+    "borrowedAt": "Borrowed on",
+    "dueAt": "Due back by",
+    "notes": "Notes",
+    "notesPlaceholder": "Optional"
+  },
+  "toast": {
+    "titleRequired": "Title is required",
+    "lookupBookNotFound": "Book not found for this barcode",
+    "lookupGameNotFound": "Video game not found for this barcode: fill in the details manually",
+    "saveError": "Error while saving",
+    "loadError": "Error loading data",
+    "deleteError": "Error while deleting",
+    "returnError": "Error while marking as returned"
+  },
+  "deleteDialog": {
+    "title": "Confirm deletion",
+    "message": "Are you sure you want to delete the loan \"{{title}}\"?"
+  }
+}
