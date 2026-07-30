@@ -5,10 +5,12 @@
     "dashboard": "Panel",
     "products": "Productos",
     "shoppingList": "Lista de la compra",
+    "chores": "Tareas",
+    "loans": "Préstamos",
     "scanner": "Escáner",
     "configuration": "Configuración",
     "household": "Mi hogar",
-    "users": "Usuarios",
+    "admin": "Administrador",
     "about": "Acerca de",
     "sponsor": "Apoyar la app"
   },

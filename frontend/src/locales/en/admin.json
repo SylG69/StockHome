@@ -1,0 +1,24 @@
+{
+  "page": {
+    "title": "Admin",
+    "subtitle": "User management and server usage statistics",
+    "users": "Users",
+    "apiStats": "API statistics"
+  },
+  "apiStats": {
+    "subtitle": "Number of requests sent to external APIs (BnF, Open Food Facts, Wikidata...)",
+    "selfTitle": "My account",
+    "globalTitle": "All accounts on the server",
+    "empty": "No API calls recorded",
+    "table": {
+      "source": "Source",
+      "account": "Account",
+      "count": "Calls",
+      "successCount": "Successful",
+      "unknownAccount": "Deleted account"
+    },
+    "toast": {
+      "loadError": "Error loading statistics"
+    }
+  }
+}

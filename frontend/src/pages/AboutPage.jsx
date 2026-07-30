@@ -10,6 +10,10 @@ import {
   ExternalLink,
   Scale,
   Heart,
+  Landmark,
+  Library,
+  BookMarked,
+  Database,
 } from 'lucide-react';
 
 // Les 4 bases Open*Facts utilisées par StockHome (voir product_service.py :
@@ -47,6 +51,40 @@ const OFF_SOURCES = [
   },
 ];
 
+// Sources utilisées par le module Emprunts (voir loan_service.py) : cascade
+// BnF -> Open Library -> Google Books pour les livres, Wikidata pour les
+// jeux vidéo (pas de RAWG.io, qui n'indexe pas les codes-barres).
+const LOAN_SOURCES = [
+  {
+    name: 'BnF (catalogue SRU)',
+    icon: Landmark,
+    color: 'text-blue-500 bg-blue-500/10',
+    descriptionKey: 'about.loanSources.bnf',
+    url: 'https://catalogue.bnf.fr',
+  },
+  {
+    name: 'Open Library',
+    icon: Library,
+    color: 'text-amber-500 bg-amber-500/10',
+    descriptionKey: 'about.loanSources.openLibrary',
+    url: 'https://openlibrary.org',
+  },
+  {
+    name: 'Google Books',
+    icon: BookMarked,
+    color: 'text-red-500 bg-red-500/10',
+    descriptionKey: 'about.loanSources.googleBooks',
+    url: 'https://books.google.com',
+  },
+  {
+    name: 'Wikidata',
+    icon: Database,
+    color: 'text-teal-500 bg-teal-500/10',
+    descriptionKey: 'about.loanSources.wikidata',
+    url: 'https://www.wikidata.org',
+  },
+];
+
 export default function AboutPage() {
   const { t } = useTranslation('static');
   return (
@@ -78,6 +116,40 @@ export default function AboutPage() {
                 rel="noopener noreferrer"
                 className="flex items-start gap-3 p-3 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 transition-colors duration-200"
                 data-testid={`off-source-${index}`}
+              >
+                <div className={`p-2 rounded-lg shrink-0 ${source.color}`}>
+                  <source.icon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm flex items-center gap-1">
+                    {source.name}
+                    <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t(source.descriptionKey)}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">{t('about.loanSourcesTitle')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {t('about.loanSourcesIntro')}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {LOAN_SOURCES.map((source, index) => (
+              <a
+                key={source.name}
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-3 p-3 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 transition-colors duration-200"
+                data-testid={`loan-source-${index}`}
               >
                 <div className={`p-2 rounded-lg shrink-0 ${source.color}`}>
                   <source.icon className="w-5 h-5" />

@@ -1,0 +1,112 @@
+{
+  "page": {
+    "title": "Tareas",
+    "subtitle": "Tareas recurrentes del hogar"
+  },
+  "add": "Añadir",
+  "edit": "Editar",
+  "save": "Guardar",
+  "created": "Tarea creada",
+  "saved": "Tarea actualizada",
+  "deleted": "Tarea eliminada",
+  "markDone": "Marcar como hecha",
+  "skip": "Saltar",
+  "skipped": "Fecha límite saltada",
+  "markedDone": "Tarea marcada como hecha",
+  "done": "Hecha",
+  "undone": "Ejecución deshecha",
+  "empty": "Todavía no hay tareas",
+  "stats": {
+    "overdue": "Atrasadas",
+    "dueToday": "Hoy",
+    "dueSoon": "Pronto"
+  },
+  "list": {
+    "title": "Todas las tareas"
+  },
+  "calendar": {
+    "title": "Calendario"
+  },
+  "status": {
+    "done": "Hecha",
+    "overdue": "Atrasada",
+    "due_today": "Hoy",
+    "due_soon": "Pronto",
+    "upcoming": "Próxima",
+    "no_schedule": "Manual"
+  },
+  "addDialog": {
+    "title": "Nueva tarea"
+  },
+  "editDialog": {
+    "title": "Editar tarea"
+  },
+  "form": {
+    "name": "Nombre",
+    "namePlaceholder": "ej: Sacar la basura",
+    "description": "Descripción",
+    "periodType": "Tipo de periodicidad",
+    "periodHours": "Cada X horas",
+    "periodDays": "Cada X días",
+    "weekdays": "Días de la semana",
+    "monthDays": "Días del mes (separados por comas)",
+    "yearlyMonth": "Mes",
+    "yearlyDay": "Día",
+    "dueTime": "Hora",
+    "startToday": "Vence desde hoy",
+    "reward": "Recompensa (€)",
+    "rewardPlaceholder": "ej: 2.50",
+    "assignmentType": "Regla de asignación",
+    "initialAssignee": "Asignado inicial",
+    "noInitialAssignee": "Ninguno",
+    "eligibleMembers": "Restringir a miembros específicos",
+    "eligibleMembersHint": "Opcional: si no se marca ninguno, todos los miembros del hogar son elegibles para la rotación."
+  },
+  "periodType": {
+    "manually": "Manual (sin planificación)",
+    "hourly": "Cada X horas",
+    "daily": "Cada X días",
+    "weekly": "Semanal",
+    "biweekly": "Cada dos semanas",
+    "monthly": "Mensual",
+    "yearly": "Anual"
+  },
+  "assignmentType": {
+    "no-assignment": "Sin asignación",
+    "in-alphabetical-order": "Orden alfabético",
+    "random": "Aleatorio",
+    "who-least-did-first": "Quien menos lo ha hecho"
+  },
+  "weekday": {
+    "1": "Lun",
+    "2": "Mar",
+    "3": "Mié",
+    "4": "Jue",
+    "5": "Vie",
+    "6": "Sáb",
+    "7": "Dom"
+  },
+  "journal": {
+    "title": "Historial",
+    "titleFor": "Historial de «{{name}}»",
+    "empty": "Ninguna ejecución registrada",
+    "unknownUser": "Usuario desconocido",
+    "undo": "Deshacer",
+    "skipped": "Saltado",
+    "fullLogButton": "Historial completo",
+    "fullLogTitle": "Historial completo de tareas realizadas"
+  },
+  "errors": {
+    "loadError": "Error al cargar",
+    "generic": "Se ha producido un error"
+  },
+  "rewards": {
+    "viewButton": "Recompensas",
+    "title": "Recompensas",
+    "backToTasks": "Volver a las tareas",
+    "periodSince": "Semana actual desde el {{date}}",
+    "totalAllTime": "Total histórico: {{amount}}",
+    "empty": "Ninguna tarea recompensada realizada",
+    "noMembers": "Ningún miembro en este hogar"
+  }
+}

@@ -103,6 +103,12 @@ class HouseholdResponse(BaseModel):
     role: str  # rôle de l'utilisateur courant dans ce foyer
     member_count: int
     is_active: bool  # ce foyer est-il le foyer actif de l'utilisateur courant
+    rewards_summary_weekday: int = 7  # ISO 1 (lundi) à 7 (dimanche)
+    rewards_enabled: bool = True
+    chores_enabled: bool = True
+    loan_book_duration_days: int = 21
+    loan_game_duration_days: int = 14
+    loans_enabled: bool = True
 
 class HouseholdDetailResponse(HouseholdResponse):
     """Détail d'un foyer, avec code d'invitation (admin uniquement) et membres."""
@@ -283,3 +289,200 @@ class OpenFoodFactsProduct(BaseModel):
     suggested_price: Optional[float] = None
     suggested_price_currency: Optional[str] = None
     suggested_price_count: int = 0
+
+# ==================== CHORES ====================
+
+class ChoreBase(BaseModel):
+    """Base décrivant les champs communs d'une corvée (planification + attribution)."""
+    name: str
+    description: Optional[str] = ""
+    period_type: str = "manually"  # hourly | daily | weekly | biweekly | monthly | yearly | manually
+    period_hours: Optional[int] = None  # hourly
+    period_days: Optional[int] = None  # daily
+    weekdays: Optional[List[int]] = None  # weekly, ISO 1 (lundi) à 7 (dimanche)
+    month_days: Optional[List[int]] = None  # monthly, jours du mois 1-31
+    yearly_month: Optional[int] = None  # yearly, 1-12
+    yearly_day: Optional[int] = None  # yearly, 1-31
+    # Heure d'échéance souhaitée ("HH:MM"), ignorée pour hourly/manually.
+    due_time: Optional[str] = None
+    # Montant (EUR) versé au membre qui effectue cette corvée, si définie.
+    reward: Optional[float] = None
+    # no-assignment | in-alphabetical-order | random | who-least-did-first
+    assignment_type: str = "no-assignment"
+    assigned_user_id: Optional[str] = None  # assigné initial explicite (facultatif)
+    # Restreint la rotation à ce sous-ensemble de membres du foyer -- None/vide
+    # = tous les membres actuels du foyer sont éligibles.
+    eligible_user_ids: Optional[List[str]] = None
+
+class ChoreCreate(ChoreBase):
+    """Requête de création d'une corvée."""
+    # Si True, la première échéance est fixée à aujourd'hui plutôt que
+    # calculée via la périodicité depuis la date de création (utile pour une
+    # corvée hebdomadaire/mensuelle qu'on veut voir apparaître dès le jour
+    # même, sans attendre la prochaine occurrence naturelle).
+    start_today: bool = False
+
+class ChoreUpdate(BaseModel):
+    """Modèle de mise à jour partielle d'une corvée."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    period_type: Optional[str] = None
+    period_hours: Optional[int] = None
+    period_days: Optional[int] = None
+    weekdays: Optional[List[int]] = None
+    month_days: Optional[List[int]] = None
+    yearly_month: Optional[int] = None
+    yearly_day: Optional[int] = None
+    due_time: Optional[str] = None
+    reward: Optional[float] = None
+    assignment_type: Optional[str] = None
+    assigned_user_id: Optional[str] = None
+    eligible_user_ids: Optional[List[str]] = None
+
+class ChoreResponse(ChoreBase):
+    """Réponse API pour une corvée, avec état calculé (échéance, statut, assigné)."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    user_id: str
+    household_id: str
+    last_done_at: Optional[datetime] = None
+    next_due_at: Optional[datetime] = None
+    # "overdue" | "due_today" | "due_soon" | "upcoming" | "no_schedule"
+    status: str = "no_schedule"
+    assigned_user_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class ChoreLogResponse(BaseModel):
+    """Réponse API pour une entrée du journal d'exécution d'une corvée."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    chore_id: str
+    chore_name: Optional[str] = None
+    executed_by_user_id: Optional[str] = None
+    executed_by_username: Optional[str] = None
+    executed_at: datetime
+    previous_due_date: Optional[datetime] = None
+    new_due_date: Optional[datetime] = None
+    reward_amount: Optional[float] = None
+    skipped: bool = False
+
+class ChoreExecuteResponse(BaseModel):
+    """Réponse renvoyée après avoir marqué une corvée comme faite."""
+    chore: ChoreResponse
+    log: ChoreLogResponse
+
+class ChoreCalendarEntry(BaseModel):
+    """Une occurrence future projetée d'une corvée, pour l'affichage calendrier."""
+    chore_id: str
+    chore_name: str
+    due_at: datetime
+
+# ==================== CHORE REWARDS ====================
+
+class RewardLogEntry(BaseModel):
+    """Une exécution rémunérée, telle qu'affichée dans le détail par membre."""
+    chore_id: str
+    chore_name: str
+    executed_at: datetime
+    reward_amount: float
+
+class MemberRewardsSummary(BaseModel):
+    """Récapitulatif des récompenses gagnées par un membre du foyer."""
+    user_id: str
+    username: str
+    total_current_period: float
+    total_all_time: float
+    logs: List[RewardLogEntry] = []
+
+class RewardsSummaryResponse(BaseModel):
+    """Réponse de GET /api/chores/rewards/summary."""
+    period_start: datetime
+    weekday: int  # ISO 1 (lundi) à 7 (dimanche), jour de reset configuré pour le foyer
+    members: List[MemberRewardsSummary] = []
+
+class HouseholdRewardsSettingsUpdate(BaseModel):
+    """Requête admin pour configurer les tâches du foyer (récompenses : jour
+    de reset, activation ; et activation du module tâches dans son ensemble)."""
+    weekday: Optional[int] = None  # ISO 1 (lundi) à 7 (dimanche)
+    enabled: Optional[bool] = None  # rewards_enabled
+    chores_enabled: Optional[bool] = None
+
+
+# ==================== LOANS ====================
+
+class LoanBase(BaseModel):
+    """Base décrivant les champs communs d'un emprunt (livre ou jeu vidéo)."""
+    type: str  # book | videogame
+    title: str
+    author: Optional[str] = None  # auteur (livre) ou plateforme (jeu vidéo)
+    publisher: Optional[str] = None
+    cover_url: Optional[str] = None
+    barcode: Optional[str] = None
+    source: Optional[str] = None  # "BnF" | "Open Library" | "Google Books" | "Wikidata" | None (saisie manuelle)
+    notes: Optional[str] = ""
+
+class LoanCreate(LoanBase):
+    """Requête de création d'un emprunt. due_at est calculée automatiquement
+    depuis la configuration du foyer (loan_book_duration_days /
+    loan_game_duration_days) si non fournie explicitement."""
+    borrowed_at: Optional[datetime] = None
+    due_at: Optional[datetime] = None
+
+class LoanUpdate(BaseModel):
+    """Modèle de mise à jour partielle d'un emprunt."""
+    type: Optional[str] = None
+    title: Optional[str] = None
+    author: Optional[str] = None
+    publisher: Optional[str] = None
+    cover_url: Optional[str] = None
+    barcode: Optional[str] = None
+    notes: Optional[str] = None
+    borrowed_at: Optional[datetime] = None
+    due_at: Optional[datetime] = None
+
+class LoanResponse(LoanBase):
+    """Réponse API pour un emprunt, avec état calculé (statut, date de retour)."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    user_id: str
+    household_id: str
+    borrowed_at: datetime
+    due_at: datetime
+    returned_at: Optional[datetime] = None
+    # "borrowed" | "due_soon" | "overdue" | "returned"
+    status: str = "borrowed"
+    created_at: datetime
+    updated_at: datetime
+
+class LoanLookupResult(BaseModel):
+    """Résultat normalisé d'une recherche par code-barres/ISBN sur les API
+    externes (BnF/Open Library/Google Books pour les livres, Wikidata pour
+    les jeux vidéo)."""
+    title: Optional[str] = None
+    author: Optional[str] = None
+    publisher: Optional[str] = None
+    cover_url: Optional[str] = None
+    source: Optional[str] = None
+
+class HouseholdLoansSettingsUpdate(BaseModel):
+    """Requête admin pour configurer les emprunts du foyer (durées par type, activation)."""
+    loan_book_duration_days: Optional[int] = None
+    loan_game_duration_days: Optional[int] = None
+    enabled: Optional[bool] = None
+
+
+# ==================== ADMIN : STATISTIQUES API ====================
+
+class ApiCallStat(BaseModel):
+    """Nombre d'appels vers une source externe donnée."""
+    source: str
+    count: int
+    success_count: int
+
+class ApiCallStatByUser(ApiCallStat):
+    """Idem ApiCallStat, avec l'identité du compte à l'origine des appels
+    (None si le compte a été supprimé depuis)."""
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None

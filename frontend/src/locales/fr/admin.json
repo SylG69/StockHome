@@ -1,0 +1,24 @@
+{
+  "page": {
+    "title": "Administrateur",
+    "subtitle": "Gestion des utilisateurs et statistiques d'utilisation du serveur",
+    "users": "Utilisateurs",
+    "apiStats": "Statistiques API"
+  },
+  "apiStats": {
+    "subtitle": "Nombre de requêtes envoyées aux API externes (BnF, Open Food Facts, Wikidata...)",
+    "selfTitle": "Mon compte",
+    "globalTitle": "Tous les comptes du serveur",
+    "empty": "Aucun appel API enregistré",
+    "table": {
+      "source": "Source",
+      "account": "Compte",
+      "count": "Appels",
+      "successCount": "Réussis",
+      "unknownAccount": "Compte supprimé"
+    },
+    "toast": {
+      "loadError": "Erreur lors du chargement des statistiques"
+    }
+  }
+}

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+import api_stats_service
 import models
 import schemas
 from auth import get_active_household, get_current_user
@@ -17,6 +18,7 @@ PRODUCT_NOT_FOUND = "Produit non trouvé"
 
 
 def _enrich_product(product: models.Product) -> schemas.ProductResponse:
+    """Construit la réponse API d'un produit, en résolvant les noms de catégorie/sous-catégorie/emplacement."""
     data = schemas.ProductResponse.model_validate(product)
     data.category_name = product.category.name if product.category else None
     data.location_name = product.location.name if product.location else None
@@ -402,7 +404,7 @@ OFF_SIMPLE_FIELDS = ",".join([
 
 
 async def _fetch_off_product(
-    barcode: str, fields: Optional[str] = None
+    barcode: str, db: Session, user_id: Optional[str], fields: Optional[str] = None
 ) -> tuple[Optional[dict], Optional[str]]:
     """Interroge Open Food Facts, Open Beauty Facts, Open Pet Food Facts puis Open Products Facts
     (API v3) dans l'ordre, s'arrête à la première réponse trouvée. Renvoie
@@ -430,16 +432,21 @@ async def _fetch_off_product(
                 )
                 # En v3, un produit introuvable renvoie un HTTP 404 avec un
                 # corps JSON détaillé ; on ne considère que les 200.
+                matched = False
+                data = None
                 if response.status_code == 200:
                     data = response.json()
                     # v3 : "status" est une chaîne ("success" ou
                     # "success_with_warnings"), contrairement à la v0 où
                     # c'était l'entier 1.
                     status_value = data.get("status")
-                    if status_value in ("success", "success_with_warnings") and data.get("product"):
-                        return data["product"], source_name
+                    matched = status_value in ("success", "success_with_warnings") and bool(data.get("product"))
+                api_stats_service.log_api_call(db, user_id, source_name, success=matched)
+                if matched:
+                    return data["product"], source_name
             except (httpx.TimeoutException, httpx.RequestError):
                 # cette base est en timeout/injoignable : on tente la suivante
+                api_stats_service.log_api_call(db, user_id, source_name, success=False)
                 continue
     return None, None
 
@@ -447,7 +454,9 @@ async def _fetch_off_product(
 OPEN_PRICES_URL = "https://prices.openfoodfacts.org/api/v1/prices"
 
 
-async def _fetch_average_price(barcode: str) -> tuple[Optional[float], Optional[str], int]:
+async def _fetch_average_price(
+    barcode: str, db: Session, user_id: Optional[str]
+) -> tuple[Optional[float], Optional[str], int]:
     """Interroge Open Prices (prices.openfoodfacts.org) pour calculer un prix
     moyen indicatif à partir des relevés existants pour ce code-barres.
     Ne fait planter aucun appelant : renvoie (None, None, 0) si l'API est
@@ -459,16 +468,20 @@ async def _fetch_average_price(barcode: str) -> tuple[Optional[float], Optional[
         async with httpx.AsyncClient() as client:
             response = await client.get(OPEN_PRICES_URL, params=params, timeout=4.0)
         if response.status_code != 200:
+            api_stats_service.log_api_call(db, user_id, "Open Prices", success=False)
             return None, None, 0
         items = response.json().get("items", [])
     except (httpx.TimeoutException, httpx.RequestError, ValueError):
+        api_stats_service.log_api_call(db, user_id, "Open Prices", success=False)
         return None, None, 0
 
     prices = [item["price"] for item in items if isinstance(item.get("price"), (int, float))]
     if not prices:
+        api_stats_service.log_api_call(db, user_id, "Open Prices", success=False)
         return None, None, 0
 
     average = round(sum(prices) / len(prices), 2)
+    api_stats_service.log_api_call(db, user_id, "Open Prices", success=True)
     return average, "EUR", len(prices)
 
 
@@ -525,6 +538,7 @@ VALID_NUTRISCORE = {"a", "b", "c", "d", "e"}
 @router.post("/products/{product_id}/refresh-off", response_model=schemas.ProductResponse)
 async def refresh_product_from_off(
     product_id: str,
+    current_user: models.User = Depends(get_current_user),
     active_household: models.Household = Depends(get_active_household),
     db: Session = Depends(get_db),
 ):
@@ -546,7 +560,9 @@ async def refresh_product_from_off(
     if not product.barcode:
         raise HTTPException(status_code=400, detail="Ce produit n'a pas de code-barres : impossible d'interroger Open Food Facts")
 
-    off_product, _source = await _fetch_off_product(product.barcode, fields=OFF_SIMPLE_FIELDS)
+    off_product, _source = await _fetch_off_product(
+        product.barcode, db, current_user.id, fields=OFF_SIMPLE_FIELDS
+    )
     if off_product is None:
         raise HTTPException(
             status_code=404,
@@ -563,7 +579,7 @@ async def refresh_product_from_off(
     if not product.brand:
         product.brand = off_product.get("brands")
     if product.price is None:
-        avg_price, _currency, price_count = await _fetch_average_price(product.barcode)
+        avg_price, _currency, price_count = await _fetch_average_price(product.barcode, db, current_user.id)
         if price_count > 0:
             product.price = avg_price
 
@@ -574,14 +590,18 @@ async def refresh_product_from_off(
 
 
 @router.get("/barcode/{barcode}/full")
-async def lookup_barcode_full(barcode: str):
+async def lookup_barcode_full(
+    barcode: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Renvoie la fiche produit Open Food Facts complète et brute (utilisée par
     la fiche détail produit en mode "information complète"). Contrairement à
     /barcode/{barcode}, ne présélectionne rien côté StockHome : c'est un
     passe-plat direct de la réponse Open*Facts.
     """
-    product, matched_source = await _fetch_off_product(barcode)
+    product, matched_source = await _fetch_off_product(barcode, db, current_user.id)
     if product is None:
         raise HTTPException(
             status_code=404,
@@ -591,13 +611,17 @@ async def lookup_barcode_full(barcode: str):
 
 
 @router.get("/barcode/{barcode}", response_model=schemas.OpenFoodFactsProduct)
-async def lookup_barcode(barcode: str):
+async def lookup_barcode(
+    barcode: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Recherche d'informations produit sur les bases Open*Facts (appel HTTP
     externe, reste async). Interroge Open Food Facts, Open Beauty Facts puis
     Open Pet Food Facts dans l'ordre, s'arrête à la première réponse trouvée.
     """
-    product, matched_source = await _fetch_off_product(barcode, fields=OFF_SIMPLE_FIELDS)
+    product, matched_source = await _fetch_off_product(barcode, db, current_user.id, fields=OFF_SIMPLE_FIELDS)
 
     if product is None:
         raise HTTPException(
@@ -612,6 +636,7 @@ async def lookup_barcode(barcode: str):
     categories_str = product.get("categories", "")
 
     def clean_categories(raw: str) -> list[str]:
+        """Nettoie la chaîne "categories" d'Open Food Facts en liste de libellés lisibles."""
         if not raw or not isinstance(raw, str):
             return []
         cleaned = []
@@ -650,7 +675,7 @@ async def lookup_barcode(barcode: str):
     raw_nutriscore = (product.get("nutriscore_grade") or "").lower()
     nutriscore_grade = raw_nutriscore if raw_nutriscore in {"a", "b", "c", "d", "e"} else None
 
-    avg_price, avg_price_currency, avg_price_count = await _fetch_average_price(barcode)
+    avg_price, avg_price_currency, avg_price_count = await _fetch_average_price(barcode, db, current_user.id)
 
     return schemas.OpenFoodFactsProduct(
         barcode=barcode,

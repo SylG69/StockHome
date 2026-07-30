@@ -1,0 +1,112 @@
+{
+  "page": {
+    "title": "Tasks",
+    "subtitle": "Recurring household tasks"
+  },
+  "add": "Add",
+  "edit": "Edit",
+  "save": "Save",
+  "created": "Task created",
+  "saved": "Task updated",
+  "deleted": "Task deleted",
+  "markDone": "Mark done",
+  "skip": "Skip",
+  "skipped": "Due date skipped",
+  "markedDone": "Task marked as done",
+  "done": "Done",
+  "undone": "Execution undone",
+  "empty": "No tasks yet",
+  "stats": {
+    "overdue": "Overdue",
+    "dueToday": "Due today",
+    "dueSoon": "Due soon"
+  },
+  "list": {
+    "title": "All tasks"
+  },
+  "calendar": {
+    "title": "Calendar"
+  },
+  "status": {
+    "done": "Done",
+    "overdue": "Overdue",
+    "due_today": "Due today",
+    "due_soon": "Due soon",
+    "upcoming": "Upcoming",
+    "no_schedule": "Manual"
+  },
+  "addDialog": {
+    "title": "New task"
+  },
+  "editDialog": {
+    "title": "Edit task"
+  },
+  "form": {
+    "name": "Name",
+    "namePlaceholder": "e.g. Take out the trash",
+    "description": "Description",
+    "periodType": "Period type",
+    "periodHours": "Every X hours",
+    "periodDays": "Every X days",
+    "weekdays": "Weekdays",
+    "monthDays": "Days of month (comma-separated)",
+    "yearlyMonth": "Month",
+    "yearlyDay": "Day",
+    "dueTime": "Time",
+    "startToday": "Due starting today",
+    "reward": "Reward (€)",
+    "rewardPlaceholder": "e.g. 2.50",
+    "assignmentType": "Assignment rule",
+    "initialAssignee": "Initial assignee",
+    "noInitialAssignee": "None",
+    "eligibleMembers": "Restrict to specific members",
+    "eligibleMembersHint": "Optional: if none are checked, every household member is eligible for the rotation."
+  },
+  "periodType": {
+    "manually": "Manual (no scheduling)",
+    "hourly": "Every X hours",
+    "daily": "Every X days",
+    "weekly": "Weekly",
+    "biweekly": "Every two weeks",
+    "monthly": "Monthly",
+    "yearly": "Yearly"
+  },
+  "assignmentType": {
+    "no-assignment": "No assignment",
+    "in-alphabetical-order": "Alphabetical order",
+    "random": "Random",
+    "who-least-did-first": "Who did it least"
+  },
+  "weekday": {
+    "1": "Mon",
+    "2": "Tue",
+    "3": "Wed",
+    "4": "Thu",
+    "5": "Fri",
+    "6": "Sat",
+    "7": "Sun"
+  },
+  "journal": {
+    "title": "Journal",
+    "titleFor": "Journal for \"{{name}}\"",
+    "empty": "No execution recorded",
+    "unknownUser": "Unknown user",
+    "undo": "Undo",
+    "skipped": "Skipped",
+    "fullLogButton": "Full log",
+    "fullLogTitle": "Full log of completed tasks"
+  },
+  "errors": {
+    "loadError": "Error loading data",
+    "generic": "Something went wrong"
+  },
+  "rewards": {
+    "viewButton": "Rewards",
+    "title": "Rewards",
+    "backToTasks": "Back to tasks",
+    "periodSince": "Current week since {{date}}",
+    "totalAllTime": "Total all-time: {{amount}}",
+    "empty": "No rewarded task completed",
+    "noMembers": "No members in this household"
+  }
+}

@@ -3,7 +3,9 @@
     "title": "Configuración",
     "subtitle": "Gestiona los ajustes de tu stock doméstico",
     "categories": "Categorías",
-    "locations": "Ubicaciones"
+    "locations": "Ubicaciones",
+    "tasks": "Tareas",
+    "loans": "Préstamos"
   },
   "categories": {
     "title": "Categorías",
@@ -102,6 +104,44 @@
       "gray": "Gris",
       "pink": "Rosa",
       "turquoise": "Turquesa"
+    }
+  },
+  "module": {
+    "enabledLabel": "Activar el módulo Tareas",
+    "enabledDescription": "Si se desactiva, la página Tareas deja de estar accesible desde el menú."
+  },
+  "rewards": {
+    "title": "Recompensas",
+    "subtitle": "Configura el día de reinicio del resumen semanal de recompensas",
+    "weekdayLabel": "Día de reinicio semanal",
+    "description": "Cada semana, a partir de este día, un resumen de las recompensas ganadas por cada miembro del hogar está disponible desde la página Tareas.",
+    "enabledLabel": "Activar recompensas",
+    "enabledDescription": "Si se desactiva, no se ofrece ningún campo de recompensa en las tareas y el resumen deja de estar accesible.",
+    "adminOnly": "Solo un administrador del hogar puede cambiar este ajuste.",
+    "weekdayFull": {
+      "1": "Lunes",
+      "2": "Martes",
+      "3": "Miércoles",
+      "4": "Jueves",
+      "5": "Viernes",
+      "6": "Sábado",
+      "7": "Domingo"
+    },
+    "toast": {
+      "saved": "Ajuste guardado"
+    }
+  },
+  "loans": {
+    "title": "Préstamos",
+    "subtitle": "Configura la duración de préstamo por tipo y activa la función",
+    "enabledLabel": "Activar préstamos",
+    "enabledDescription": "Si se desactiva, la página Préstamos deja de estar accesible desde el menú.",
+    "bookDurationLabel": "Duración de préstamo (libros)",
+    "gameDurationLabel": "Duración de préstamo (videojuegos)",
+    "durationUnitDays": "días",
+    "adminOnly": "Solo un administrador del hogar puede cambiar este ajuste.",
+    "toast": {
+      "saved": "Ajuste guardado"
     }
   }
 }

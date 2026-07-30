@@ -3,7 +3,9 @@
     "title": "Configuration",
     "subtitle": "Manage your household stock settings",
     "categories": "Categories",
-    "locations": "Locations"
+    "locations": "Locations",
+    "tasks": "Tasks",
+    "loans": "Loans"
   },
   "categories": {
     "title": "Categories",
@@ -102,6 +104,44 @@
       "gray": "Gray",
       "pink": "Pink",
       "turquoise": "Turquoise"
+    }
+  },
+  "module": {
+    "enabledLabel": "Enable the Tasks module",
+    "enabledDescription": "If disabled, the Tasks page is no longer accessible from the menu."
+  },
+  "rewards": {
+    "title": "Rewards",
+    "subtitle": "Configure the weekly reset day for the rewards summary",
+    "weekdayLabel": "Weekly reset day",
+    "description": "Each week, starting on this day, a summary of the rewards earned by each household member is available from the Tasks page.",
+    "enabledLabel": "Enable rewards",
+    "enabledDescription": "If disabled, no reward field is offered on tasks and the summary is no longer accessible.",
+    "adminOnly": "Only a household admin can change this setting.",
+    "weekdayFull": {
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday",
+      "7": "Sunday"
+    },
+    "toast": {
+      "saved": "Setting saved"
+    }
+  },
+  "loans": {
+    "title": "Loans",
+    "subtitle": "Configure loan durations per type and enable the feature",
+    "enabledLabel": "Enable loans",
+    "enabledDescription": "If disabled, the Loans page is no longer accessible from the menu.",
+    "bookDurationLabel": "Loan duration (books)",
+    "gameDurationLabel": "Loan duration (video games)",
+    "durationUnitDays": "days",
+    "adminOnly": "Only a household admin can change this setting.",
+    "toast": {
+      "saved": "Setting saved"
     }
   }
 }

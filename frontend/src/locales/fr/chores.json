@@ -1,0 +1,112 @@
+{
+  "page": {
+    "title": "Tâches",
+    "subtitle": "Tâches ménagères récurrentes du foyer"
+  },
+  "add": "Ajouter",
+  "edit": "Modifier",
+  "save": "Enregistrer",
+  "created": "Tâche créée",
+  "saved": "Tâche mise à jour",
+  "deleted": "Tâche supprimée",
+  "markDone": "Marquer fait",
+  "skip": "Passer",
+  "skipped": "Échéance passée",
+  "markedDone": "Tâche marquée comme faite",
+  "done": "Fait",
+  "undone": "Exécution annulée",
+  "empty": "Aucune tâche pour le moment",
+  "stats": {
+    "overdue": "En retard",
+    "dueToday": "Aujourd'hui",
+    "dueSoon": "Bientôt"
+  },
+  "list": {
+    "title": "Toutes les tâches"
+  },
+  "calendar": {
+    "title": "Calendrier"
+  },
+  "status": {
+    "done": "Terminé",
+    "overdue": "En retard",
+    "due_today": "Aujourd'hui",
+    "due_soon": "Bientôt",
+    "upcoming": "À venir",
+    "no_schedule": "Manuel"
+  },
+  "addDialog": {
+    "title": "Nouvelle tâche"
+  },
+  "editDialog": {
+    "title": "Modifier la tâche"
+  },
+  "form": {
+    "name": "Nom",
+    "namePlaceholder": "ex: Sortir les poubelles",
+    "description": "Description",
+    "periodType": "Type de périodicité",
+    "periodHours": "Toutes les X heures",
+    "periodDays": "Tous les X jours",
+    "weekdays": "Jours de la semaine",
+    "monthDays": "Jours du mois (séparés par des virgules)",
+    "yearlyMonth": "Mois",
+    "yearlyDay": "Jour",
+    "dueTime": "Heure",
+    "startToday": "Échéance dès aujourd'hui",
+    "reward": "Récompense (€)",
+    "rewardPlaceholder": "ex: 2.50",
+    "assignmentType": "Règle d'attribution",
+    "initialAssignee": "Assigné initial",
+    "noInitialAssignee": "Aucun",
+    "eligibleMembers": "Restreindre à certains membres",
+    "eligibleMembersHint": "Optionnel : si aucun n'est coché, tous les membres du foyer sont éligibles à la rotation."
+  },
+  "periodType": {
+    "manually": "Manuel (aucune planification)",
+    "hourly": "Toutes les X heures",
+    "daily": "Tous les X jours",
+    "weekly": "Hebdomadaire",
+    "biweekly": "Toutes les deux semaines",
+    "monthly": "Mensuel",
+    "yearly": "Annuel"
+  },
+  "assignmentType": {
+    "no-assignment": "Aucune attribution",
+    "in-alphabetical-order": "Tour de rôle alphabétique",
+    "random": "Aléatoire",
+    "who-least-did-first": "Celui qui l'a le moins fait"
+  },
+  "weekday": {
+    "1": "Lun",
+    "2": "Mar",
+    "3": "Mer",
+    "4": "Jeu",
+    "5": "Ven",
+    "6": "Sam",
+    "7": "Dim"
+  },
+  "journal": {
+    "title": "Journal",
+    "titleFor": "Journal de « {{name}} »",
+    "empty": "Aucune exécution enregistrée",
+    "unknownUser": "Utilisateur inconnu",
+    "undo": "Annuler",
+    "skipped": "Passé",
+    "fullLogButton": "Journal complet",
+    "fullLogTitle": "Journal complet des tâches effectuées"
+  },
+  "errors": {
+    "loadError": "Erreur lors du chargement",
+    "generic": "Une erreur est survenue"
+  },
+  "rewards": {
+    "viewButton": "Récompenses",
+    "title": "Récompenses",
+    "backToTasks": "Retour aux tâches",
+    "periodSince": "Semaine en cours depuis le {{date}}",
+    "totalAllTime": "Total depuis toujours : {{amount}}",
+    "empty": "Aucune tâche rémunérée effectuée",
+    "noMembers": "Aucun membre dans ce foyer"
+  }
+}
