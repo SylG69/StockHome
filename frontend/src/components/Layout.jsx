@@ -301,7 +301,7 @@ export default function Layout() {
       {/* Main Content */}
       {/* pt-[...] : hauteur du header mobile fixe (voir plus haut), safe-area
           incluse -- ignoré à partir de lg (header mobile alors masqué). */}
-      <main className="flex-1 lg:ml-64 pt-[calc(4rem_+_env(safe-area-inset-top))] lg:pt-0">
+      <main className="flex-1 min-w-0 lg:ml-64 pt-[calc(4rem_+_env(safe-area-inset-top))] lg:pt-0">
         <div className="p-6 lg:p-8">
           <Outlet />
         </div>
