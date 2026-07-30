@@ -378,14 +378,14 @@ export default function LoansPage() {
           <p className="text-muted-foreground mt-1 text-sm italic">{t('page.subtitle')}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => openScanDialog('book')}>
-            <ScanLine className="w-4 h-4 mr-2" /> {t('scanButton')} ({t('type.book')})
+          <Button variant="outline" onClick={() => openScanDialog('book')} title={`${t('scanButton')} (${t('type.book')})`}>
+            <ScanLine className="w-4 h-4 mr-2 shrink-0" /> {t('type.book')}
           </Button>
-          <Button variant="outline" onClick={() => openScanDialog('videogame')}>
-            <ScanLine className="w-4 h-4 mr-2" /> {t('scanButton')} ({t('type.videogame')})
+          <Button variant="outline" onClick={() => openScanDialog('videogame')} title={`${t('scanButton')} (${t('type.videogame')})`}>
+            <ScanLine className="w-4 h-4 mr-2 shrink-0" /> {t('type.videogame')}
           </Button>
           <Button onClick={openCreateDialog} className="btn-glow">
-            <Plus className="w-4 h-4 mr-2" /> {t('addManual')}
+            <Plus className="w-4 h-4 mr-2 shrink-0" /> {t('addManual')}
           </Button>
         </div>
       </div>
