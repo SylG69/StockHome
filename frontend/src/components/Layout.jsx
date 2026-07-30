@@ -206,7 +206,13 @@ export default function Layout() {
       </aside>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 flex items-center justify-between px-4">
+      {/* pt-[env(safe-area-inset-top)] : en PWA iOS (viewport-fit=cover, status
+          bar translucide), le contenu part sous la barre de statut -- sans ce
+          padding le header serait masqué derrière elle. */}
+      <div
+        className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 flex items-center justify-between px-4"
+        style={{ paddingTop: 'env(safe-area-inset-top)', height: 'calc(4rem + env(safe-area-inset-top))' }}
+      >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Home className="w-4 h-4 text-primary-foreground" />
@@ -233,9 +239,10 @@ export default function Layout() {
 
       {/* Mobile Menu */}
       <div
-        className={`lg:hidden fixed top-16 left-0 right-0 bottom-0 bg-card z-40 flex flex-col overflow-y-auto transform transition-transform duration-300 ${
+        className={`lg:hidden fixed left-0 right-0 bottom-0 bg-card z-40 flex flex-col overflow-y-auto transform transition-transform duration-300 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ top: 'calc(4rem + env(safe-area-inset-top))' }}
       >
         <nav className="px-4 py-6 space-y-1">
           {navEntries.map((entry) =>
@@ -292,7 +299,9 @@ export default function Layout() {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0">
+      {/* pt-[...] : hauteur du header mobile fixe (voir plus haut), safe-area
+          incluse -- ignoré à partir de lg (header mobile alors masqué). */}
+      <main className="flex-1 lg:ml-64 pt-[calc(4rem_+_env(safe-area-inset-top))] lg:pt-0">
         <div className="p-6 lg:p-8">
           <Outlet />
         </div>
