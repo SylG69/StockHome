@@ -101,3 +101,5 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 .design-sync/
+# Rapports Claude (audits sécurité, non versionnés)
+.claude/reports/
